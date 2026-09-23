@@ -281,6 +281,9 @@ body.resizing-dock{cursor:col-resize;user-select:none}
 .thumb-tile:hover{border-color:var(--md-sys-color-primary)}
 .thumb-tile .thumb-lg{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--md-sys-color-surface-container-high)}
 .thumb-tile span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop-zone{border:2px dashed var(--md-sys-color-outline);padding:14px 12px;margin-bottom:12px;text-align:center;font-size:13px;color:var(--md-sys-color-on-surface-variant)}
+.drop-zone small{font-size:11.5px}
+.drop-zone.over{border-color:var(--md-sys-color-primary);background:color-mix(in srgb,var(--md-sys-color-primary) 10%,transparent);color:var(--md-sys-color-on-surface)}
 @media (max-width:760px){.dock-resizer{display:none}.cg{padding:0 6px}.cg-label{display:none}}
 </style>
 </head>
@@ -448,6 +451,7 @@ body.resizing-dock{cursor:col-resize;user-select:none}
   </div>
   <div class="cg" id="cg-vertex" hidden>
     <span class="cg-label">Forma</span>
+    <button class="btn" id="c-closed" aria-pressed="false" title="Fechar ou abrir a curva" hidden>Fechada</button>
     <button class="btn" id="c-vertex" aria-pressed="false" title="Editar vértices (duplo clique na forma)"><span data-icon="polygon"></span><span id="c-vertex-lbl">Vértices</span></button>
   </div>
   <div class="cg" id="cg-order" hidden>
@@ -477,6 +481,8 @@ body.resizing-dock{cursor:col-resize;user-select:none}
     <span class="hsep" aria-hidden="true"></span>
     <button class="icon-btn tool" data-tool="line" aria-label="Linha (L)" title="Linha (L) — Shift restringe 15°" aria-pressed="false"><span data-icon="line"></span></button>
     <button class="icon-btn tool" data-tool="polyline" aria-label="Polilinha (B)" title="Polilinha (B) — Enter ou duplo clique conclui" aria-pressed="false"><span data-icon="polyline"></span></button>
+    <button class="icon-btn tool" data-tool="curve" aria-label="Curva suave (U)" title="Curva (U) — clique os pontos; clicar no 1º ponto fecha; Enter conclui" aria-pressed="false"><span data-icon="curve"></span></button>
+    <button class="icon-btn tool" data-tool="pencil" aria-label="Desenho à mão livre (P)" title="Mão livre (P)" aria-pressed="false"><span data-icon="pencil"></span></button>
     <button class="icon-btn tool" data-tool="arrow" aria-label="Seta indicativa (A)" title="Seta (A)" aria-pressed="false"><span data-icon="arrow"></span></button>
     <button class="icon-btn tool" data-tool="polygon" aria-label="Polígono (G)" title="Polígono (G) — Enter ou duplo clique fecha" aria-pressed="false"><span data-icon="polygon"></span></button>
     <button class="icon-btn tool" data-tool="rect" aria-label="Retângulo (R)" title="Retângulo (R) — Shift = quadrado" aria-pressed="false"><span data-icon="square"></span></button>
@@ -754,6 +760,7 @@ body.resizing-dock{cursor:col-resize;user-select:none}
         <h2>Pastas vinculadas</h2>
         <p class="hint">Vincule uma ou mais pastas (de locais diferentes, inclusive Google Drive para computador). As subpastas aparecem em árvore. Ao recarregar, a imagem mantém posição, escala, recorte, filtros e máscara.</p>
         <p class="hint" id="link-folder"><span class="badge">Sem pasta</span></p>
+        <div class="drop-zone" id="lk-drop" tabindex="-1">Arraste uma pasta do Explorer para cá<br><small>vínculo direto, com recarregamento automático, mesmo dentro do Giraffe</small></div>
         <button class="btn primary block" id="lk-connect">Adicionar pasta</button>
         <div class="btn-grid">
           <button class="btn" id="lk-reload">Recarregar</button>
@@ -838,7 +845,7 @@ body.resizing-dock{cursor:col-resize;user-select:none}
   <div class="palette" id="palette" role="group" aria-label="Paleta: clique aplica preenchimento, Shift+clique aplica traço"></div>
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V11 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V14 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -865,7 +872,7 @@ body.resizing-dock{cursor:col-resize;user-select:none}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V11 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V14 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -962,6 +969,8 @@ const ICONS = {
   list:'<path d="M9 6h12"/><path d="M9 12h12"/><path d="M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
   listOrdered:'<path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
   measure:'<path d="M3 17h18"/><path d="M3 13v8"/><path d="M21 13v8"/><path d="M7 3h10"/><path d="M12 3v10"/>',
+  curve:'<path d="M3 18c2.5-9 6-11 8.5-6S17 20 21 6"/>',
+  pencil:'<path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
   groupSm:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -1078,7 +1087,8 @@ const absCenter = o => o.group ? fabric.util.transformPoint(o.getCenterPoint(), 
 const sheetOf = o => sheetAt(absCenter(o));
 const sheetLabel = (s, i) => (s && s.name) || `${doc.templates && doc.templates.includes(s) ? 'Modelo' : 'Folha'} ${(i ?? sheetIndex(s.id)) + 1}`;
 const isLk = o => !!(o.kvEffLocked ?? o.kvLocked);
-const isPoly = o => !!o && ['polyline', 'polygon', 'kvpolyline'].includes(o.type);
+const isPoly = o => !!o && ['polyline', 'polygon', 'kvpolyline', 'kvcurve'].includes(o.type);
+const isClosed = o => !!o && (o.type === 'polygon' || (o.type === 'kvcurve' && o.closed));
 /* Estado efetivo = estado do elemento + estado da folha (ocultar/bloquear) */
 function applyObjState(o) {
   const s = sheetOf(o), lock = !!(o.kvLocked || (s && s.locked)), hid = !!(o.kvHidden || (s && s.hidden));
@@ -1276,6 +1286,49 @@ fabric.Kvpolyline = fabric.util.createClass(fabric.Polyline, {
   toSVG(reviver) { const { s, e } = this._polyHeads(); return this.callSuper('toSVG', reviver) + headsSVG(this, [s, e]); }
 });
 fabric.Kvpolyline.fromObject = function (o, cb) { return fabric.Object._fromObject('Kvpolyline', o, cb, 'points'); };
+/* Curva suave (Catmull-Rom → Bézier) que passa pelos vértices; editável como polilinha */
+function catmullSegs(P, closed) {
+  const n = P.length, cl = closed && n > 2, segs = [];
+  if (n < 2) return segs;
+  const get = i => cl ? P[(i + n) % n] : P[Math.max(0, Math.min(n - 1, i))];
+  for (let i = 0; i < (cl ? n : n - 1); i++) {
+    const p0 = get(i - 1), p1 = get(i), p2 = get(i + 1), p3 = get(i + 2);
+    segs.push([{ x: p1.x, y: p1.y }, { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 }, { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 }, { x: p2.x, y: p2.y }]);
+  }
+  return segs;
+}
+fabric.Kvcurve = fabric.util.createClass(fabric.Kvpolyline, {
+  type: 'kvcurve',
+  initialize(points, options) { this.callSuper('initialize', points, options); this.closed = !!(options && options.closed); },
+  _curveHeads() {
+    const P = this._localPts(), segs = catmullSegs(P, this.closed), E = { cut: 0, polys: [], lines: [], dots: [] };
+    if (!segs.length || this.closed) return { segs, s: E, e: E };
+    const L = Math.max(this.headSize, this.strokeWidth * 3), H = fabric.Kvarrow.prototype._head;
+    const f = segs[0], l = segs[segs.length - 1];
+    const a0 = Math.atan2(f[0].y - (Math.hypot(f[1].x - f[0].x, f[1].y - f[0].y) > 1e-6 ? f[1].y : f[3].y), f[0].x - (Math.hypot(f[1].x - f[0].x, f[1].y - f[0].y) > 1e-6 ? f[1].x : f[3].x));
+    const a1 = Math.atan2(l[3].y - (Math.hypot(l[3].x - l[2].x, l[3].y - l[2].y) > 1e-6 ? l[2].y : l[0].y), l[3].x - (Math.hypot(l[3].x - l[2].x, l[3].y - l[2].y) > 1e-6 ? l[2].x : l[0].x));
+    const s = H.call(this, this.arrowStart, f[0].x, f[0].y, a0, L), e = H.call(this, this.arrowEnd, l[3].x, l[3].y, a1, L);
+    if (s.cut) { f[0].x -= Math.cos(a0) * s.cut; f[0].y -= Math.sin(a0) * s.cut; }
+    if (e.cut) { l[3].x -= Math.cos(a1) * e.cut; l[3].y -= Math.sin(a1) * e.cut; }
+    return { segs, s, e };
+  },
+  _render(ctx) {
+    const { segs, s, e } = this._curveHeads(); if (!segs.length) return;
+    ctx.beginPath(); ctx.moveTo(segs[0][0].x, segs[0][0].y);
+    segs.forEach(g => ctx.bezierCurveTo(g[1].x, g[1].y, g[2].x, g[2].y, g[3].x, g[3].y));
+    if (this.closed) ctx.closePath();
+    this._renderPaintInOrder(ctx);
+    if (!this.closed) drawHeads(this, ctx, [s, e]);
+  },
+  _toSVG() {
+    const { segs } = this._curveHeads(); if (!segs.length) return ['<path ', 'COMMON_PARTS', 'd="" />\n'];
+    const d = `M ${segs[0][0].x} ${segs[0][0].y} ` + segs.map(g => `C ${g[1].x} ${g[1].y} ${g[2].x} ${g[2].y} ${g[3].x} ${g[3].y}`).join(' ') + (this.closed ? ' Z' : '');
+    return ['<path ', 'COMMON_PARTS', 'd="', d, '" />\n'];
+  },
+  toSVG(reviver) { const base = fabric.Polyline.prototype.toSVG.call(this, reviver); if (this.closed) return base; const { s, e } = this._curveHeads(); return base + headsSVG(this, [s, e]); },
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { closed: this.closed }); }
+});
+fabric.Kvcurve.fromObject = function (o, cb) { return fabric.Object._fromObject('Kvcurve', o, cb, 'points'); };
 
 /* Caixa de texto rica: estilos por caractere (nativo), listas com recuo pendente e espaço entre parágrafos */
 const LIST_RE = /^(?:(\d+)\.|•)\s/;
@@ -1869,7 +1922,7 @@ canvas.on('mouse:wheel', opt => {
 
 /* ---------------- Ferramentas ---------------- */
 let tool = 'select', drawState = null, spaceDown = false, panState = null, maskTarget = null, curCursor = '';
-const DRAW_TOOLS = ['line', 'polyline', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape', 'measure'];
+const DRAW_TOOLS = ['line', 'polyline', 'curve', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape', 'measure', 'pencil'];
 
 /* ---------------- Biblioteca de formas prontas (polígonos editáveis) ---------------- */
 function ngon(n, rot, inner) {
@@ -1946,6 +1999,8 @@ function setTool(t) {
   const drawing = DRAW_TOOLS.includes(t);
   canvas.selection = t === 'select';
   canvas.skipTargetFind = drawing || t === 'pan';
+  canvas.isDrawingMode = t === 'pencil';
+  if (t === 'pencil') { const br = new fabric.PencilBrush(canvas); br.color = defStyle.stroke || 'rgba(0,0,0,1)'; br.width = mm2pt(defStyle.strokeMm || 0.35); br.decimate = 1.5; br.strokeLineCap = 'round'; br.strokeLineJoin = 'round'; canvas.freeDrawingBrush = br; }
   canvas.hoverCursor = drawing ? 'crosshair' : 'move';
   setCursorOnce(t === 'pan' ? 'grab' : drawing ? 'crosshair' : 'default');
   if (drawing && t !== 'mask') canvas.discardActiveObject();
@@ -1955,6 +2010,8 @@ function setTool(t) {
     polyline: 'Clique os vértices · Enter/duplo clique conclui · Backspace desfaz vértice', polygon: 'Clique os vértices · Enter/duplo clique fecha',
     arrow: 'Arraste da base até a ponta', rect: 'Arraste para desenhar', ellipse: 'Arraste para desenhar', text: 'Clique para inserir texto',
     mask: 'Clique os vértices da máscara · Enter conclui',
+    curve: 'Clique os pontos da curva · clicar no 1º ponto fecha · Enter/duplo clique conclui · Backspace desfaz ponto',
+    pencil: 'Desenhe à mão livre (arraste)',
     measure: 'Arraste para medir · Shift restringe 15° · encaixa em vértices e guias',
     shape: 'Arraste para desenhar a forma (Shift mantém a proporção) ou clique para inserir no tamanho padrão'
   };
@@ -1985,6 +2042,12 @@ function drawPreview() {
     ctx.fillStyle = s.type === 'mask' ? 'rgba(255,86,50,0.12)' : 'rgba(0,172,205,0.12)';
     ctx.beginPath();
     if (s.type === 'measure') { ctx.restore(); drawMeasure(ctx, s.start, s.cur); ctx.save(); ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]); }
+    else if (s.type === 'curve') {
+      const pts = s.pts.concat([s.cur]), sg = catmullSegs(pts, false);
+      if (sg.length) { ctx.moveTo(sg[0][0].x, sg[0][0].y); sg.forEach(g => ctx.bezierCurveTo(g[1].x, g[1].y, g[2].x, g[2].y, g[3].x, g[3].y)); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.fillStyle = ctx.strokeStyle; const d = 3 / z; s.pts.forEach((q, k) => ctx.fillRect(q.x - d, q.y - d, d * 2, d * 2));
+      if (s.pts.length >= 3 && Math.hypot(s.cur.x - s.pts[0].x, s.cur.y - s.pts[0].y) * z < 10) { ctx.strokeStyle = '#2fAF83'; ctx.lineWidth = 2 / z; ctx.strokeRect(s.pts[0].x - 6 / z, s.pts[0].y - 6 / z, 12 / z, 12 / z); }
+    }
     else if (s.type === 'line' || s.type === 'arrow') { ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(s.cur.x, s.cur.y); ctx.stroke(); }
     else if (s.type === 'rect') { const r = rectFrom(s.start, s.cur, s.e); ctx.rect(r.x, r.y, r.w, r.h); ctx.fill(); ctx.stroke(); }
     else if (s.type === 'shape') {
@@ -2039,6 +2102,10 @@ function finishDraw() {
       const pts = dedupe(s.pts); if (pts.length < 2) return;
       obj = new fabric.Kvpolyline(pts, { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: defStyle.lineStart, arrowEnd: defStyle.lineEnd }); name = 'Polilinha'; break;
     }
+    case 'curve': {
+      const pts = dedupe(s.pts); if (pts.length < 2) return;
+      obj = new fabric.Kvcurve(pts, { ...styleFor(s.closed ? 'closed' : 'open'), closed: !!s.closed, headSize: mm2pt(defStyle.headMm), arrowStart: s.closed ? 'none' : defStyle.lineStart, arrowEnd: s.closed ? 'none' : defStyle.lineEnd }); name = 'Curva'; break;
+    }
     case 'polygon': {
       const pts = dedupe(s.pts); if (pts.length < 3) return;
       obj = new fabric.Polygon(pts, styleFor('closed')); name = 'Polígono'; break;
@@ -2087,6 +2154,7 @@ canvas.on('mouse:down:before', opt => {
 canvas.on('mouse:down', opt => {
   const e = opt.e;
   if (skipTransformOnce) { skipTransformOnce = false; canvas._currentTransform = null; return; }
+  if (tool === 'pencil') return;
   if (guideDrag) return;
   if (e.button === 1 || tool === 'pan' || spaceDown) { panState = { x: e.clientX, y: e.clientY }; canvas.setCursor('grabbing'); canvas.selection = false; return; }
   const raw = canvas.getPointer(e);
@@ -2102,7 +2170,8 @@ canvas.on('mouse:down', opt => {
     case 'line': case 'arrow': case 'rect': case 'ellipse': case 'shape': case 'measure':
       if (tool === 'measure') lastMeasure = null;
       drawState = { type: tool, start: p, cur: p, e }; break;
-    case 'polyline': case 'polygon': case 'mask':
+    case 'polyline': case 'polygon': case 'mask': case 'curve':
+      if (tool === 'curve' && drawState && drawState.pts.length >= 3 && Math.hypot(p.x - drawState.pts[0].x, p.y - drawState.pts[0].y) * canvas.getZoom() < 10) { drawState.closed = true; finishDraw(); return; }
       if (!drawState) drawState = { type: tool, pts: [p], cur: p };
       else { const last = drawState.pts[drawState.pts.length - 1]; if (p.kind !== 'pt') p = constrain(last, p, e); drawState.pts.push(p); }
       break;
@@ -2117,7 +2186,7 @@ canvas.on('mouse:move', opt => {
   $('#st-xy').textContent = `F${sheetIndex(sh.id) + 1}  X ${fmt(pt2mm(p.x - r.x))}  Y ${fmt(pt2mm(p.y - r.y))} mm`;
   if (panState) { canvas.relativePan(new fabric.Point(e.clientX - panState.x, e.clientY - panState.y)); panState = { x: e.clientX, y: e.clientY }; afterView(); return; }
   if (guideDrag) { const g = guideDrag.g; g.p = snapGuide(g, g.o === 'v' ? p.x : p.y, e); canvas.requestRenderAll(); return; }
-  if (DRAW_TOOLS.includes(tool)) {
+  if (DRAW_TOOLS.includes(tool) && tool !== 'pencil') {
     let q = snapPoint(p, e, drawState && drawState.pts);
     if (drawState) {
       if (q.kind !== 'pt') {
@@ -2156,6 +2225,12 @@ canvas.on('mouse:dblclick', opt => {
   if (t.type === 'image') enterCrop(t);
   else if (isPoly(t)) { canvas.setActiveObject(t); togglePolyEdit(true); }
 });
+canvas.on('path:created', e => {
+  const p = e.path; if (!p) return;
+  const sh = sheetOf(p), n = userObjects().filter(o => sheetOf(o).id === sh.id && (o.kvName || '').startsWith('Traço livre ')).length + 1;
+  p.set({ fill: '', strokeUniform: true, opacity: defStyle.opacity, kvDash: defStyle.dash, strokeDashArray: dashArr(defStyle.dash, p.strokeWidth), strokeLineCap: 'round', strokeLineJoin: 'round', kvId: uid(), kvName: `Traço livre ${n}` });
+  raiseChrome(); applyObjState(p); canvas.requestRenderAll(); commit(); scheduleLayers();
+});
 canvas.on('mouse:out', () => { cursorScreen = null; hoverSnap = null; if (!drawState) canvas.clearContext(canvas.contextTop); scheduleRulers(); });
 
 /* ---------------- Imagens ---------------- */
@@ -2191,7 +2266,7 @@ async function replaceImageSource(img, blob) {
   if (img.clipPath) { const cp = img.clipPath; cp.set({ scaleX: cp.scaleX / rx, scaleY: cp.scaleY / ry, left: cp.left / rx, top: cp.top / ry }); }
   img.setPositionByOrigin(c, 'center', 'center');
   img.kvNatW = nw; img.kvNatH = nh; img.kvMissing = false;
-  if (img.kvLink && blob.lastModified) img.kvLink = { ...img.kvLink, lastModified: blob.lastModified };
+  if (img.kvLink && blob.lastModified) img.kvLink = { ...img.kvLink, lastModified: blob.lastModified, size: blob.size };
   if (img.kvGeo && img.kvGeo.source !== 'giraffe') img.kvGeo = { ...img.kvGeo, mpp: img.kvGeo.mpp * rx };
   img.setCoords(); img.dirty = true; canvas.requestRenderAll();
   updateLinkedSymbols(img);
@@ -2402,7 +2477,7 @@ function lineX(p, d, q, e) {
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
 function vertexAction(eventData, transform, x, y) {
   const o = transform.target, ctl = o.controls[o.__corner]; if (!ctl) return false;
-  const i = ctl.pointIndex, closed = o.type === 'polygon';
+  const i = ctl.pointIndex, closed = isClosed(o);
   if (!transform.kvStart) transform.kvStart = vertsOf(o).map(p => ({ x: p.x, y: p.y }));
   const S = transform.kvStart, n = S.length;
   const others = S.filter((_, k) => k !== i);
@@ -2446,7 +2521,7 @@ const renderEdgeCtl = (ctx, left, top, styleOverride, o) => {
   ctx.beginPath(); ctx.arc(left, top, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
 };
 function setPolyControls(o) {
-  const n = o.points.length, closed = o.type === 'polygon', c = {};
+  const n = o.points.length, closed = isClosed(o), c = {};
   o.points.forEach((p, i) => { c['p' + i] = new fabric.Control({ positionHandler: polyPositionHandler, actionHandler: vertexAction, actionName: 'modifyPolygon', pointIndex: i, cursorStyle: 'crosshair' }); });
   for (let i = 0; i < (closed ? n : n - 1); i++) c['e' + i] = new fabric.Control({ positionHandler: edgePosition, actionHandler: edgeAction, actionName: 'modifyPolygon', edgeIndex: i, cursorStyle: 'move', render: renderEdgeCtl, sizeX: 14, sizeY: 14 });
   o.controls = c;
@@ -2463,7 +2538,7 @@ function setPolyScenePoints(o, pts) {
   canvas.requestRenderAll();
 }
 function insertVertexAt(o, p) {
-  const pts = vertsOf(o), n = pts.length, closed = o.type === 'polygon', th = 10 / canvas.getZoom();
+  const pts = vertsOf(o), n = pts.length, closed = isClosed(o), th = 10 / canvas.getZoom();
   let best = -1, bd = th, bp = null;
   for (let i = 0; i < (closed ? n : n - 1); i++) {
     const a = pts[i], b = pts[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
@@ -2478,7 +2553,7 @@ function insertVertexAt(o, p) {
   return true;
 }
 function removeVertex(o, i) {
-  const pts = vertsOf(o), min = o.type === 'polygon' ? 3 : 2;
+  const pts = vertsOf(o), min = isClosed(o) ? 3 : 2;
   if (pts.length <= min) { toast(`Mínimo de ${min} vértices.`); return; }
   pts.splice(i, 1); setPolyScenePoints(o, pts);
   if (!(cropState && o === cropState.poly)) commit();
@@ -2612,7 +2687,14 @@ async function scanInto(h, prefix, depth, map) {
     else if (child.kind === 'directory' && depth < 6) await scanInto(child, prefix + name + '/', depth + 1, map);
   }
 }
-async function saveFolders() { try { await idb.set('dirs', folders.filter(f => f.handle).map(f => ({ id: f.id, name: f.name, handle: f.handle }))); } catch (e) {} }
+/* Registro persistente: pastas com vínculo direto guardam o acesso; pastas do modo compatível guardam a lista de arquivos (para reaparecerem após reabrir) */
+async function saveFolders() {
+  try {
+    await idb.set('dirs', folders.map(f => f.handle ? { id: f.id, name: f.name, handle: f.handle, mode: 'handle' }
+      : { id: f.id, name: f.name, mode: 'file', index: f.files.size ? [...f.files].map(([k, v]) => [k, v.lastModified || 0, v.size || 0]) : (f.index || []) }));
+  } catch (e) {}
+}
+const folderPaths = f => f.files.size ? [...f.files.keys()] : (f.index || []).map(x => x[0]);
 async function rescan(f) {
   if (f.mode !== 'handle' || f.perm !== 'granted') return;
   const m = new Map(); try { await scanInto(f.handle, '', 0, m); f.files = m; } catch (e) { f.perm = 'prompt'; }
@@ -2643,11 +2725,15 @@ $('#in-dir').addEventListener('change', async e => {
   const root = (files[0].webkitRelativePath || '').split('/')[0] || 'pasta';
   let f = folders.find(x => x.mode === 'file' && x.name === root);
   if (!f) { f = { id: uid(), name: root, handle: null, files: new Map(), mode: 'file', perm: 'file' }; folders.push(f); folderOpen.add(f.id); }
+  f.perm = 'file';
   f.files = new Map();
   files.forEach(x => { const parts = (x.webkitRelativePath || x.name).split('/'); f.files.set(parts.length > 1 ? parts.slice(1).join('/') : x.name, x); });
+  f.stale = false; f.reselect = false; f.index = null; saveFolders();
   renderLinks();
-  const n = await reloadAll(false, true);
-  toast(`Pasta “${root}” lida (modo compatível): ${files.length} imagens${n ? `, ${n} atualizada(s)` : ''}.`);
+  let n = await reloadAll(false, true);
+  if (pendingCompat && pendingCompat.img && canvas.getObjects().includes(pendingCompat.img)) { if (await reloadLinked(pendingCompat.img, true)) { n = Math.max(n, 1); commit(); } }
+  pendingCompat = null; renderLinks(); refreshPanel();
+  toast(`Pasta “${root}” lida (modo compatível): ${files.length} imagens${n ? ` — ${n} imagem(ns) atualizada(s) nas folhas` : ' — nenhuma imagem vinculada mudou'}.`);
 });
 function removeFolder(id) {
   const i = folders.findIndex(f => f.id === id); if (i < 0) return;
@@ -2663,9 +2749,12 @@ function findLinked(L) {
   for (const g of folders) if (g.files.has(L.path)) return { src: g.files.get(L.path), f: g };
   const base = L.path.split('/').pop();
   for (const g of folders) for (const [k, v] of g.files) if (k.split('/').pop() === base) return { src: v, f: g };
+  /* pasta conhecida, mas os arquivos ainda não foram lidos nesta sessão (modo compatível após reabrir) */
+  const known = (f && f.mode === 'file' && !f.files.size) ? f : folders.find(g => g.mode === 'file' && !g.files.size && (g.index || []).some(x => x[0] === L.path));
+  if (known) return { src: null, f: known, pending: true };
   return null;
 }
-const srcFile = async src => src instanceof File ? src : src.getFile();
+const srcFile = async src => { if (!src) throw new Error('pasta precisa ser selecionada de novo'); return src instanceof File ? src : src.getFile(); };
 async function reloadLinked(img, force) {
   const L = img.kvLink; if (!L) return false;
   if (L.kind === 'giraffe') {
@@ -2673,12 +2762,39 @@ async function reloadLinked(img, force) {
     try { const { blob, raw } = await captureView(L.viewId ? findView(L.viewId, L.viewName) : null); await replaceImageSource(img, blob); const G = computeGeo(raw, img.kvNatW, img.kvNatH); if (G) { img.kvGeo = G; updateLinkedSymbols(img); } return true; }
     catch (err) { gvLog('Recaptura falhou: ' + err.message); toast('Não foi possível recapturar a vista: ' + err.message, true); return false; }
   }
-  let file = null;
-  try { const hit = findLinked(L); if (hit) file = await srcFile(hit.src); } catch (err) { file = null; }
+  let file = null, hit = findLinked(L);
+  if (!hit || hit.pending) { img.kvStale = false; return false; }
+  try {
+    file = await srcFile(hit.src);
+    if (hit.src instanceof File) await file.slice(0, 1).arrayBuffer();   // cópia antiga do modo compatível falha se o arquivo mudou
+  } catch (err) {
+    file = null;
+    if (hit.f && hit.f.mode === 'handle') {   // arquivo substituído (apagado e recriado): relê a pasta e tenta de novo
+      try { await rescan(hit.f); const h2 = findLinked(L); if (h2) file = await srcFile(h2.src); } catch (e) { file = null; }
+    } else if (hit.f && hit.f.mode === 'file') { img.kvStale = true; hit.f.stale = true; }
+  }
   if (!file) return false;
-  if (!force && !img.kvMissing && file.lastModified === L.lastModified) return false;
+  img.kvStale = false;
+  const changed = file.lastModified !== L.lastModified || (L.size !== undefined && file.size !== L.size);
+  if (!force && !img.kvMissing && !changed) return false;
   await replaceImageSource(img, file);
+  img.kvLink = { ...img.kvLink, lastModified: file.lastModified, size: file.size };
   return true;
+}
+/* Modo compatível (painel do Giraffe): o navegador só entrega cópias dos arquivos; para ler a versão nova é preciso selecionar a pasta de novo */
+let pendingCompat = null;   // { img? } — o que recarregar quando a pasta for selecionada
+const isCompatImg = img => { const h = img && img.kvLink && img.kvLink.kind !== 'giraffe' && findLinked(img.kvLink); return !!(h && h.f && h.f.mode === 'file'); };
+function askCompatReselect(img, why) {
+  pendingCompat = { img: img || null };
+  const f = img ? findLinked(img.kvLink).f : folders.find(x => x.mode === 'file');
+  toast(`${why || 'Pasta em modo compatível.'} Selecione novamente a pasta “${f ? f.name : ''}” para ler a versão nova.`);
+  $('#in-dir').click();
+}
+async function reloadOne(img) {
+  if (isCompatImg(img)) { askCompatReselect(img); return; }
+  if (await reloadLinked(img, true)) { commit(); toast('Imagem recarregada.'); }
+  else if (!img.kvLink || img.kvLink.kind !== 'giraffe') toast('Arquivo não encontrado nas pastas vinculadas.');
+  renderLinks(); refreshPanel();
 }
 async function reloadAll(force, quiet) {
   if (reloading) return 0; reloading = true; let n = 0;
@@ -2690,27 +2806,44 @@ async function reloadAll(force, quiet) {
   } finally { reloading = false; renderLinks(); }
   return n;
 }
-async function reloadFolders() {
-  for (const f of folders) await rescan(f);
-  if (folders.length && folders.every(f => f.mode === 'file')) toast('Pastas em modo compatível: selecione a pasta de novo para atualizar.');
-  await reloadAll(false, false);
+function reloadFolders() {
+  const compat = folders.filter(f => f.mode === 'file');
+  if (compat.length) askCompatReselect(null, compat.length > 1 ? `Há ${compat.length} pastas em modo compatível; selecione uma de cada vez.` : 'Pasta em modo compatível.');
+  (async () => {
+    for (const f of folders) if (f.mode === 'handle') await rescan(f);
+    if (folders.some(f => f.mode === 'handle')) await reloadAll(false, !!compat.length);
+  })();
 }
 async function insertLinked(folderId, rel) {
-  const f = folders.find(x => x.id === folderId); if (!f || !f.files.has(rel)) return;
+  const f = folders.find(x => x.id === folderId); if (!f) return;
+  if (!f.files.has(rel)) { if (f.mode === 'file') askCompatReselect(null, 'Esta pasta precisa ser selecionada de novo nesta sessão.'); return; }
   const file = await srcFile(f.files.get(rel));
-  await insertImageBlob(file, { name: rel.split('/').pop(), link: { folder: f.id, path: rel, lastModified: file.lastModified, mode: f.mode } });
+  await insertImageBlob(file, { name: rel.split('/').pop(), link: { folder: f.id, path: rel, lastModified: file.lastModified, size: file.size, mode: f.mode } });
 }
 function setAuto(on) {
   clearInterval(autoTimer); autoTimer = null;
-  if (on) autoTimer = setInterval(async () => { const n = await reloadAll(false, true); if (n) toast(`Mapa atualizado a partir da pasta (${n}).`); }, 3000);
+  if (on) {
+    if (folders.length && folders.every(f => f.mode === 'file')) toast('Neste painel as pastas estão em modo compatível: o app avisa quando um arquivo mudar, mas é preciso clicar em Recarregar e selecionar a pasta de novo. Para atualização automática de verdade, use “Abrir em nova janela”.', true);
+    autoTimer = setInterval(async () => {
+      const staleBefore = new Set(folders.filter(f => f.stale).map(f => f.id));
+      const n = await reloadAll(false, true);
+      if (n) toast(`Mapa atualizado a partir da pasta (${n}).`);
+      const newly = folders.filter(f => f.stale && !staleBefore.has(f.id));
+      if (newly.length) toast(`Arquivo alterado em “${newly.map(f => f.name).join('”, “')}”. Clique em Recarregar e selecione a pasta de novo para atualizar.`, true);
+    }, 3000);
+  }
 }
 async function checkStoredDir() {
   try {
     let list = await idb.get('dirs');
     if (!list) { const h = await idb.get('dir'); list = h ? [{ id: uid(), name: h.name, handle: h }] : []; }
     for (const it of list) {
-      if (!it.handle || !it.handle.queryPermission) continue;
-      const perm = await it.handle.queryPermission({ mode: 'read' });
+      if (it.mode === 'file' || !it.handle) {
+        folders.push({ id: it.id, name: it.name, handle: null, files: new Map(), index: it.index || [], mode: 'file', perm: 'file', reselect: true });
+        folderOpen.add(it.id); continue;
+      }
+      if (!it.handle.queryPermission) continue;
+      let perm = 'prompt'; try { perm = await it.handle.queryPermission({ mode: 'read' }); } catch (e) {}
       const f = { id: it.id, name: it.name, handle: it.handle, files: new Map(), mode: 'handle', perm: perm === 'granted' ? 'granted' : 'prompt' };
       folders.push(f); folderOpen.add(f.id);
       if (f.perm === 'granted') await rescan(f);
@@ -2721,7 +2854,7 @@ async function checkStoredDir() {
 }
 async function reconnectFolder(f) {
   try { if (await f.handle.requestPermission({ mode: 'read' }) === 'granted') { f.perm = 'granted'; await rescan(f); renderLinks(); await reloadAll(false, true); } }
-  catch (e) { toast('Permissão negada. Use “Adicionar pasta”.', true); }
+  catch (e) { toast('O navegador não permitiu reconectar aqui. Arraste a pasta do Explorer para o painel ou use “Adicionar pasta”.', true); }
 }
 
 /* Miniaturas: geradas sob demanda, em fila, a partir do arquivo local */
@@ -2735,14 +2868,20 @@ async function pumpThumbs() {
   }
 }
 async function makeThumb(fid, rel) {
-  const f = folders.find(x => x.id === fid); if (!f || !f.files.has(rel)) return null;
-  const file = await srcFile(f.files.get(rel)), key = fid + '|' + rel + '|' + file.lastModified;
+  const f = folders.find(x => x.id === fid); if (!f) return null;
+  let file = null, lm = 0;
+  if (f.files.has(rel)) { try { file = await srcFile(f.files.get(rel)); lm = file.lastModified; } catch (e) { file = null; } }
+  else { const it = (f.index || []).find(x => x[0] === rel); lm = it ? it[1] : 0; }
+  const key = 'thumb:' + f.name + '|' + rel + '|' + lm;
   if (thumbCache.has(key)) return thumbCache.get(key);
-  let url = null;
+  try { const cached = await idb.get(key); if (cached) { const u = URL.createObjectURL(cached); thumbCache.set(key, u); return u; } } catch (e) {}
+  if (!file) return null;
+  let url = null, blob = null;
   try {
     const bmp = await createImageBitmap(file, { resizeWidth: 240, resizeQuality: 'medium' });
     const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0); bmp.close && bmp.close();
-    url = URL.createObjectURL(await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8)));
+    blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8)); url = URL.createObjectURL(blob);
+    idb.set(key, blob).catch(() => {});
   } catch (e) { url = URL.createObjectURL(file); }
   thumbCache.set(key, url); return url;
 }
@@ -2771,10 +2910,10 @@ function renderLinks() {
     const L = img.kvLink, gir = L.kind === 'giraffe', label = gir ? `Giraffe: ${L.viewName || 'mapa atual'}` : L.path.replace(/^drop:/, '');
     const hit = gir ? null : findLinked(L), avail = gir || !!hit;
     const li = document.createElement('li');
-    li.innerHTML = `<button class="name" aria-label="Selecionar ${escapeHtml(label)}">${svgIcon(gir ? 'camera' : 'image')}<span>${escapeHtml(label)}</span><small class="${img.kvMissing ? 'warn' : avail ? 'ok' : ''}">${img.kvMissing ? 'ausente' : avail ? (hit && hit.f ? hit.f.name : 'ok') : 'sem pasta'}</small></button>
+    li.innerHTML = `<button class="name" aria-label="Selecionar ${escapeHtml(label)}">${svgIcon(gir ? 'camera' : 'image')}<span>${escapeHtml(label)}</span><small class="${img.kvMissing || img.kvStale ? 'warn' : avail ? 'ok' : ''}">${img.kvMissing ? 'ausente' : img.kvStale ? 'alterada — recarregue' : hit && hit.pending ? hit.f.name + ' · selecione de novo' : avail ? (hit && hit.f ? hit.f.name : 'ok') : 'sem pasta'}</small></button>
       <button class="icon-btn" aria-label="Recarregar ${escapeHtml(label)}" title="Recarregar">${svgIcon('refresh')}</button>`;
     li.children[0].onclick = () => { if (!img.group) { setActiveSheet(sheetOf(img).id); canvas.setActiveObject(img); canvas.requestRenderAll(); refreshPanel(); } };
-    li.children[1].onclick = async () => { if (await reloadLinked(img, true)) { commit(); toast('Imagem recarregada.'); } else if (!gir) toast('Arquivo não encontrado nas pastas vinculadas.'); renderLinks(); };
+    li.children[1].onclick = () => reloadOne(img);
     ul.appendChild(li);
   });
   /* Árvore de pastas */
@@ -2783,16 +2922,16 @@ function renderLinks() {
   if (!folders.length) { root.innerHTML = '<li class="empty">Adicione uma ou mais pastas para listar as imagens, inclusive subpastas.</li>'; return; }
   const q = linkFilter.trim().toLowerCase();
   folders.forEach(f => {
-    const paths = [...f.files.keys()].filter(p => !q || p.toLowerCase().includes(q)).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+    const paths = folderPaths(f).filter(p => !q || p.toLowerCase().includes(q)).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
     const open = folderOpen.has(f.id) || !!q;
     const head = document.createElement('li'); head.className = 'tree-root';
     head.innerHTML = `<button class="icon-btn" aria-expanded="${open}" aria-label="${open ? 'Recolher' : 'Expandir'} ${escapeHtml(f.name)}">${svgIcon(open ? 'chevDown' : 'chevRight')}</button>
-      <span class="name tree-label">${svgIcon('folderOpen')}<span>${escapeHtml(f.name)}</span><small>${f.perm === 'prompt' ? 'sem permissão' : f.mode === 'file' ? 'compatível · ' + f.files.size : f.files.size}</small></span>
+      <span class="name tree-label">${svgIcon('folderOpen')}<span>${escapeHtml(f.name)}</span><small class="${f.stale || f.reselect || f.perm === 'prompt' ? 'warn' : ''}">${f.perm === 'prompt' ? 'reconectar' : f.reselect ? 'selecione de novo · ' + folderPaths(f).length : f.stale ? 'arquivos alterados — selecione de novo' : f.mode === 'file' ? 'compatível · ' + f.files.size : f.files.size}</small></span>
       ${f.perm === 'prompt' ? `<button class="icon-btn" aria-label="Reconectar ${escapeHtml(f.name)}" title="Reconectar (conceder acesso)">${svgIcon('link')}</button>` : `<button class="icon-btn" aria-label="Atualizar lista de ${escapeHtml(f.name)}" title="Atualizar lista">${svgIcon('refresh')}</button>`}
       <button class="icon-btn" aria-label="Desvincular ${escapeHtml(f.name)}" title="Desvincular pasta">${svgIcon('trash')}</button>`;
     const btns = head.querySelectorAll('button');
     btns[0].onclick = () => { open ? folderOpen.delete(f.id) : folderOpen.add(f.id); renderLinks(); };
-    btns[1].onclick = async () => { if (f.perm === 'prompt') await reconnectFolder(f); else if (f.mode === 'file') $('#in-dir').click(); else { await rescan(f); renderLinks(); toast(`“${f.name}”: ${f.files.size} imagens.`); } };
+    btns[1].onclick = async () => { if (f.perm === 'prompt') await reconnectFolder(f); else if (f.mode === 'file') askCompatReselect(null, 'Pasta em modo compatível.'); else { await rescan(f); renderLinks(); toast(`“${f.name}”: ${f.files.size} imagens.`); } };
     btns[2].onclick = () => removeFolder(f.id);
     root.appendChild(head);
     if (!open) return;
@@ -2838,14 +2977,40 @@ stageEl.addEventListener('drop', async e => {
   const items = [...(e.dataTransfer.items || [])].filter(i => i.kind === 'file');
   const jobs = items.map(i => ({ file: i.getAsFile(), handleP: i.getAsFileSystemHandle ? i.getAsFileSystemHandle().catch(() => null) : Promise.resolve(null) }));
   for (const j of jobs) {
+    const hd = await j.handleP;
+    if (hd && hd.kind === 'directory') { await linkDroppedFolder(hd); continue; }
     if (!j.file) continue;
     if (/\.json$/i.test(j.file.name)) { await openProject(j.file); return; }
     if (!isImageName(j.file.name) && !/^image\//.test(j.file.type)) continue;
-    const h = await j.handleP;
+    const h = hd;
     if (h && h.kind === 'file') { const path = 'drop:' + j.file.name; dropHandles.set(path, h); await insertImageBlob(j.file, { name: j.file.name, point: p, link: { path, lastModified: j.file.lastModified, mode: 'handle' } }); }
     else await insertImageBlob(j.file, { name: j.file.name, point: p });
   }
 });
+
+/* Arrastar uma pasta do Explorer cria vínculo direto — funciona inclusive dentro do painel do Giraffe */
+async function linkDroppedFolder(h) {
+  try {
+    const old = folders.find(f => f.mode === 'file' && f.name === h.name);
+    if (old) folders.splice(folders.indexOf(old), 1);
+    const f = await addFolderHandle(h, old ? old.id : undefined);
+    renderLinks(); const n = await reloadAll(false, true);
+    toast(`Pasta “${f.name}” vinculada com acesso direto — ${f.files.size} imagens${n ? `, ${n} atualizada(s)` : ''}. O recarregamento automático funciona com ela.`);
+  } catch (e) { toast('Não foi possível vincular a pasta arrastada: ' + e.message, true); }
+}
+(function () {
+  const zone = $('#lk-drop');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', async e => {
+    e.preventDefault(); zone.classList.remove('over');
+    const items = [...(e.dataTransfer.items || [])].filter(i => i.kind === 'file');
+    const hs = await Promise.all(items.map(i => i.getAsFileSystemHandle ? i.getAsFileSystemHandle().catch(() => null) : null));
+    const dirs = hs.filter(h => h && h.kind === 'directory');
+    if (!dirs.length) { toast(items.length ? 'Arraste uma pasta (não arquivos soltos). Este navegador pode não suportar o vínculo por arrastar.' : 'Nada para vincular.', true); return; }
+    for (const d of dirs) await linkDroppedFolder(d);
+  });
+})();
 
 /* ---------------- Vistas do Giraffe (SDK @gi-nx/iframe-sdk) ---------------- */
 let gi = null, gvViews = [];
@@ -2928,6 +3093,41 @@ async function analyzeBlob(blob) {
   } catch (e) { return { W: 0, H: 0, ratio: 0, blank: true, error: e.message, type: blob.type, size: blob.size }; }
   finally { URL.revokeObjectURL(url); }
 }
+/* Imagem salva da vista (snapShot): caminho relativo /api/storage-proxy/... → URL temporária via SDK */
+function imgToBlob(u) {
+  return new Promise((res, rej) => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => { try { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); c.toBlob(b => b ? res(b) : rej(new Error('canvas vazio')), 'image/png'); } catch (e) { rej(e); } };
+    im.onerror = () => rej(new Error('bloqueada (CORS)')); im.src = u;
+  });
+}
+async function fetchSnapshot(view, rpc) {
+  const snap = view.details && view.details.snapShot; if (!snap) return null;
+  const path = typeof snap === 'object' ? (snap.url || snap.src || snap.path || '') : String(snap);
+  if (path.startsWith('data:')) { try { return await dataURLToBlob(path); } catch (e) { return null; } }
+  const tries = [];
+  if (/^https?:/.test(path)) tries.push(['direto', path]);
+  try {
+    const t = await rpc.invoke('getTempUrl', [path]); gvLog('getTempUrl: ' + describeVal(t));
+    const u = typeof t === 'string' ? t : t && (t.url || t.signedUrl || t.tempUrl || t.href);
+    if (u) tries.push(['getTempUrl', u]);
+  } catch (e) { gvLog('getTempUrl: ' + e.message); }
+  let origin = '';
+  try { origin = (location.ancestorOrigins && location.ancestorOrigins[0]) || (document.referrer ? new URL(document.referrer).origin : ''); } catch (e) {}
+  if (origin && path.startsWith('/')) tries.push(['origem do Giraffe', origin + path]);
+  for (const [how, u] of tries) {
+    try {
+      const r = await fetch(u, { mode: 'cors', credentials: how === 'origem do Giraffe' ? 'include' : 'omit' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const b = await r.blob(), a = await analyzeBlob(b);
+      gvLog(`Imagem salva da vista (${how}): ${a.W}×${a.H} px${a.blank ? ' → vazia' : ' → OK'}`);
+      if (!a.blank) return b;
+    } catch (e) { gvLog(`Download da imagem salva (${how}) falhou: ${e.message}`); }
+    try { const b = await imgToBlob(u); const a = await analyzeBlob(b); gvLog(`Imagem salva via <img> (${how}): ${a.W}×${a.H} px`); if (!a.blank) return b; }
+    catch (e) { gvLog(`<img> (${how}): ${e.message}`); }
+  }
+  return null;
+}
 async function captureView(view) {
   const { rpc } = await loadSdk();
   if (view) {
@@ -2956,17 +3156,27 @@ async function captureView(view) {
   let blob = null, info = null;
   try { blob = await toBlobAny(res); info = await analyzeBlob(blob); gvLog(`Imagem do getPng: ${info.W}×${info.H} px, ${info.type || '?'}, ${Math.round(info.size / 1024)} kB, conteúdo ${Math.round(info.ratio * 100)}%${info.blank ? ' → VAZIA' : ''}${info.error ? ' (erro: ' + info.error + ')' : ''}`); }
   catch (e) { gvLog('Não foi possível decodificar o getPng: ' + e.message); }
+  /* Nova tentativa: força um redesenho do mapa e captura logo em seguida */
+  for (let k = 0; (!blob || info.blank) && k < 3 && raw && raw.center; k++) {
+    try {
+      const c = Array.isArray(raw.center) ? raw.center : [raw.center.lng, raw.center.lat];
+      await rpc.invoke('flyTo', [{ center: c, zoom: (raw.zoom || 15) + (k % 2 ? -1e-7 : 1e-7), duration: 0, essential: true }]);
+      await wait(60 * (k + 1));
+      const r2 = await rpc.invoke('getPng', []); const b2 = await toBlobAny(r2), i2 = await analyzeBlob(b2);
+      gvLog(`Tentativa ${k + 2} do getPng: ${i2.W}×${i2.H} px, conteúdo ${Math.round(i2.ratio * 100)}%${i2.blank ? ' → VAZIA' : ' → OK'}`);
+      if (!i2.blank) { blob = b2; info = i2; }
+    } catch (e) { gvLog('Nova tentativa falhou: ' + e.message); }
+  }
   if (!blob || info.blank) {
-    const snap = view && view.details && view.details.snapShot;
-    if (snap) {
-      try {
-        const sb = await toBlobAny(typeof snap === 'object' ? (snap.url || snap.dataUrl || snap.src || snap.image || snap) : snap);
-        const si = await analyzeBlob(sb);
-        gvLog(`Miniatura salva da vista (snapShot): ${si.W}×${si.H} px${si.blank ? ' → também vazia' : ''}`);
-        if (!si.blank) { toast('O Giraffe devolveu uma captura vazia; usei a miniatura salva da vista (resolução menor).', true); return { blob: sb, raw, lowRes: true }; }
-      } catch (e) { gvLog('snapShot indisponível: ' + e.message); }
+    const sb = view ? await fetchSnapshot(view, rpc) : null;
+    if (sb) {
+      const cam = camOf(view) || {}, size = (view.details && view.details.size) || {};
+      const lat = cam.center ? (cam.center.lat ?? cam.center[1]) : null;
+      const sraw = lat !== null && cam.zoom !== undefined ? { camMode: true, zoom: cam.zoom, lat, bearing: cam.bearing, pitch: cam.pitch, cssW: size.width } : null;
+      toast('O Giraffe devolveu uma captura vazia; usei a imagem salva da vista (resolução da vista).', true);
+      return { blob: sb, raw: sraw, lowRes: true };
     }
-    throw new Error('o Giraffe devolveu uma imagem vazia do mapa (veja o Diagnóstico)');
+    throw new Error('o Giraffe devolveu uma imagem vazia do mapa e a imagem salva da vista não pôde ser baixada (veja o Diagnóstico)');
   }
   return { blob, raw };
 }
@@ -2995,6 +3205,12 @@ const PT_M = 0.0254 / 72;   // metros de papel por pt
 /* Georreferência de imagens: kvGeo = { mpp (m por px natural), bearing (°), source, approx } */
 function mPerDegLon(lat) { const a = 6378137, e2 = 0.00669437999014, p = lat * Math.PI / 180; return (Math.PI / 180) * a * Math.cos(p) / Math.sqrt(1 - e2 * Math.sin(p) ** 2); }
 function computeGeo(raw, W, H) {
+  if (raw && raw.camMode) {   // a partir da câmera da vista (zoom Mapbox, tiles de 512 px)
+    const mppCss = 40075016.686 * Math.cos(raw.lat * Math.PI / 180) / (512 * Math.pow(2, raw.zoom));
+    const mpp = mppCss * ((raw.cssW || W) / W);
+    if (!(mpp > 0) || !isFinite(mpp)) return null;
+    return { mpp, bearing: raw.bearing || 0, source: 'giraffe', approx: (raw.pitch || 0) > 1 || !raw.cssW, pitch: raw.pitch || 0 };
+  }
   if (!raw || !raw.bounds) return null;
   const b = raw.bounds, w = b[0][0], s = b[0][1], e = b[1][0], n = b[1][1];
   const lat = raw.center ? raw.center[1] : (s + n) / 2;
@@ -3236,13 +3452,13 @@ $('#c-add-scale').onclick = $('#im-add-scale').onclick = () => insertSymbol('sca
 
 /* ---------------- Barra contextual e painel Objeto ---------------- */
 const isText = o => ['textbox', 'i-text', 'text', 'kvtext'].includes(o.type);
-const hasHeads = o => o.type === 'kvarrow' || o.type === 'kvpolyline';
+const hasHeads = o => o.type === 'kvarrow' || o.type === 'kvpolyline' || (o.type === 'kvcurve' && !o.closed);
 const CHAR_PROPS = ['fill', 'fontSize', 'fontWeight', 'fontStyle', 'underline', 'fontFamily', 'linethrough'];
 const editSel = () => { const a = canvas.getActiveObject(); return a && isText(a) && a.isEditing && a.selectionStart !== a.selectionEnd ? a : null; };
 const isLine = o => ['line', 'kvarrow'].includes(o.type);
 const noFill = o => isLine(o) || o.type === 'image' || !!o.kvSym;
-const TYPE_LABEL = { line: 'Linha', kvarrow: 'Linha', polyline: 'Polilinha', polygon: 'Polígono', rect: 'Retângulo', ellipse: 'Elipse', textbox: 'Texto', kvtext: 'Texto', kvpolyline: 'Polilinha', image: 'Imagem', group: 'Grupo', text: 'Texto' };
-const TYPE_ICON = { line: 'line', kvarrow: 'arrow', polyline: 'polyline', polygon: 'polygon', rect: 'square', ellipse: 'circle', textbox: 'type', kvtext: 'type', kvpolyline: 'polyline', image: 'image', group: 'groupSm', text: 'type' };
+const TYPE_LABEL = { line: 'Linha', kvarrow: 'Linha', polyline: 'Polilinha', polygon: 'Polígono', rect: 'Retângulo', ellipse: 'Elipse', textbox: 'Texto', kvtext: 'Texto', kvpolyline: 'Polilinha', kvcurve: 'Curva', path: 'Traço livre', image: 'Imagem', group: 'Grupo', text: 'Texto' };
+const TYPE_ICON = { line: 'line', kvarrow: 'arrow', polyline: 'polyline', polygon: 'polygon', rect: 'square', ellipse: 'circle', textbox: 'type', kvtext: 'type', kvpolyline: 'polyline', kvcurve: 'curve', path: 'pencil', image: 'image', group: 'groupSm', text: 'type' };
 function targets() {
   const out = [], walk = o => { if (o.type === 'group' && !o.kvRole && !o.kvSym) o.getObjects().forEach(walk); else out.push(o); };
   canvas.getActiveObjects().filter(o => !o.kvTemp).forEach(walk); return out;
@@ -3267,9 +3483,9 @@ function refreshCtx() {
   } else {
     const k = tool;
     ctx = {
-      stroke: ['line', 'polyline', 'arrow', 'polygon', 'rect', 'ellipse', 'shape', 'select'].includes(k),
+      stroke: ['line', 'polyline', 'curve', 'pencil', 'arrow', 'polygon', 'rect', 'ellipse', 'shape', 'select'].includes(k),
       fill: ['polygon', 'rect', 'ellipse', 'shape', 'text', 'select'].includes(k),
-      arrow: k === 'arrow' || k === 'line' || k === 'polyline', text: k === 'text', image: false, align: false
+      arrow: k === 'arrow' || k === 'line' || k === 'polyline' || k === 'curve', text: k === 'text', image: false, align: false
     };
     if (k === 'measure') { ctx.stroke = ctx.fill = false; }
     $('#ctx-info').textContent = k === 'select' ? 'Estilo padrão dos novos desenhos' : k === 'measure' ? 'Medição' : 'Estilo da ferramenta';
@@ -3290,6 +3506,7 @@ function refreshCtx() {
   show('#cg-measure', tool === 'measure' && !t.length);
   if (tool === 'measure') { const inf = lastMeasure ? measureInfo(lastMeasure.a, lastMeasure.b) : null; $('#m-result').textContent = inf ? `${fmt(inf.mm)} mm no papel${inf.real !== null ? ' · ' + fmtLen(inf.real) + ' (' + inf.sc.label + (inf.sc.approx ? ', aprox.' : '') + ')' : ' · sem escala definida'} · ${Math.round(inf.ang)}°` : 'Arraste para medir'; $('#m-dim').disabled = !inf; }
   show('#cg-vertex', !!single1 && isPoly(single1));
+  show('#c-closed', !!single1 && single1.type === 'kvcurve'); if (single1 && single1.type === 'kvcurve') setPressed($('#c-closed'), single1.closed);
   if (single1 && isPoly(single1)) { setPressed($('#c-vertex'), single1.kvEditing); $('#c-vertex-lbl').textContent = single1.kvEditing ? 'Concluir' : 'Vértices'; }
   show('#cg-image', ctx.image); show('#cg-align', ctx.align); show('#cg-order', ctx.align); show('#cg-opacity', true);
   $('#lb-fill').textContent = ctx.text && !t.some(o => !noFill(o) && !isText(o)) ? 'Cor' : 'Preench.';
@@ -3300,7 +3517,7 @@ function refreshCtx() {
     aStart: (t.find(hasHeads) || {}).arrowStart || 'none', aEnd: (t.find(hasHeads) || {}).arrowEnd || 'none'
   } : {
     stroke: colorParts(defStyle.stroke), fill: colorParts(tool === 'text' ? defText.fill : defStyle.fill), strokeMm: defStyle.strokeMm, dash: defStyle.dash,
-    opacity: defStyle.opacity, headMm: defStyle.headMm, aStart: tool === 'line' || tool === 'polyline' ? defStyle.lineStart : defStyle.arrowStart, aEnd: tool === 'line' || tool === 'polyline' ? defStyle.lineEnd : defStyle.arrowEnd
+    opacity: defStyle.opacity, headMm: defStyle.headMm, aStart: ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineStart : defStyle.arrowStart, aEnd: ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineEnd : defStyle.arrowEnd
   };
   setVal('#c-stroke', src.stroke.hex); setPressed($('#c-stroke-none'), src.stroke.none);
   setVal('#c-width', Math.round(src.strokeMm * 100) / 100); setVal('#c-dash', src.dash);
@@ -3341,7 +3558,7 @@ function refreshPanel() {
   if (single && (isPoly(single) || ['rect', 'ellipse'].includes(single.type))) {
     let pts = vertsOf(single);
     if (single.type === 'ellipse') { const M = single.calcTransformMatrix(); pts = []; for (let i = 0; i < 72; i++) { const a = i * Math.PI / 36; pts.push(fabric.util.transformPoint({ x: Math.cos(a) * single.rx, y: Math.sin(a) * single.ry }, M)); } }
-    const closed = single.type !== 'polyline' && single.type !== 'kvpolyline';
+    const closed = isPoly(single) ? isClosed(single) : true;
     let area = 0, per = 0;
     for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; if (closed || i < pts.length - 1) per += Math.hypot(q.x - p.x, q.y - p.y); area += p.x * q.y - q.x * p.y; }
     area = Math.abs(area) / 2;
@@ -3396,7 +3613,7 @@ function applyStyle(key) {
     if (key === 'dash') defStyle.dash = dash;
     if (key === 'opacity') defStyle.opacity = op;
     if (key === 'head') defStyle.headMm = head;
-    if (key === 'arrow') { if (tool === 'line' || tool === 'polyline') { defStyle.lineStart = aS; defStyle.lineEnd = aE; } else { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; } }
+    if (key === 'arrow') { if (['line', 'polyline', 'curve'].includes(tool)) { defStyle.lineStart = aS; defStyle.lineEnd = aE; } else { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; } }
     return;
   }
   t.forEach(o => {
@@ -3566,11 +3783,12 @@ $('#im-mask-draw').onclick = () => { const im = activeImage(); if (!im) return t
 $('#im-mask-use').onclick = maskWithShape;
 $('#im-mask-clear').onclick = () => { targets().filter(o => o.type === 'image').forEach(o => { o.clipPath = null; o.dirty = true; }); canvas.requestRenderAll(); commit(); refreshPanel(); };
 $('#im-fit').onclick = () => { const im = activeImage(); if (im) fitImageToFrame(im); };
-$('#im-reload').onclick = async () => { const im = activeImage(); if (!im) return; if (await reloadLinked(im, true)) { commit(); toast('Imagem recarregada.'); } else if (!im.kvLink || im.kvLink.kind !== 'giraffe') toast('Arquivo não encontrado. Vincule a pasta na aba Imagens.'); refreshPanel(); };
+$('#im-reload').onclick = () => { const im = activeImage(); if (im) reloadOne(im); };
 $('#poly-edit').onclick = () => togglePolyEdit();
 $('#m-dim').onclick = insertDimension;
 $('#m-clear').onclick = () => { lastMeasure = null; canvas.clearContext(canvas.contextTop); refreshCtx(); };
 $('#c-vertex').onclick = () => { togglePolyEdit(); refreshCtx(); };
+$('#c-closed').onclick = () => { const o = canvas.getActiveObject(); if (!o || o.type !== 'kvcurve') return; o.closed = !o.closed; if (o.closed && !o.fill) o.set('fill', ''); if (o.kvEditing) setPolyControls(o); o.setCoords(); o.dirty = true; canvas.requestRenderAll(); commit(); refreshCtx(); };
 /* Menu de formas */
 (function buildShapeMenu() {
   const pop = $('#shape-pop'), grid = $('#shape-grid'), btn = $('#tool-shapes');
@@ -4268,7 +4486,7 @@ tabs.forEach((t, i) => {
 });
 
 const typing = e => { const t = e.target, a = canvas.getActiveObject(); return (a && a.isEditing) || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable; };
-const KEYTOOLS = { d: 'measure', f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
+const KEYTOOLS = { u: 'curve', p: 'pencil', d: 'measure', f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
 document.addEventListener('keydown', e => {
   if (typing(e)) return;
   const k = e.key, mod = e.ctrlKey || e.metaKey;
