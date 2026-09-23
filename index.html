@@ -333,12 +333,14 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
     <label class="sr-only" for="c-start">Ponta inicial</label>
     <select id="c-start" title="Ponta inicial">
       <option value="none">Início: nenhuma</option><option value="triangle">Início: seta cheia</option><option value="open">Início: seta aberta</option>
-      <option value="dot">Início: ponto</option><option value="tick">Início: traço 45°</option>
+      <option value="tri45">Início: seta cheia 45°</option><option value="open45">Início: seta aberta 45°</option>
+      <option value="dot">Início: ponto</option><option value="tick">Início: traço 45° (cota)</option>
     </select>
     <label class="sr-only" for="c-end">Ponta final</label>
     <select id="c-end" title="Ponta final">
       <option value="none">Fim: nenhuma</option><option value="triangle">Fim: seta cheia</option><option value="open">Fim: seta aberta</option>
-      <option value="dot">Fim: ponto</option><option value="tick">Fim: traço 45°</option>
+      <option value="tri45">Fim: seta cheia 45°</option><option value="open45">Fim: seta aberta 45°</option>
+      <option value="dot">Fim: ponto</option><option value="tick">Fim: traço 45° (cota)</option>
     </select>
     <label class="sr-only" for="c-head">Tamanho da ponta em milímetros</label>
     <input type="number" id="c-head" min="0.5" step="0.5" title="Tamanho da ponta (mm)"><span class="unit">mm</span>
@@ -371,8 +373,14 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
       <button data-align="right" aria-pressed="false" aria-label="Alinhar à direita"><span data-icon="alignRight"></span></button>
       <button data-align="justify" aria-pressed="false" aria-label="Justificar"><span data-icon="alignJustify"></span></button>
     </div>
-    <label class="sr-only" for="c-lh">Entrelinha</label>
-    <input type="number" id="c-lh" min="0.5" max="4" step="0.05" title="Entrelinha">
+    <div class="seg" role="group" aria-label="Listas">
+      <button id="c-list-bullet" aria-label="Lista com marcadores" title="Lista com marcadores"><span data-icon="list"></span></button>
+      <button id="c-list-num" aria-label="Lista numerada" title="Lista numerada"><span data-icon="listOrdered"></span></button>
+    </div>
+    <span class="unit" title="Entrelinha">↕</span><label class="sr-only" for="c-lh">Entrelinha</label>
+    <input type="number" id="c-lh" min="0.5" max="4" step="0.05" title="Entrelinha (múltiplo)">
+    <span class="unit" title="Espaço entre parágrafos">¶</span><label class="sr-only" for="c-para">Espaço entre parágrafos em pontos</label>
+    <input type="number" id="c-para" min="0" max="200" step="1" title="Espaço entre parágrafos (pt)">
   </div>
   <div class="cg" id="cg-image" hidden>
     <span class="cg-label">Imagem</span>
@@ -386,6 +394,12 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
     <input type="range" id="c-op" min="0" max="100" aria-labelledby="lb-op">
     <label class="sr-only" for="c-op-n">Opacidade do objeto em porcentagem</label>
     <input type="number" id="c-op-n" min="0" max="100" step="5"><span class="unit">%</span>
+  </div>
+  <div class="cg" id="cg-measure" hidden>
+    <span class="cg-label">Medida</span>
+    <span class="ctx-hint" id="m-result" aria-live="polite">Arraste para medir</span>
+    <button class="btn" id="m-dim" disabled>Inserir como cota</button>
+    <button class="icon-btn" id="m-clear" aria-label="Limpar medida" title="Limpar medida"><span data-icon="trash"></span></button>
   </div>
   <div class="cg" id="cg-symbol" hidden>
     <span class="cg-label">Símbolo</span>
@@ -433,6 +447,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
     <button class="icon-btn tool" data-tool="polygon" aria-label="Polígono (G)" title="Polígono (G) — Enter ou duplo clique fecha" aria-pressed="false"><span data-icon="polygon"></span></button>
     <button class="icon-btn tool" data-tool="rect" aria-label="Retângulo (R)" title="Retângulo (R) — Shift = quadrado" aria-pressed="false"><span data-icon="square"></span></button>
     <button class="icon-btn tool" data-tool="ellipse" aria-label="Elipse (E)" title="Elipse (E) — Shift = círculo" aria-pressed="false"><span data-icon="circle"></span></button>
+    <button class="icon-btn tool" data-tool="measure" aria-label="Medir distância (D)" title="Medir (D) — mm no papel e metros na escala da imagem/folha" aria-pressed="false"><span data-icon="measure"></span></button>
     <button class="icon-btn" id="tool-shapes" aria-label="Formas prontas (F)" title="Formas prontas (F) — setas, polígonos, estrelas…" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" aria-controls="shape-pop"><span data-icon="shapes"></span></button>
     <button class="icon-btn tool" data-tool="text" aria-label="Texto (T)" title="Texto (T)" aria-pressed="false"><span data-icon="type"></span></button>
     <span class="hsep" aria-hidden="true"></span>
@@ -478,6 +493,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
             <div class="field"><label for="pos-a">Rotação (°)</label><input type="number" id="pos-a" step="1"></div>
           </div>
           <label class="check"><input type="checkbox" id="pos-ratio" checked> Manter proporção</label>
+          <p class="hint" id="geo-measure" hidden></p>
         </div>
       </section>
 
@@ -562,6 +578,16 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
 
     <!-- FOLHAS -->
     <div class="panel" role="tabpanel" id="panel-sheet" aria-labelledby="tab-sheet" hidden>
+      <section class="section only-sheets">
+        <h2>Apresentações</h2>
+        <p class="hint">Cada apresentação é um conjunto de folhas com nome. Duplique para guardar versões e consultar depois; os modelos de fundo são compartilhados.</p>
+        <ul class="list" id="pres-list"></ul>
+        <div class="row3" style="margin-top:12px">
+          <button class="btn" id="pres-new">Nova</button>
+          <button class="btn" id="pres-dup">Duplicar</button>
+          <button class="btn danger" id="pres-del">Excluir</button>
+        </div>
+      </section>
       <section class="section">
         <h2 id="h-sheets-title">Folhas do projeto</h2>
         <ul class="list" id="sheet-list"></ul>
@@ -572,7 +598,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
         <button class="btn danger block" id="sh-del">Excluir folha ativa</button>
       </section>
       <section class="section only-sheets">
-        <h2>Modelo de fundo da folha ativa</h2>
+        <h2 id="h-sheet-tpl">Modelo de fundo da folha ativa</h2>
         <div class="field"><label for="sh-tpl">Modelo</label><select id="sh-tpl"><option value="">Nenhum</option></select></div>
         <div class="field"><label for="sh-tpl-fit">Encaixe quando o tamanho difere</label>
           <select id="sh-tpl-fit"><option value="fit">Ajustar proporcional (centralizado)</option><option value="stretch">Esticar até a folha</option><option value="none">Tamanho original (canto superior esquerdo)</option></select>
@@ -621,7 +647,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
         <button class="btn block" id="sh-apply-all">Aplicar formato a todas as folhas</button>
       </section>
       <section class="section only-sheets">
-        <h2>Moldura da folha ativa</h2>
+        <h2 id="h-sheet-frame">Moldura da folha ativa</h2>
         <label class="check"><input type="checkbox" id="fr-show"> Mostrar moldura</label>
         <div class="row4">
           <div class="field"><label for="fr-l">Esq.</label><input type="number" id="fr-l" min="0" step="1"></div>
@@ -631,7 +657,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
         </div>
       </section>
       <section class="section only-sheets">
-        <h2>Selo da folha ativa</h2>
+        <h2 id="h-sheet-stamp">Selo da folha ativa</h2>
         <label class="check"><input type="checkbox" id="stp-show"> Mostrar selo</label>
         <div class="field"><label for="stp-titulo">Título da prancha</label><input type="text" id="stp-titulo" data-sheet-stamp="titulo"></div>
         <div class="row3">
@@ -760,7 +786,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
   <div class="palette" id="palette" role="group" aria-label="Paleta: clique aplica preenchimento, Shift+clique aplica traço"></div>
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V06 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V07 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -787,7 +813,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V06 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V07 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -881,6 +907,9 @@ const ICONS = {
   chevDown:'<path d="m6 9 6 6 6-6"/>',
   grip:'<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
   shapes:'<path d="M8.3 10a.7.7 0 0 1-.63-1.06l3.7-6.02a.7.7 0 0 1 1.26 0l3.7 6.02A.7.7 0 0 1 15.7 10z"/><rect x="3" y="14" width="7" height="7"/><circle cx="17.5" cy="17.5" r="3.5"/>',
+  list:'<path d="M9 6h12"/><path d="M9 12h12"/><path d="M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
+  listOrdered:'<path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+  measure:'<path d="M3 17h18"/><path d="M3 13v8"/><path d="M21 13v8"/><path d="M7 3h10"/><path d="M12 3v10"/>',
   groupSm:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -943,7 +972,7 @@ function newSheet(base) {
 function defaultDoc() {
   const s = newSheet(); s.stamp.titulo = 'Implantação — estudo urbanístico';
   return {
-    v: 2, sheets: [s], active: s.id, templates: [], activeTpl: null,
+    v: 2, sheets: [s], active: s.id, templates: [], activeTpl: null, pres: [], presActive: null,
     grid: { show: true, snap: false, size: 5 }, snapObj: true, guides: [],
     project: { projeto: 'Nome do projeto', cliente: '', endereco: 'São Paulo, SP', data: today(), resp: '' }
   };
@@ -996,6 +1025,7 @@ const absCenter = o => o.group ? fabric.util.transformPoint(o.getCenterPoint(), 
 const sheetOf = o => sheetAt(absCenter(o));
 const sheetLabel = (s, i) => (s && s.name) || `${doc.templates && doc.templates.includes(s) ? 'Modelo' : 'Folha'} ${(i ?? sheetIndex(s.id)) + 1}`;
 const isLk = o => !!(o.kvEffLocked ?? o.kvLocked);
+const isPoly = o => !!o && ['polyline', 'polygon', 'kvpolyline'].includes(o.type);
 /* Estado efetivo = estado do elemento + estado da folha (ocultar/bloquear) */
 function applyObjState(o) {
   const s = sheetOf(o), lock = !!(o.kvLocked || (s && s.locked)), hid = !!(o.kvHidden || (s && s.hidden));
@@ -1011,8 +1041,8 @@ function innerArea(s) {
 }
 
 /* Estilo padrão (editado na barra contextual quando nada está selecionado) */
-const defStyle = { stroke: 'rgba(0,0,0,1)', fill: 'rgba(0,172,205,0.35)', strokeMm: 0.35, dash: 'solid', opacity: 1, headMm: 4, arrowStart: 'none', arrowEnd: 'triangle' };
-const defText = { fontFamily: 'Hind', fontSize: 14, fill: 'rgba(0,0,0,1)', fontWeight: 'normal', fontStyle: 'normal', underline: false, textAlign: 'left', lineHeight: 1.16, charSpacing: 0 };
+const defStyle = { stroke: 'rgba(0,0,0,1)', fill: 'rgba(0,172,205,0.35)', strokeMm: 0.35, dash: 'solid', opacity: 1, headMm: 4, arrowStart: 'none', arrowEnd: 'triangle', lineStart: 'none', lineEnd: 'none' };
+const defText = { paraSpace: 0, fontFamily: 'Hind', fontSize: 14, fill: 'rgba(0,0,0,1)', fontWeight: 'normal', fontStyle: 'normal', underline: false, textAlign: 'left', lineHeight: 1.16, charSpacing: 0 };
 function dashArr(name, sw) {
   const w = Math.max(sw, 0.6);
   switch (name) {
@@ -1034,6 +1064,7 @@ function styleFor(kind) {
 
 /* ---------------- Fabric ---------------- */
 try { fabric.filterBackend = new fabric.Canvas2dFilterBackend(); } catch (e) {}
+fabric.perfLimitSizeTotal = 8 * 1024 * 1024; fabric.maxCacheSideLimit = 8192;
 Object.assign(fabric.Object.prototype, {
   transparentCorners: false, cornerStyle: 'rect', cornerSize: 9, touchCornerSize: 28, borderColor: BRAND,
   cornerColor: BRAND, cornerStrokeColor: '#ffffff', borderScaleFactor: 1.2, padding: 0
@@ -1065,6 +1096,12 @@ fabric.Kvarrow = fabric.util.createClass(fabric.Line, {
       out.lines.push([bx + nx, by + ny, x, y], [x, y, bx - nx, by - ny]);
     } else if (type === 'dot') {
       out.dots.push([x, y, L * 0.28]);
+    } else if (type === 'tri45') {
+      const W = L * 0.9, bx = x - cos * L * 0.9, by = y - sin * L * 0.9, nx = -sin * W, ny = cos * W;
+      out.polys.push([[x, y], [bx + nx, by + ny], [bx - nx, by - ny]]); out.cut = L * 0.9;
+    } else if (type === 'open45') {
+      const D = L * 0.75, bx = x - cos * D, by = y - sin * D, nx = -sin * D, ny = cos * D;
+      out.lines.push([bx + nx, by + ny, x, y], [x, y, bx - nx, by - ny]);
     } else if (type === 'tick') {
       const a = ang + Math.PI / 4, h = L * 0.5;
       out.lines.push([x - Math.cos(a) * h, y - Math.sin(a) * h, x + Math.cos(a) * h, y + Math.sin(a) * h]);
@@ -1115,6 +1152,99 @@ fabric.Kvarrow.fromObject = function (o, cb) {
   cb && cb(a); return a;
 };
 fabric.KvArrow = fabric.Kvarrow;
+/* Desenho das pontas compartilhado (linhas e polilinhas) */
+function drawHeads(obj, ctx, heads) {
+  if (!obj.stroke) return;
+  const k = obj.strokeUniform ? 2 / (Math.abs(obj.scaleX) + Math.abs(obj.scaleY)) : 1;
+  ctx.save(); ctx.setLineDash([]); ctx.fillStyle = obj.stroke; ctx.strokeStyle = obj.stroke; ctx.lineWidth = obj.strokeWidth * k; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+  heads.forEach(h => {
+    h.polys.forEach(pl => { ctx.beginPath(); ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.closePath(); ctx.fill(); });
+    h.lines.forEach(l => { ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
+    h.dots.forEach(d => { ctx.beginPath(); ctx.arc(d[0], d[1], d[2], 0, Math.PI * 2); ctx.fill(); });
+  });
+  ctx.restore();
+}
+function headsSVG(obj, heads) {
+  if (!obj.stroke) return '';
+  const c = new fabric.Color(obj.stroke), col = c.toRgb(), a = c.getAlpha(), tr = obj.getSvgTransform();
+  let out = '';
+  heads.forEach(h => {
+    h.polys.forEach(pl => { out += `<polygon ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
+    h.lines.forEach(l => { out += `<line ${tr} x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" style="stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};opacity:${obj.opacity}"/>\n`; });
+    h.dots.forEach(d => { out += `<circle ${tr} cx="${d[0]}" cy="${d[1]}" r="${d[2]}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
+  });
+  return out;
+}
+/* Polilinha com pontas de início e fim */
+fabric.Kvpolyline = fabric.util.createClass(fabric.Polyline, {
+  type: 'kvpolyline',
+  objectCaching: false,
+  initialize(points, options) {
+    options = options || {};
+    this.callSuper('initialize', points, options);
+    this.headSize = options.headSize || 10; this.arrowStart = options.arrowStart || 'none'; this.arrowEnd = options.arrowEnd || 'none';
+  },
+  _localPts() { const x = this.pathOffset.x, y = this.pathOffset.y; return this.points.map(p => ({ x: p.x - x, y: p.y - y })); },
+  _polyHeads() {
+    const P0 = this._localPts(), n = P0.length, L = Math.max(this.headSize, this.strokeWidth * 3);
+    if (n < 2) return { pts: P0, s: { cut: 0, polys: [], lines: [], dots: [] }, e: { cut: 0, polys: [], lines: [], dots: [] } };
+    const a0 = Math.atan2(P0[0].y - P0[1].y, P0[0].x - P0[1].x), a1 = Math.atan2(P0[n - 1].y - P0[n - 2].y, P0[n - 1].x - P0[n - 2].x);
+    const H = fabric.Kvarrow.prototype._head;
+    const s = H.call(this, this.arrowStart, P0[0].x, P0[0].y, a0, L), e = H.call(this, this.arrowEnd, P0[n - 1].x, P0[n - 1].y, a1, L);
+    const pts = P0.map(p => ({ ...p }));
+    const d0 = Math.hypot(P0[1].x - P0[0].x, P0[1].y - P0[0].y), d1 = Math.hypot(P0[n - 1].x - P0[n - 2].x, P0[n - 1].y - P0[n - 2].y);
+    if (s.cut && d0 > s.cut) { pts[0].x -= Math.cos(a0) * s.cut; pts[0].y -= Math.sin(a0) * s.cut; }
+    if (e.cut && d1 > e.cut) { pts[n - 1].x -= Math.cos(a1) * e.cut; pts[n - 1].y -= Math.sin(a1) * e.cut; }
+    return { pts, s, e };
+  },
+  _render(ctx) {
+    if (!this.points.length) return;
+    const { pts, s, e } = this._polyHeads();
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    this._renderPaintInOrder(ctx);
+    drawHeads(this, ctx, [s, e]);
+  },
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
+  toSVG(reviver) { const { s, e } = this._polyHeads(); return this.callSuper('toSVG', reviver) + headsSVG(this, [s, e]); }
+});
+fabric.Kvpolyline.fromObject = function (o, cb) { return fabric.Object._fromObject('Kvpolyline', o, cb, 'points'); };
+
+/* Caixa de texto rica: estilos por caractere (nativo), listas com recuo pendente e espaço entre parágrafos */
+const LIST_RE = /^(?:(\d+)\.|•)\s/;
+fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
+  type: 'kvtext',
+  paraSpace: 0,
+  initialize(text, options) { this.callSuper('initialize', text, options); this.paraSpace = (options && options.paraSpace) || 0; },
+  _wrapText(lines, desiredWidth) {
+    const wrapped = []; this.isWrapping = true; this.__markerW = [];
+    for (let i = 0; i < lines.length; i++) {
+      const m = String(lines[i]).match(LIST_RE);
+      let reserved = 0;
+      if (m) { reserved = this._measureWord(fabric.util.string.graphemeSplit(m[0]), i, 0); }
+      this.__markerW[i] = reserved;
+      const w = this._wrapLine(lines[i], i, desiredWidth, reserved);
+      for (let k = 0; k < w.length; k++) wrapped.push(w[k]);
+    }
+    this.isWrapping = false;
+    return wrapped;
+  },
+  _getLineLeftOffset(lineIndex) {
+    const base = this.callSuper('_getLineLeftOffset', lineIndex), map = this._styleMap && this._styleMap[lineIndex];
+    if (map && map.offset > 0 && this.__markerW && this.__markerW[map.line] && (this.textAlign === 'left' || this.textAlign === 'justify-left' || this.textAlign === 'justify')) return base + this.__markerW[map.line];
+    return base;
+  },
+  getHeightOfLine(lineIndex) {
+    if (this.__lineHeights[lineIndex]) return this.__lineHeights[lineIndex];
+    const base = this.callSuper('getHeightOfLine', lineIndex), map = this._styleMap && this._styleMap[lineIndex];
+    const extra = (this.paraSpace > 0 && map && map.offset === 0 && map.line > 0) ? this.paraSpace * this.lineHeight : 0;
+    return this.__lineHeights[lineIndex] = base + extra;
+  },
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { paraSpace: this.paraSpace }); }
+});
+fabric.Kvtext.fromObject = function (o, cb) {
+  const styles = fabric.util.stylesFromArray ? fabric.util.stylesFromArray(o.styles, o.text) : o.styles;
+  return fabric.Object._fromObject('Kvtext', Object.assign({}, o, { styles }), cb, 'text');
+};
 
 /* ---------------- Canvas ---------------- */
 const stageEl = $('#stage');
@@ -1283,6 +1413,7 @@ function startRulerGuide(e, o) {
 rulerH.addEventListener('pointerdown', e => startRulerGuide(e, 'h'));
 rulerV.addEventListener('pointerdown', e => startRulerGuide(e, 'v'));
 function hitGuide(e) {
+  if (!doc.guides.length) return null;
   const v = canvas.viewportTransform, p = canvas.getPointer(e, true);
   return doc.guides.find(g => g.o === 'v' ? Math.abs(g.p * v[0] + v[4] - p.x) < 5 : Math.abs(g.p * v[0] + v[5] - p.y) < 5) || null;
 }
@@ -1291,7 +1422,7 @@ function hitGuide(e) {
 function vertsOf(o) {
   try {
     const M = o.calcTransformMatrix();
-    if (o.type === 'polyline' || o.type === 'polygon') return o.points.map(p => fabric.util.transformPoint({ x: p.x - o.pathOffset.x, y: p.y - o.pathOffset.y }, M));
+    if (isPoly(o)) return o.points.map(p => fabric.util.transformPoint({ x: p.x - o.pathOffset.x, y: p.y - o.pathOffset.y }, M));
     if (o.type === 'kvarrow' || o.type === 'line') { const p = o.calcLinePoints(); return [fabric.util.transformPoint({ x: p.x1, y: p.y1 }, M), fabric.util.transformPoint({ x: p.x2, y: p.y2 }, M)]; }
     return o.getCoords(true);
   } catch (e) { return []; }
@@ -1599,7 +1730,7 @@ canvas.on('mouse:wheel', opt => {
 
 /* ---------------- Ferramentas ---------------- */
 let tool = 'select', drawState = null, spaceDown = false, panState = null, maskTarget = null, curCursor = '';
-const DRAW_TOOLS = ['line', 'polyline', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape'];
+const DRAW_TOOLS = ['line', 'polyline', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape', 'measure'];
 
 /* ---------------- Biblioteca de formas prontas (polígonos editáveis) ---------------- */
 function ngon(n, rot, inner) {
@@ -1685,6 +1816,7 @@ function setTool(t) {
     polyline: 'Clique os vértices · Enter/duplo clique conclui · Backspace desfaz vértice', polygon: 'Clique os vértices · Enter/duplo clique fecha',
     arrow: 'Arraste da base até a ponta', rect: 'Arraste para desenhar', ellipse: 'Arraste para desenhar', text: 'Clique para inserir texto',
     mask: 'Clique os vértices da máscara · Enter conclui',
+    measure: 'Arraste para medir · Shift restringe 15° · encaixa em vértices e guias',
     shape: 'Arraste para desenhar a forma (Shift mantém a proporção) ou clique para inserir no tamanho padrão'
   };
   status(tips[t] || '');
@@ -1713,7 +1845,8 @@ function drawPreview() {
     ctx.lineWidth = 1.5 / z; ctx.strokeStyle = s.type === 'mask' ? '#ff5632' : BRAND; ctx.setLineDash([6 / z, 4 / z]);
     ctx.fillStyle = s.type === 'mask' ? 'rgba(255,86,50,0.12)' : 'rgba(0,172,205,0.12)';
     ctx.beginPath();
-    if (s.type === 'line' || s.type === 'arrow') { ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(s.cur.x, s.cur.y); ctx.stroke(); }
+    if (s.type === 'measure') { ctx.restore(); drawMeasure(ctx, s.start, s.cur); ctx.save(); ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]); }
+    else if (s.type === 'line' || s.type === 'arrow') { ctx.moveTo(s.start.x, s.start.y); ctx.lineTo(s.cur.x, s.cur.y); ctx.stroke(); }
     else if (s.type === 'rect') { const r = rectFrom(s.start, s.cur, s.e); ctx.rect(r.x, r.y, r.w, r.h); ctx.fill(); ctx.stroke(); }
     else if (s.type === 'shape') {
       const r = shapeRect(s.start, s.cur, s.e, curShape.r);
@@ -1730,6 +1863,7 @@ function drawPreview() {
       const d = 3 / z; s.pts.forEach(p => ctx.fillRect(p.x - d, p.y - d, d * 2, d * 2));
     }
   }
+  if (!s && lastMeasure && tool === 'measure') { ctx.restore(); drawMeasure(ctx, lastMeasure.a, lastMeasure.b); ctx.save(); ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]); }
   const hs = s ? s.cur : hoverSnap;
   if (hs && hs.kind === 'pt') { const d = 5 / z; ctx.setLineDash([]); ctx.lineWidth = 1.5 / z; ctx.strokeStyle = '#ff5632'; ctx.strokeRect(hs.x - d, hs.y - d, d * 2, d * 2); }
   ctx.restore();
@@ -1745,7 +1879,7 @@ function finishDraw() {
   switch (s.type) {
     case 'line':
       if (tiny(s.start, s.cur)) return;
-      obj = new fabric.Kvarrow([s.start.x, s.start.y, s.cur.x, s.cur.y], { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: 'none', arrowEnd: 'none' }); name = 'Linha'; break;
+      obj = new fabric.Kvarrow([s.start.x, s.start.y, s.cur.x, s.cur.y], { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: defStyle.lineStart, arrowEnd: defStyle.lineEnd }); name = (defStyle.lineStart !== 'none' || defStyle.lineEnd !== 'none') ? 'Seta' : 'Linha'; break;
     case 'arrow':
       if (tiny(s.start, s.cur)) return;
       obj = new fabric.Kvarrow([s.start.x, s.start.y, s.cur.x, s.cur.y], { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: defStyle.arrowStart, arrowEnd: defStyle.arrowEnd === 'none' ? 'triangle' : defStyle.arrowEnd }); name = 'Seta'; break;
@@ -1764,12 +1898,13 @@ function finishDraw() {
     }
     case 'polyline': {
       const pts = dedupe(s.pts); if (pts.length < 2) return;
-      obj = new fabric.Polyline(pts, styleFor('open')); name = 'Polilinha'; break;
+      obj = new fabric.Kvpolyline(pts, { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: defStyle.lineStart, arrowEnd: defStyle.lineEnd }); name = 'Polilinha'; break;
     }
     case 'polygon': {
       const pts = dedupe(s.pts); if (pts.length < 3) return;
       obj = new fabric.Polygon(pts, styleFor('closed')); name = 'Polígono'; break;
     }
+    case 'measure': { if (!tiny(s.start, s.cur)) { lastMeasure = { a: s.start, b: s.cur }; refreshCtx(); drawPreview(); } return; }
     case 'mask': {
       const pts = dedupe(s.pts); if (pts.length < 3) { toast('A máscara precisa de ao menos 3 vértices.'); return; }
       applyMaskPoints(maskTarget, pts); setTool('select'); return;
@@ -1778,7 +1913,7 @@ function finishDraw() {
   if (obj) { addUser(obj, name, true); invalidateSnap(); }
 }
 function createText(p) {
-  const t = new fabric.Textbox('Texto', { left: p.x, top: p.y, width: mm2pt(60), ...defText, editingBorderColor: BRAND });
+  const t = new fabric.Kvtext('Texto', { left: p.x, top: p.y, width: mm2pt(60), ...defText, editingBorderColor: BRAND });
   addUser(t, 'Texto', true);
   setTool('select');
   canvas.setActiveObject(t); t.enterEditing(); t.selectAll(); canvas.requestRenderAll(); refreshCtx();
@@ -1797,13 +1932,27 @@ function addUser(obj, base, select) {
 }
 
 /* Ponteiro */
+let skipTransformOnce = false;
+canvas.on('mouse:down:before', opt => {
+  const e = opt.e;
+  if (tool !== 'select' || spaceDown || e.button === 1) return;
+  if (editingPoly && e.altKey) {
+    const c = editingPoly._findTargetCorner(canvas.getPointer(e, true));
+    if (c && /^p\d+$/.test(c)) { removeVertex(editingPoly, +c.slice(1)); skipTransformOnce = true; return; }
+  }
+  const g = hitGuide(e);
+  if (g && !(canvas._target && canvas._target === canvas.getActiveObject() && canvas._target.__corner)) {
+    guideDrag = { g }; canvas._target = null; canvas.selection = false;
+  }
+});
 canvas.on('mouse:down', opt => {
   const e = opt.e;
+  if (skipTransformOnce) { skipTransformOnce = false; canvas._currentTransform = null; return; }
+  if (guideDrag) return;
   if (e.button === 1 || tool === 'pan' || spaceDown) { panState = { x: e.clientX, y: e.clientY }; canvas.setCursor('grabbing'); canvas.selection = false; return; }
   const raw = canvas.getPointer(e);
   if (tool === 'select') {
     if (!cropState) setActiveSheet(sheetAt(opt.target ? opt.target.getCenterPoint() : raw).id);
-    if (!opt.target) { const g = hitGuide(e); if (g) { guideDrag = { g }; canvas.selection = false; } }
     return;
   }
   setActiveSheet(sheetAt(raw).id);
@@ -1811,7 +1960,8 @@ canvas.on('mouse:down', opt => {
   const extra = drawState && drawState.pts ? drawState.pts : null;
   let p = snapPoint(raw, e, extra);
   switch (tool) {
-    case 'line': case 'arrow': case 'rect': case 'ellipse': case 'shape':
+    case 'line': case 'arrow': case 'rect': case 'ellipse': case 'shape': case 'measure':
+      if (tool === 'measure') lastMeasure = null;
       drawState = { type: tool, start: p, cur: p, e }; break;
     case 'polyline': case 'polygon': case 'mask':
       if (!drawState) drawState = { type: tool, pts: [p], cur: p };
@@ -1832,14 +1982,15 @@ canvas.on('mouse:move', opt => {
     let q = snapPoint(p, e, drawState && drawState.pts);
     if (drawState) {
       if (q.kind !== 'pt') {
-        if (drawState.start && (drawState.type === 'line' || drawState.type === 'arrow')) q = constrain(drawState.start, q, e);
+        if (drawState.start && (drawState.type === 'line' || drawState.type === 'arrow' || drawState.type === 'measure')) q = constrain(drawState.start, q, e);
         if (drawState.pts) q = constrain(drawState.pts[drawState.pts.length - 1], q, e);
       }
       drawState.cur = q; drawState.e = e;
     } else hoverSnap = q;
     drawPreview(); canvas.requestRenderAll();
-  } else if (tool === 'select' && !opt.target && !canvas._currentTransform) {
-    const g = hitGuide(e); setCursorOnce(g ? (g.o === 'v' ? 'ew-resize' : 'ns-resize') : 'default');
+  } else if (tool === 'select' && !canvas._currentTransform) {
+    const g = hitGuide(e);
+    if (g) canvas.setCursor(g.o === 'v' ? 'ew-resize' : 'ns-resize'); else if (!opt.target) setCursorOnce('default');
   }
   scheduleRulers();
 });
@@ -1858,11 +2009,13 @@ canvas.on('mouse:up', opt => {
 });
 canvas.on('mouse:dblclick', opt => {
   if (drawState && drawState.pts) { finishDraw(); return; }
+  if (tool === 'select') { const g = hitGuide(opt.e); if (g) { doc.guides.splice(doc.guides.indexOf(g), 1); guideDrag = null; invalidateSnap(); canvas.requestRenderAll(); commit(); toast('Guia removida.'); return; } }
+  if (editingPoly) { if (insertVertexAt(editingPoly, canvas.getPointer(opt.e))) return; }
   if (cropState) { applyCrop(); return; }
   if (tool !== 'select' || !opt.target) return;
   const t = opt.target;
   if (t.type === 'image') enterCrop(t);
-  else if (t.type === 'polyline' || t.type === 'polygon') { canvas.setActiveObject(t); togglePolyEdit(true); }
+  else if (isPoly(t)) { canvas.setActiveObject(t); togglePolyEdit(true); }
 });
 canvas.on('mouse:out', () => { cursorScreen = null; hoverSnap = null; if (!drawState) canvas.clearContext(canvas.contextTop); scheduleRulers(); });
 
@@ -1923,70 +2076,126 @@ function fitImageToFrame(img) {
   img.setCoords(); canvas.requestRenderAll(); commit();
 }
 
-/* ---------------- Recorte simples (duplo clique) ---------------- */
+/* ---------------- Recorte poligonal livre (duplo clique na imagem) ---------------- */
 let cropState = null;
-function enterCrop(img) {
-  if (!img || img.type !== 'image') { toast('Selecione uma imagem para recortar.'); return; }
-  if (isLk(img)) { toast('Destrave a imagem para recortar.'); return; }
-  if (editingPoly) togglePolyEdit(false);
-  if (tool !== 'select') setTool('select');
-  canvas.discardActiveObject();
+function clipScenePoints(img) {
+  const cp = img.clipPath, M = img.calcTransformMatrix();
+  if (!cp) {
+    const w = img.width / 2, h = img.height / 2;
+    return [[-w, -h], [w, -h], [w, h], [-w, h]].map(([x, y]) => fabric.util.transformPoint({ x, y }, M));
+  }
+  const CM = fabric.util.multiplyTransformMatrices(M, cp.calcTransformMatrix());
+  let local;
+  if (cp.points) local = cp.points.map(p => ({ x: p.x - cp.pathOffset.x, y: p.y - cp.pathOffset.y }));
+  else if (cp.type === 'ellipse' || cp.type === 'circle') { const rx = cp.rx || cp.radius, ry = cp.ry || cp.radius; local = []; for (let i = 0; i < 36; i++) { const a = i * Math.PI * 2 / 36; local.push({ x: Math.cos(a) * rx, y: Math.sin(a) * ry }); } }
+  else { const w = cp.width / 2, h = cp.height / 2; local = [{ x: -w, y: -h }, { x: w, y: -h }, { x: w, y: h }, { x: -w, y: h }]; }
+  return local.map(p => fabric.util.transformPoint(p, CM));
+}
+/* Converte recorte retangular antigo (cropX/width) em imagem inteira + polígono equivalente */
+function normalizeCrop(img) {
   const el = img.getElement(), natW = el.naturalWidth || el.width, natH = el.naturalHeight || el.height;
-  const M = img.calcTransformMatrix();
-  const offLocal = { x: natW / 2 - ((img.cropX || 0) + img.width / 2), y: natH / 2 - ((img.cropY || 0) + img.height / 2) };
-  const fullCenter = fabric.util.transformPoint(offLocal, M);
-  const common = { scaleX: img.scaleX, scaleY: img.scaleY, angle: img.angle, flipX: img.flipX, flipY: img.flipY, selectable: false, evented: false, objectCaching: false, kvTemp: true };
-  const ghost = new fabric.Image(el, { ...common, opacity: 0.3 });
-  ghost.setPositionByOrigin(fullCenter, 'center', 'center');
-  const rect = new fabric.Rect({ width: img.width, height: img.height, scaleX: img.scaleX, scaleY: img.scaleY, angle: img.angle,
-    fill: 'rgba(0,0,0,0.001)', stroke: BRAND, strokeWidth: 1.5, strokeUniform: true, strokeDashArray: [6, 4], lockRotation: true, lockSkewingX: true, lockSkewingY: true,
-    objectCaching: false, kvTemp: true, cornerSize: 12, cornerColor: BRAND });
-  rect.setControlsVisibility({ mtr: false });
-  rect.setPositionByOrigin(img.getCenterPoint(), 'center', 'center');
-  const bright = new fabric.Image(el, { ...common, opacity: img.opacity, clipPath: rect });
-  bright.clipPath.absolutePositioned = true;
-  bright.setPositionByOrigin(fullCenter, 'center', 'center');
-  const idx = canvas.getObjects().indexOf(img);
-  img.visible = false;
-  canvas.insertAt(ghost, idx + 1); canvas.insertAt(bright, idx + 2); canvas.add(rect); raiseChrome();
-  cropState = { img, ghost, bright, rect, natW, natH, M };
-  canvas.setActiveObject(rect); canvas.requestRenderAll();
-  status('Recorte: ajuste as alças · Enter ou duplo clique aplica · Esc cancela');
-  refreshCtx();
-}
-function exitCrop() {
-  const s = cropState; if (!s) return; cropState = null;
-  [s.ghost, s.bright, s.rect].forEach(o => canvas.remove(o));
-  s.img.visible = true; s.img.setCoords();
-  canvas.setActiveObject(s.img); canvas.requestRenderAll(); refreshCtx(); refreshPanel();
-  status('Pronto');
-}
-function applyCrop() {
-  const s = cropState; if (!s) return;
-  const { img, rect, natW, natH, M } = s;
-  const inv = fabric.util.invertTransform(M), c = fabric.util.transformPoint(rect.getCenterPoint(), inv);
-  const rw = Math.abs(rect.width * rect.scaleX / img.scaleX), rh = Math.abs(rect.height * rect.scaleY / img.scaleY);
-  const ox = (img.cropX || 0) + img.width / 2, oy = (img.cropY || 0) + img.height / 2;
-  let x0 = clamp(ox + c.x - rw / 2, 0, natW), y0 = clamp(oy + c.y - rh / 2, 0, natH);
-  let x1 = clamp(ox + c.x + rw / 2, 0, natW), y1 = clamp(oy + c.y + rh / 2, 0, natH);
-  if (x1 - x0 < 2 || y1 - y0 < 2) { exitCrop(); toast('Recorte muito pequeno — ignorado.'); return; }
-  const dL = { x: (x0 + x1) / 2 - ox, y: (y0 + y1) / 2 - oy }, newCenter = fabric.util.transformPoint(dL, M);
-  img.set({ cropX: x0, cropY: y0, width: x1 - x0, height: y1 - y0 });
-  if (img.clipPath) img.clipPath.set({ left: img.clipPath.left - dL.x, top: img.clipPath.top - dL.y });
-  img.setPositionByOrigin(newCenter, 'center', 'center'); img.dirty = true;
-  exitCrop(); commit(); toast('Recorte aplicado.');
-}
-function resetCrop() {
-  const s = cropState; if (!s) return;
-  const { img, natW, natH, M } = s;
+  if (!(img.cropX || img.cropY) && Math.abs(img.width - natW) < 0.5 && Math.abs(img.height - natH) < 0.5) return;
+  const pts = clipScenePoints(img), M = img.calcTransformMatrix();
   const dL = { x: natW / 2 - ((img.cropX || 0) + img.width / 2), y: natH / 2 - ((img.cropY || 0) + img.height / 2) };
   const newCenter = fabric.util.transformPoint(dL, M);
   img.set({ cropX: 0, cropY: 0, width: natW, height: natH });
-  if (img.clipPath) img.clipPath.set({ left: img.clipPath.left - dL.x, top: img.clipPath.top - dL.y });
-  img.setPositionByOrigin(newCenter, 'center', 'center'); img.dirty = true;
-  exitCrop(); commit(); toast('Imagem restaurada ao original.');
+  img.setPositionByOrigin(newCenter, 'center', 'center'); img.setCoords();
+  const inv = fabric.util.invertTransform(img.calcTransformMatrix());
+  img.clipPath = new fabric.Polygon(pts.map(p => fabric.util.transformPoint(p, inv)), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false });
 }
+function enterCrop(img) {
+  if (!img || img.type !== 'image') { toast('Selecione uma imagem para recortar.'); return; }
+  if (isLk(img)) { toast('Desbloqueie a imagem para recortar.'); return; }
+  if (editingPoly) togglePolyEdit(false);
+  if (tool !== 'select') setTool('select');
+  canvas.discardActiveObject();
+  const backup = { cropX: img.cropX, cropY: img.cropY, width: img.width, height: img.height, left: img.left, top: img.top, clip: img.clipPath ? img.clipPath.toObject() : null };
+  normalizeCrop(img);
+  const pts = clipScenePoints(img);
+  const ghost = new fabric.Image(img.getElement(), { scaleX: img.scaleX, scaleY: img.scaleY, angle: img.angle, flipX: img.flipX, flipY: img.flipY, left: img.left, top: img.top,
+    originX: img.originX, originY: img.originY, width: img.width, height: img.height, opacity: 0.3, selectable: false, evented: false, objectCaching: false, kvTemp: true });
+  const poly = new fabric.Polygon(pts, { fill: 'rgba(0,0,0,0.001)', stroke: BRAND, strokeWidth: 1.5, strokeUniform: true, strokeDashArray: [6, 4], objectCaching: false, kvTemp: true, cornerSize: 12, cornerColor: BRAND, perPixelTargetFind: false });
+  const oldClip = img.clipPath;
+  img.clipPath = poly; poly.absolutePositioned = true; img.dirty = true;
+  const idx = canvas.getObjects().indexOf(img);
+  canvas.insertAt(ghost, idx); canvas.add(poly); raiseChrome();
+  cropState = { img, ghost, poly, backup, oldClip };
+  canvas.setActiveObject(poly); togglePolyEdit(true);
+  canvas.requestRenderAll();
+  status('Recorte: arraste os vértices · duplo clique na borda cria vértice · Alt+clique remove · Enter aplica · Esc cancela');
+  refreshCtx();
+}
+function finishCropUI() {
+  const s = cropState; cropState = null;
+  if (editingPoly === s.poly) { s.poly.kvEditing = false; editingPoly = null; }
+  canvas.remove(s.ghost); canvas.remove(s.poly);
+  s.img.dirty = true; s.img.setCoords();
+  canvas.setActiveObject(s.img); canvas.requestRenderAll(); refreshCtx(); refreshPanel(); status('Pronto');
+}
+function exitCrop() {   // cancelar
+  const s = cropState; if (!s) return;
+  const b = s.backup, img = s.img;
+  img.set({ cropX: b.cropX, cropY: b.cropY, width: b.width, height: b.height, left: b.left, top: b.top });
+  img.clipPath = null;
+  if (b.clip) fabric.util.enlivenObjects([b.clip], arr => { img.clipPath = arr[0] || null; img.dirty = true; canvas.requestRenderAll(); });
+  finishCropUI();
+}
+function applyCrop() {
+  const s = cropState; if (!s) return;
+  const img = s.img, pts = vertsOf(s.poly);
+  const inv = fabric.util.invertTransform(img.calcTransformMatrix());
+  img.clipPath = new fabric.Polygon(pts.map(p => fabric.util.transformPoint(p, inv)), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false });
+  finishCropUI(); commit(); toast('Recorte aplicado.');
+}
+function resetCrop() {
+  const s = cropState; if (!s) return;
+  s.img.clipPath = null; finishCropUI(); commit(); toast('Imagem restaurada ao original.');
+}
+canvas.on('object:moving', e => { if (cropState && e.target === cropState.poly) cropState.img.dirty = true; });
+canvas.on('object:scaling', e => { if (cropState && e.target === cropState.poly) cropState.img.dirty = true; });
+canvas.on('object:rotating', e => { if (cropState && e.target === cropState.poly) cropState.img.dirty = true; });
 
+/* ---------------- Medição ---------------- */
+let lastMeasure = null;
+function metersPerPtAt(p) {
+  const imgs = userObjects().filter(o => o.type === 'image' && o.visible && o.kvGeo && o.containsPoint(new fabric.Point(p.x, p.y), null, true));
+  const im = imgs[imgs.length - 1];
+  if (im) return { mpp: im.kvGeo.mpp / Math.abs(im.scaleX), label: `escala da imagem 1:${Math.round(im.kvGeo.mpp / (Math.abs(im.scaleX) * 0.0254 / 72)).toLocaleString('pt-BR')}`, approx: im.kvGeo.approx };
+  const N = +sheetAt(p).stamp.escala;
+  if (N > 0) return { mpp: N * 0.0254 / 72, label: `escala da folha 1:${N.toLocaleString('pt-BR')}` };
+  return null;
+}
+function fmtLen(m) { return m >= 1000 ? fmt(m / 1000, 3) + ' km' : m >= 10 ? fmt(m, 1) + ' m' : fmt(m, 2) + ' m'; }
+function measureInfo(a, b) {
+  const dpt = Math.hypot(b.x - a.x, b.y - a.y), mm = pt2mm(dpt), sc = metersPerPtAt(a);
+  const ang = (Math.atan2(-(b.y - a.y), b.x - a.x) * 180 / Math.PI + 360) % 360;
+  return { mm, real: sc ? dpt * sc.mpp : null, sc, ang };
+}
+function drawMeasure(ctx, a, b) {
+  const v = canvas.viewportTransform, A = fabric.util.transformPoint(a, v), B = fabric.util.transformPoint(b, v);
+  const inf = measureInfo(a, b), ang = Math.atan2(B.y - A.y, B.x - A.x), nx = -Math.sin(ang) * 6, ny = Math.cos(ang) * 6;
+  ctx.save(); ctx.setLineDash([]); ctx.lineWidth = 1.5; ctx.strokeStyle = '#ff5632';
+  ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y);
+  [A, B].forEach(P => { ctx.moveTo(P.x - nx, P.y - ny); ctx.lineTo(P.x + nx, P.y + ny); });
+  ctx.stroke();
+  const txt = `${fmt(inf.mm)} mm${inf.real !== null ? '  ·  ' + fmtLen(inf.real) : ''}  ·  ${Math.round(inf.ang)}°`;
+  ctx.font = '600 12px Hind, system-ui, sans-serif';
+  const w = ctx.measureText(txt).width + 12, mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 - 18;
+  ctx.fillStyle = 'rgba(48,48,48,0.92)'; ctx.fillRect(mx - w / 2, my - 11, w, 22);
+  ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, mx, my);
+  ctx.restore();
+}
+function insertDimension() {
+  if (!lastMeasure) return;
+  const { a, b } = lastMeasure, inf = measureInfo(a, b);
+  const line = new fabric.Kvarrow([a.x, a.y, b.x, b.y], { ...styleFor('open'), stroke: defStyle.stroke || 'rgba(0,0,0,1)', headSize: mm2pt(2.5), arrowStart: 'tick', arrowEnd: 'tick', strokeDashArray: null, kvDash: 'solid' });
+  let ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI; if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
+  const rad = ang * Math.PI / 180, off = mm2pt(1.6), mx = (a.x + b.x) / 2 + Math.sin(rad) * off, my = (a.y + b.y) / 2 - Math.cos(rad) * off;
+  const label = new fabric.Text(inf.real !== null ? fmtLen(inf.real) : `${fmt(inf.mm)} mm`, { left: mx, top: my, originX: 'center', originY: 'bottom', angle: ang, fontFamily: 'Hind', fontSize: 7, fill: defStyle.stroke || 'rgba(0,0,0,1)' });
+  const g = new fabric.Group([line, label], {});
+  lastMeasure = null; canvas.clearContext(canvas.contextTop);
+  addUser(g, 'Cota', true); setTool('select');
+}
 /* ---------------- Máscara poligonal ---------------- */
 function applyMaskPoints(img, pts) {
   if (!img || !canvas.contains(img)) { toast('A imagem da máscara não está mais na prancha.', true); return; }
@@ -1998,7 +2207,7 @@ function applyMaskPoints(img, pts) {
 }
 function maskWithShape() {
   const objs = canvas.getActiveObjects(), img = objs.find(o => o.type === 'image'), shape = objs.find(o => o !== img);
-  if (objs.length !== 2 || !img || !shape || !['polygon', 'polyline', 'rect', 'ellipse', 'circle', 'path'].includes(shape.type)) { toast('Selecione a imagem e uma forma (polígono, retângulo ou elipse) com Shift+clique.'); return; }
+  if (objs.length !== 2 || !img || !shape || !['polygon', 'polyline', 'kvpolyline', 'rect', 'ellipse', 'circle', 'path'].includes(shape.type)) { toast('Selecione a imagem e uma forma (polígono, retângulo ou elipse) com Shift+clique.'); return; }
   canvas.discardActiveObject();
   const rel = fabric.util.multiplyTransformMatrices(fabric.util.invertTransform(img.calcTransformMatrix()), shape.calcTransformMatrix());
   shape.clone(cl => {
@@ -2030,6 +2239,7 @@ function polyActionHandler(eventData, transform, x, y) {
   const local = o.toLocalPoint(target, 'center', 'center');
   const base = sizeWithStroke(o), size = o._getTransformedDimensions(0, 0);
   o.points[ctl.pointIndex] = { x: local.x * base.x / size.x + o.pathOffset.x, y: local.y * base.y / size.y + o.pathOffset.y };
+  if (cropState && o === cropState.poly) cropState.img.dirty = true;
   return true;
 }
 function anchorWrapper(anchorIndex, fn) {
@@ -2045,19 +2255,53 @@ function anchorWrapper(anchorIndex, fn) {
   };
 }
 let editingPoly = null;
+function setPolyControls(o) {
+  const last = o.points.length - 1;
+  o.controls = o.points.reduce((acc, p, i) => {
+    acc['p' + i] = new fabric.Control({ positionHandler: polyPositionHandler, actionHandler: anchorWrapper(i > 0 ? i - 1 : last, polyActionHandler), actionName: 'modifyPolygon', pointIndex: i, cursorStyle: 'crosshair' });
+    return acc;
+  }, {});
+}
+/* Redefine os vértices a partir de pontos absolutos, zerando a transformação (geometria preservada) */
+function setPolyScenePoints(o, pts) {
+  o.set({ angle: 0, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, flipX: false, flipY: false });
+  o.points = pts.map(p => ({ x: p.x, y: p.y }));
+  o._setPositionDimensions({});
+  if (o.kvEditing) setPolyControls(o);
+  o.setCoords(); o.dirty = true;
+  if (cropState && o === cropState.poly) cropState.img.dirty = true;
+  invalidateSnap(); canvas.requestRenderAll();
+}
+function insertVertexAt(o, p) {
+  const pts = vertsOf(o), n = pts.length, closed = o.type === 'polygon', th = 10 / canvas.getZoom();
+  let best = -1, bd = th, bp = null;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const a = pts[i], b = pts[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+    const t = clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / L2, 0, 1), q = { x: a.x + t * dx, y: a.y + t * dy }, d = Math.hypot(q.x - p.x, q.y - p.y);
+    if (d < bd && t > 0.02 && t < 0.98) { bd = d; best = i; bp = q; }
+  }
+  if (best < 0) return false;
+  const sp = snapPoint(bp, null); pts.splice(best + 1, 0, { x: sp.x, y: sp.y });
+  setPolyScenePoints(o, pts);
+  if (!(cropState && o === cropState.poly)) commit();
+  status(`Vértice criado (${pts.length} vértices)`);
+  return true;
+}
+function removeVertex(o, i) {
+  const pts = vertsOf(o), min = o.type === 'polygon' ? 3 : 2;
+  if (pts.length <= min) { toast(`Mínimo de ${min} vértices.`); return; }
+  pts.splice(i, 1); setPolyScenePoints(o, pts);
+  if (!(cropState && o === cropState.poly)) commit();
+}
 function togglePolyEdit(force) {
   const o = editingPoly || canvas.getActiveObject();
-  if (!o || !['polyline', 'polygon'].includes(o.type)) return;
+  if (!isPoly(o)) return;
   const on = force !== undefined ? force : !o.kvEditing;
   o.kvEditing = on;
   if (on) {
-    const last = o.points.length - 1;
-    o.controls = o.points.reduce((acc, p, i) => {
-      acc['p' + i] = new fabric.Control({ positionHandler: polyPositionHandler, actionHandler: anchorWrapper(i > 0 ? i - 1 : last, polyActionHandler), actionName: 'modifyPolygon', pointIndex: i });
-      return acc;
-    }, {});
+    setPolyControls(o);
     o.hasBorders = false; editingPoly = o; invalidateSnap();
-    status('Editando vértices · Esc conclui');
+    status('Vértices: arraste · duplo clique na borda cria vértice · Alt+clique no vértice remove · Esc conclui');
   } else {
     o.controls = fabric.Object.prototype.controls; o.hasBorders = true; editingPoly = null; o.setCoords(); snapLines = [];
   }
@@ -2078,7 +2322,7 @@ function snapshot() {
   const objects = mode === 'tpl' ? (presStore || []) : userObjects().map(o => canvas._toObject(o, 'toObject', PROPS));
   return { doc: JSON.parse(JSON.stringify(doc)), objects };
 }
-function allSer(snap) { const out = [snap.objects || []]; ((snap.doc && snap.doc.templates) || []).forEach(t => out.push(t.objects || [])); return out; }
+function allSer(snap) { const out = [snap.objects || []]; ((snap.doc && snap.doc.templates) || []).forEach(t => out.push(t.objects || [])); ((snap.doc && snap.doc.pres) || []).forEach(p => out.push(p.objects || [])); return out; }
 function walkAll(snap, fn) { allSer(snap).forEach(list => walkSer(list, fn)); }
 function commit() {
   if (restoring) return;
@@ -2651,11 +2895,14 @@ $('#c-add-scale').onclick = $('#im-add-scale').onclick = () => insertSymbol('sca
 })();
 
 /* ---------------- Barra contextual e painel Objeto ---------------- */
-const isText = o => ['textbox', 'i-text', 'text'].includes(o.type);
+const isText = o => ['textbox', 'i-text', 'text', 'kvtext'].includes(o.type);
+const hasHeads = o => o.type === 'kvarrow' || o.type === 'kvpolyline';
+const CHAR_PROPS = ['fill', 'fontSize', 'fontWeight', 'fontStyle', 'underline', 'fontFamily', 'linethrough'];
+const editSel = () => { const a = canvas.getActiveObject(); return a && isText(a) && a.isEditing && a.selectionStart !== a.selectionEnd ? a : null; };
 const isLine = o => ['line', 'kvarrow'].includes(o.type);
 const noFill = o => isLine(o) || o.type === 'image' || !!o.kvSym;
-const TYPE_LABEL = { line: 'Linha', kvarrow: 'Linha', polyline: 'Polilinha', polygon: 'Polígono', rect: 'Retângulo', ellipse: 'Elipse', textbox: 'Texto', image: 'Imagem', group: 'Grupo', text: 'Texto' };
-const TYPE_ICON = { line: 'line', kvarrow: 'arrow', polyline: 'polyline', polygon: 'polygon', rect: 'square', ellipse: 'circle', textbox: 'type', image: 'image', group: 'groupSm', text: 'type' };
+const TYPE_LABEL = { line: 'Linha', kvarrow: 'Linha', polyline: 'Polilinha', polygon: 'Polígono', rect: 'Retângulo', ellipse: 'Elipse', textbox: 'Texto', kvtext: 'Texto', kvpolyline: 'Polilinha', image: 'Imagem', group: 'Grupo', text: 'Texto' };
+const TYPE_ICON = { line: 'line', kvarrow: 'arrow', polyline: 'polyline', polygon: 'polygon', rect: 'square', ellipse: 'circle', textbox: 'type', kvtext: 'type', kvpolyline: 'polyline', image: 'image', group: 'groupSm', text: 'type' };
 function targets() {
   const out = [], walk = o => { if (o.type === 'group' && !o.kvRole && !o.kvSym) o.getObjects().forEach(walk); else out.push(o); };
   canvas.getActiveObjects().filter(o => !o.kvTemp).forEach(walk); return out;
@@ -2670,44 +2917,50 @@ const setPressed = (el, v) => el.setAttribute('aria-pressed', String(!!v));
 const setVal = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
 
 function refreshCtx() {
-  const bar = ['#cg-symbol', '#cg-vertex', '#cg-order', '#cg-crop', '#cg-stroke', '#cg-arrow', '#cg-fill', '#cg-text', '#cg-image', '#cg-opacity', '#cg-align'];
-  if (cropState) { bar.forEach(s => show(s, s === '#cg-crop')); $('#ctx-info').textContent = 'Ajuste as alças do recorte'; return; }
+  const bar = ['#cg-measure', '#cg-symbol', '#cg-vertex', '#cg-order', '#cg-crop', '#cg-stroke', '#cg-arrow', '#cg-fill', '#cg-text', '#cg-image', '#cg-opacity', '#cg-align'];
+  if (cropState) { bar.forEach(s => show(s, s === '#cg-crop')); $('#ctx-info').textContent = 'Recorte: arraste vértices · duplo clique na borda cria · Alt+clique remove'; return; }
   const t = targets(), objs = canvas.getActiveObjects().filter(o => !o.kvTemp), first = t[0];
   let ctx;
   if (t.length) {
-    ctx = { stroke: t.some(o => !isText(o) && o.type !== 'image' && !o.kvSym), fill: t.some(o => !noFill(o)), arrow: t.some(o => o.type === 'kvarrow'), text: t.some(isText), image: t.some(o => o.type === 'image'), align: true };
+    ctx = { stroke: t.some(o => !isText(o) && o.type !== 'image' && !o.kvSym), fill: t.some(o => !noFill(o)), arrow: t.some(hasHeads), text: t.some(isText), image: t.some(o => o.type === 'image'), align: true };
     $('#ctx-info').textContent = objs.length === 1 ? (objs[0].kvName || TYPE_LABEL[objs[0].type] || 'Objeto') + (isLk(objs[0]) ? ' · bloqueado' : '') : `${objs.length} objetos`;
   } else {
     const k = tool;
     ctx = {
       stroke: ['line', 'polyline', 'arrow', 'polygon', 'rect', 'ellipse', 'shape', 'select'].includes(k),
       fill: ['polygon', 'rect', 'ellipse', 'shape', 'text', 'select'].includes(k),
-      arrow: k === 'arrow' || k === 'line', text: k === 'text', image: false, align: false
+      arrow: k === 'arrow' || k === 'line' || k === 'polyline', text: k === 'text', image: false, align: false
     };
-    $('#ctx-info').textContent = k === 'select' ? 'Estilo padrão dos novos desenhos' : 'Estilo da ferramenta';
+    if (k === 'measure') { ctx.stroke = ctx.fill = false; }
+    $('#ctx-info').textContent = k === 'select' ? 'Estilo padrão dos novos desenhos' : k === 'measure' ? 'Medição' : 'Estilo da ferramenta';
   }
   show('#cg-crop', false); show('#cg-stroke', ctx.stroke); show('#cg-fill', ctx.fill); show('#cg-arrow', ctx.arrow); show('#cg-text', ctx.text);
   const single1 = objs.length === 1 ? objs[0] : null;
-  show('#cg-vertex', !!single1 && ['polygon', 'polyline'].includes(single1.type));
-  if (single1 && ['polygon', 'polyline'].includes(single1.type)) { setPressed($('#c-vertex'), single1.kvEditing); $('#c-vertex-lbl').textContent = single1.kvEditing ? 'Concluir' : 'Vértices'; }
+  show('#cg-measure', tool === 'measure' && !t.length);
+  if (tool === 'measure') { const inf = lastMeasure ? measureInfo(lastMeasure.a, lastMeasure.b) : null; $('#m-result').textContent = inf ? `${fmt(inf.mm)} mm no papel${inf.real !== null ? ' · ' + fmtLen(inf.real) + ' (' + inf.sc.label + (inf.sc.approx ? ', aprox.' : '') + ')' : ' · sem escala definida'} · ${Math.round(inf.ang)}°` : 'Arraste para medir'; $('#m-dim').disabled = !inf; }
+  show('#cg-vertex', !!single1 && isPoly(single1));
+  if (single1 && isPoly(single1)) { setPressed($('#c-vertex'), single1.kvEditing); $('#c-vertex-lbl').textContent = single1.kvEditing ? 'Concluir' : 'Vértices'; }
   show('#cg-image', ctx.image); show('#cg-align', ctx.align); show('#cg-order', ctx.align); show('#cg-opacity', true);
   $('#lb-fill').textContent = ctx.text && !t.some(o => !noFill(o) && !isText(o)) ? 'Cor' : 'Preench.';
   const src = first ? {
     stroke: colorParts(first.stroke), fill: colorParts(isText(first) || !noFill(first) ? first.fill : (t.find(o => !noFill(o)) || {}).fill),
     strokeMm: pt2mm(first.strokeWidth || 0), dash: first.kvDash || 'solid', opacity: first.opacity ?? 1,
-    headMm: pt2mm((t.find(o => o.type === 'kvarrow') || {}).headSize || mm2pt(defStyle.headMm)),
-    aStart: (t.find(o => o.type === 'kvarrow') || {}).arrowStart || 'none', aEnd: (t.find(o => o.type === 'kvarrow') || {}).arrowEnd || 'none'
+    headMm: pt2mm((t.find(hasHeads) || {}).headSize || mm2pt(defStyle.headMm)),
+    aStart: (t.find(hasHeads) || {}).arrowStart || 'none', aEnd: (t.find(hasHeads) || {}).arrowEnd || 'none'
   } : {
     stroke: colorParts(defStyle.stroke), fill: colorParts(tool === 'text' ? defText.fill : defStyle.fill), strokeMm: defStyle.strokeMm, dash: defStyle.dash,
-    opacity: defStyle.opacity, headMm: defStyle.headMm, aStart: tool === 'line' ? 'none' : defStyle.arrowStart, aEnd: tool === 'line' ? 'none' : defStyle.arrowEnd
+    opacity: defStyle.opacity, headMm: defStyle.headMm, aStart: tool === 'line' || tool === 'polyline' ? defStyle.lineStart : defStyle.arrowStart, aEnd: tool === 'line' || tool === 'polyline' ? defStyle.lineEnd : defStyle.arrowEnd
   };
   setVal('#c-stroke', src.stroke.hex); setPressed($('#c-stroke-none'), src.stroke.none);
   setVal('#c-width', Math.round(src.strokeMm * 100) / 100); setVal('#c-dash', src.dash);
   setVal('#c-fill', src.fill.hex); setPressed($('#c-fill-none'), src.fill.none); setVal('#c-fill-a', Math.round(src.fill.a * 100));
   setVal('#c-op', Math.round(src.opacity * 100)); setVal('#c-op-n', Math.round(src.opacity * 100));
   setVal('#c-head', Math.round(src.headMm * 10) / 10); setVal('#c-start', src.aStart); setVal('#c-end', src.aEnd);
-  const x = t.find(isText) || (tool === 'text' ? defText : null);
+  let x = t.find(isText) || (tool === 'text' ? defText : null);
+  const es = editSel();
+  if (es) { const st = es.getSelectionStyles(es.selectionStart, es.selectionStart + 1, true)[0] || {}; x = { ...es, ...st, textAlign: es.textAlign, lineHeight: es.lineHeight, paraSpace: es.paraSpace }; setVal('#c-fill', colorParts(x.fill).hex); $('#ctx-info').textContent = 'Texto selecionado'; }
   if (x) {
+    setVal('#c-para', r1(x.paraSpace || 0));
     setVal('#c-font', x.fontFamily); setVal('#c-size', x.fontSize); setVal('#c-lh', x.lineHeight);
     setPressed($('#c-bold'), x.fontWeight === 'bold' || +x.fontWeight >= 600); setPressed($('#c-italic'), x.fontStyle === 'italic'); setPressed($('#c-underline'), x.underline);
     $$('#c-align button').forEach(b => setPressed(b, b.dataset.align === x.textAlign));
@@ -2733,7 +2986,18 @@ function refreshPanel() {
     $('#im-reload').disabled = !L; $('#im-mask-clear').disabled = !im.clipPath;
   }
   const single = objs.length === 1 ? objs[0] : null;
-  show('#sec-poly', !!single && ['polyline', 'polygon'].includes(single.type));
+  show('#sec-poly', !!single && isPoly(single));
+  if (single && (isPoly(single) || ['rect', 'ellipse'].includes(single.type))) {
+    let pts = vertsOf(single);
+    if (single.type === 'ellipse') { const M = single.calcTransformMatrix(); pts = []; for (let i = 0; i < 72; i++) { const a = i * Math.PI / 36; pts.push(fabric.util.transformPoint({ x: Math.cos(a) * single.rx, y: Math.sin(a) * single.ry }, M)); } }
+    const closed = single.type !== 'polyline' && single.type !== 'kvpolyline';
+    let area = 0, per = 0;
+    for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; if (closed || i < pts.length - 1) per += Math.hypot(q.x - p.x, q.y - p.y); area += p.x * q.y - q.x * p.y; }
+    area = Math.abs(area) / 2;
+    const sc = metersPerPtAt(single.getCenterPoint());
+    $('#geo-measure').textContent = sc ? `${closed ? 'Área: ' + fmt(area * sc.mpp * sc.mpp, 1) + ' m² · ' : ''}${closed ? 'Perímetro' : 'Comprimento'}: ${fmtLen(per * sc.mpp)} (${sc.label})` : `${closed ? 'Perímetro' : 'Comprimento'} no papel: ${fmt(pt2mm(per))} mm (defina a escala para medir em metros)`;
+    $('#geo-measure').hidden = false;
+  } else $('#geo-measure').hidden = true;
   $('#obj-lock').textContent = objs.some(o => o.kvLocked) ? 'Desbloquear' : 'Bloquear';
   if (imgs.length) refreshGeoUI(imgs[0]);
   refreshSymUI();
@@ -2771,6 +3035,8 @@ function applyStyle(key) {
   const wMm = Math.max(0, parseFloat($('#c-width').value) || 0), dash = $('#c-dash').value;
   const op = clamp(+$('#c-op-n').value || 0, 0, 100) / 100, head = Math.max(0.5, parseFloat($('#c-head').value) || 4);
   const aS = $('#c-start').value, aE = $('#c-end').value;
+  const es = editSel();
+  if (es && key === 'fill') { es.setSelectionStyles({ fill: fNone ? 'rgba(0,0,0,1)' : rgba(fHex, fA || 1) }); es.dirty = true; canvas.requestRenderAll(); commit(); return; }
   const t = targets();
   if (!t.length) {
     if (key === 'stroke') defStyle.stroke = sNone ? '' : rgba(sHex, 1);
@@ -2779,18 +3045,18 @@ function applyStyle(key) {
     if (key === 'dash') defStyle.dash = dash;
     if (key === 'opacity') defStyle.opacity = op;
     if (key === 'head') defStyle.headMm = head;
-    if (key === 'arrow' && tool !== 'line') { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; }
+    if (key === 'arrow') { if (tool === 'line' || tool === 'polyline') { defStyle.lineStart = aS; defStyle.lineEnd = aE; } else { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; } }
     return;
   }
   t.forEach(o => {
     if (o.kvRole) return;
     if (key === 'stroke' && !isText(o)) { const a0 = colorParts(o.stroke); o.set('stroke', sNone ? null : rgba(sHex, a0.none ? 1 : a0.a)); }
-    if (key === 'fill' && !noFill(o)) o.set('fill', fNone ? '' : rgba(fHex, fA));
+    if (key === 'fill' && !noFill(o)) { o.set('fill', fNone ? '' : rgba(fHex, fA)); if (isText(o) && o.removeStyle) { o.removeStyle('fill'); o.initDimensions && o.initDimensions(); } }
     if (key === 'width' && !isText(o) && o.type !== 'image') { const sw = mm2pt(wMm); o.set({ strokeWidth: sw, strokeDashArray: dashArr(o.kvDash, sw) }); }
     if (key === 'dash' && !isText(o) && o.type !== 'image') { o.kvDash = dash; o.set({ strokeDashArray: dashArr(dash, o.strokeWidth), strokeLineCap: dash === 'dot' ? 'round' : 'butt' }); }
     if (key === 'opacity') o.set('opacity', op);
-    if (key === 'head' && o.type === 'kvarrow') o.set('headSize', mm2pt(head));
-    if (key === 'arrow' && o.type === 'kvarrow') { o.set({ arrowStart: aS, arrowEnd: aE }); o.kvName = o.kvName && /^(Linha|Seta)\b/.test(o.kvName) ? o.kvName.replace(/^(Linha|Seta)/, aS === 'none' && aE === 'none' ? 'Linha' : 'Seta') : o.kvName; }
+    if (key === 'head' && hasHeads(o)) o.set('headSize', mm2pt(head));
+    if (key === 'arrow' && hasHeads(o)) { o.set({ arrowStart: aS, arrowEnd: aE }); o.kvName = o.kvName && /^(Linha|Seta)\b/.test(o.kvName) ? o.kvName.replace(/^(Linha|Seta)/, aS === 'none' && aE === 'none' ? 'Linha' : 'Seta') : o.kvName; }
     o.dirty = true; if (o.group) o.group.dirty = true; o.setCoords();
   });
   canvas.requestRenderAll(); commit();
@@ -2809,11 +3075,83 @@ onChange('#c-head', () => applyStyle('head'), 'input');
 onChange('#c-start', () => applyStyle('arrow')); onChange('#c-end', () => applyStyle('arrow'));
 
 function applyText(props) {
+  const es = editSel(), charOnly = Object.keys(props).every(k => CHAR_PROPS.includes(k));
+  if (es && charOnly) {
+    es.setSelectionStyles(props); es.initDimensions(); es.dirty = true; es.setCoords();
+    canvas.requestRenderAll(); commit(); refreshCtx();
+    if (es.hiddenTextarea && !/^(INPUT)$/.test((document.activeElement || {}).tagName || '')) es.hiddenTextarea.focus();
+    return;
+  }
   const t = targets().filter(isText);
   if (!t.length) { Object.assign(defText, props); refreshCtx(); return; }
-  t.forEach(o => { o.set(props); o.initDimensions && o.initDimensions(); o.dirty = true; o.setCoords(); });
+  t.forEach(o => {
+    o.set(props);
+    Object.keys(props).forEach(k => { if (CHAR_PROPS.includes(k) && o.removeStyle) o.removeStyle(k); });
+    o.initDimensions && o.initDimensions(); o.dirty = true; o.setCoords();
+  });
   canvas.requestRenderAll(); commit(); refreshCtx();
 }
+/* Listas: marcadores reais no texto (• ou 1.), com recuo pendente; Enter continua a lista */
+function paraRange(o) {
+  const lines = o.text.split('\n'), starts = []; let pos = 0;
+  lines.forEach(l => { starts.push(pos); pos += l.length + 1; });
+  let a = 0, b = lines.length - 1;
+  if (o.isEditing) {
+    const s0 = Math.min(o.selectionStart, o.selectionEnd), s1 = Math.max(o.selectionStart, o.selectionEnd);
+    a = starts.findIndex((st, i) => s0 >= st && s0 <= st + lines[i].length);
+    b = starts.findIndex((st, i) => s1 >= st && s1 <= st + lines[i].length);
+    if (a < 0) a = 0; if (b < 0) b = lines.length - 1;
+  }
+  return { lines, starts, a, b };
+}
+function syncTA(o) { if (o.isEditing && o.hiddenTextarea) { o.hiddenTextarea.value = o.text; o._updateTextarea && o._updateTextarea(); } }
+function renumber(o) {
+  const lines = o.text.split('\n'); let n = 0, pos = 0; const edits = [];
+  lines.forEach(l => {
+    const m = l.match(LIST_RE);
+    if (m && m[1] !== undefined) { n++; const want = n + '. '; if (m[0] !== want) edits.push({ pos, len: m[0].length, txt: want }); } else n = 0;
+    pos += l.length + 1;
+  });
+  for (let i = edits.length - 1; i >= 0; i--) { const e = edits[i]; o.removeChars(e.pos, e.pos + e.len); o.insertChars(e.txt, null, e.pos); }
+}
+function toggleList(kind) {
+  const o = targets().find(isText) || editSel();
+  if (!o || !o.removeChars) { toast('Selecione uma caixa de texto (ou parágrafos dentro dela).'); return; }
+  const { lines, starts, a, b } = paraRange(o);
+  const allHave = lines.slice(a, b + 1).every(l => { const m = l.match(LIST_RE); return m && (kind === 'number' ? m[1] !== undefined : m[1] === undefined); });
+  const selS = o.selectionStart, selE = o.selectionEnd; let delta = 0;
+  for (let i = b; i >= a; i--) {
+    const m = lines[i].match(LIST_RE);
+    if (m) { o.removeChars(starts[i], starts[i] + m[0].length); delta -= m[0].length; }
+    if (!allHave) { const mk = kind === 'number' ? '1. ' : '• '; o.insertChars(mk, null, starts[i]); delta += mk.length; }
+  }
+  renumber(o);
+  if (o.isEditing) { o.selectionStart = Math.max(0, selS + (delta > 0 && a === b ? delta : 0)); o.selectionEnd = Math.max(o.selectionStart, selE + delta); }
+  o.__prevText = o.text; o.initDimensions(); o.dirty = true; o.setCoords(); syncTA(o);
+  canvas.requestRenderAll(); commit(); refreshCtx();
+  if (o.isEditing && o.hiddenTextarea) o.hiddenTextarea.focus();
+}
+canvas.on('text:changed', e => {
+  const o = e.target; if (!o || !o.insertChars) return;
+  const prev = o.__prevText ?? o.text, cur = o.text; o.__prevText = cur;
+  if (cur.length !== prev.length + 1) return;
+  const pos = o.selectionStart; if (cur[pos - 1] !== '\n') return;
+  const before = cur.slice(0, pos - 1).split('\n'), prevLine = before[before.length - 1], m = prevLine.match(LIST_RE);
+  if (!m) return;
+  if (prevLine.length === m[0].length) {   // item vazio: encerra a lista
+    const ls = pos - 1 - prevLine.length; o.removeChars(ls, pos); o.selectionStart = o.selectionEnd = ls;
+  } else {
+    const mk = m[1] !== undefined ? (parseInt(m[1], 10) + 1) + '. ' : '• ';
+    o.insertChars(mk, null, pos); o.selectionStart = o.selectionEnd = pos + mk.length;
+    renumber(o);
+  }
+  o.__prevText = o.text; o.initDimensions(); o.dirty = true; syncTA(o); canvas.requestRenderAll();
+});
+canvas.on('text:editing:entered', e => { if (e.target) e.target.__prevText = e.target.text; });
+canvas.on('text:selection:changed', () => refreshCtx());
+$('#c-list-bullet').onclick = () => toggleList('bullet');
+$('#c-list-num').onclick = () => toggleList('number');
+$('#c-para').addEventListener('change', e => { const v = Math.max(0, parseFloat(e.target.value) || 0); applyText({ paraSpace: v }); });
 onChange('#c-font', e => applyText({ fontFamily: e.target.value }));
 onChange('#c-size', e => { const v = parseFloat(e.target.value); if (v > 0) applyText({ fontSize: v }); }, 'input');
 onChange('#c-lh', e => { const v = parseFloat(e.target.value); if (v > 0) applyText({ lineHeight: v }); });
@@ -2844,6 +3182,8 @@ $('#im-mask-clear').onclick = () => { targets().filter(o => o.type === 'image').
 $('#im-fit').onclick = () => { const im = activeImage(); if (im) fitImageToFrame(im); };
 $('#im-reload').onclick = async () => { const im = activeImage(); if (!im) return; if (await reloadLinked(im, true)) { commit(); toast('Imagem recarregada.'); } else if (!im.kvLink || im.kvLink.kind !== 'giraffe') toast('Arquivo não encontrado. Vincule a pasta na aba Imagens.'); refreshPanel(); };
 $('#poly-edit').onclick = () => togglePolyEdit();
+$('#m-dim').onclick = insertDimension;
+$('#m-clear').onclick = () => { lastMeasure = null; canvas.clearContext(canvas.contextTop); refreshCtx(); };
 $('#c-vertex').onclick = () => { togglePolyEdit(); refreshCtx(); };
 /* Menu de formas */
 (function buildShapeMenu() {
@@ -2966,7 +3306,7 @@ $('#obj-group').onclick = groupSel; $('#obj-ungroup').onclick = ungroupSel;
 
 canvas.on('selection:created', () => { refreshPanel(); });
 canvas.on('selection:updated', () => {
-  if (cropState && canvas.getActiveObject() !== cropState.rect) { applyCrop(); return; }
+  if (cropState && canvas.getActiveObject() !== cropState.poly) { applyCrop(); return; }
   if (editingPoly && canvas.getActiveObject() !== editingPoly) togglePolyEdit(false);
   refreshPanel();
 });
@@ -2998,7 +3338,7 @@ function inlineRename(btn, current, onSave) {
   const inp = document.createElement('input'); inp.type = 'text'; inp.value = current; inp.setAttribute('aria-label', 'Novo nome');
   btn.replaceWith(inp); inp.focus(); inp.select();
   let done = false;
-  const fin = ok => { if (done) return; done = true; inp.onblur = null; const v = inp.value.trim(); inp.blur(); if (ok && v && v !== current) onSave(v); scheduleLayers(); renderSheetList(); refreshPanel(); };
+  const fin = ok => { if (done) return; done = true; inp.onblur = null; const v = inp.value.trim(); inp.blur(); if (ok && v && v !== current) onSave(v); scheduleLayers(); renderSheetList(); renderPresList(); syncDocUI(); refreshPanel(); canvas.requestRenderAll(); };
   inp.onkeydown = ev => { if (ev.key === 'Enter') fin(true); if (ev.key === 'Escape') fin(false); ev.stopPropagation(); };
   inp.onblur = () => setTimeout(() => fin(true), 0);
 }
@@ -3132,6 +3472,73 @@ function deleteSheet() {
   setActiveIdRaw(P()[Math.max(0, idx - 1)].id);
   rebuildChrome(); renderSheetList(); syncDocUI(); commit(); fitPage();
 }
+/* ---------------- Apresentações (conjuntos de folhas com nome) ---------------- */
+function ensurePres() {
+  if (!Array.isArray(doc.pres) || !doc.pres.length) { const id = uid(); doc.pres = [{ id, name: 'Apresentação 1', updated: Date.now() }]; doc.presActive = id; }
+  if (!doc.pres.find(p => p.id === doc.presActive)) doc.presActive = doc.pres[0].id;
+}
+const presById = id => doc.pres.find(p => p.id === id);
+function livePresData() {
+  const objects = mode === 'tpl' ? (presStore || []) : userObjects().map(o => canvas._toObject(o, 'toObject', PROPS));
+  return { sheets: JSON.parse(JSON.stringify(doc.sheets)), active: doc.active, objects: JSON.parse(JSON.stringify(objects)) };
+}
+async function switchPres(id) {
+  ensurePres();
+  if (id === doc.presActive) return;
+  if (mode === 'tpl') await setMode('sheets');
+  if (cropState) applyCrop();
+  const cur = presById(doc.presActive), next = presById(id); if (!next) return;
+  Object.assign(cur, livePresData(), { updated: Date.now() });
+  canvas.discardActiveObject();
+  restoring = true;
+  userObjects().forEach(o => canvas.remove(o));
+  doc.sheets = next.sheets && next.sheets.length ? next.sheets : [newSheet()];
+  doc.active = doc.sheets.find(s => s.id === next.active) ? next.active : doc.sheets[0].id;
+  const objs = next.objects || [];
+  delete next.sheets; delete next.objects; delete next.active;
+  doc.presActive = id;
+  await enlivenOnto(objs);
+  restoring = false;
+  applySheetStates(); rebuildChrome(); exSelected = null; syncDocUI(); renderSheetList(); renderPresList(); scheduleLayers(); refreshPanel(); fitPage(); commit();
+  toast(`Apresentação “${next.name}” aberta.`);
+}
+async function newPres() {
+  ensurePres();
+  const base = activeSheet(), id = uid(), s = newSheet(base); s.stamp.titulo = 'Título da prancha';
+  doc.pres.push({ id, name: `Apresentação ${doc.pres.length + 1}`, updated: Date.now(), sheets: [s], active: s.id, objects: [] });
+  await switchPres(id);
+}
+function dupPres() {
+  ensurePres();
+  const cur = presById(doc.presActive);
+  const copy = { id: uid(), name: cur.name + ' (cópia)', updated: Date.now(), ...livePresData() };
+  copy.sheets.forEach(s => { const old = s.id; s.id = uid(); if (copy.active === old) copy.active = s.id; });
+  doc.pres.splice(doc.pres.indexOf(cur) + 1, 0, copy);
+  renderPresList(); commit(); toast(`Cópia criada: “${copy.name}”. A apresentação atual continua aberta.`);
+}
+let presDelArmed = 0;
+async function delPres() {
+  ensurePres();
+  if (doc.pres.length < 2) { toast('Mantenha ao menos uma apresentação.'); return; }
+  if (Date.now() - presDelArmed > 3000) { presDelArmed = Date.now(); toast('Clique de novo em “Excluir” em até 3 s para apagar a apresentação aberta e suas folhas.'); return; }
+  presDelArmed = 0;
+  const cur = presById(doc.presActive), other = doc.pres.find(p => p !== cur);
+  await switchPres(other.id);
+  doc.pres.splice(doc.pres.indexOf(cur), 1); renderPresList(); commit(); toast(`Apresentação “${cur.name}” excluída.`);
+}
+function renderPresList() {
+  const ul = $('#pres-list'); if (!ul || editingIn(ul)) return;
+  ensurePres(); ul.innerHTML = '';
+  doc.pres.forEach(p => {
+    const act = p.id === doc.presActive, li = document.createElement('li'); li.className = act ? 'active' : '';
+    const n = act ? doc.sheets.length : (p.sheets || []).length, when = new Date(p.updated || Date.now()).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    li.innerHTML = `<button class="name" aria-current="${act}" title="Clique: abrir · duplo clique: renomear">${svgIcon(act ? 'folderOpen' : 'layers')}<span>${escapeHtml(p.name)}</span><small>${n} fl. · ${when}</small></button>`;
+    clickOrDbl(li.firstElementChild, () => switchPres(p.id), () => inlineRename(li.firstElementChild, p.name, v => { p.name = v; commit(); }));
+    ul.appendChild(li);
+  });
+  const cur = presById(doc.presActive); $('#h-sheets-title').textContent = mode === 'tpl' ? 'Modelos do projeto' : `Folhas · ${cur ? cur.name : ''}`;
+}
+$('#pres-new').onclick = newPres; $('#pres-dup').onclick = dupPres; $('#pres-del').onclick = delPres;
 $('#sh-add').onclick = $('#cmd-new-sheet').onclick = () => addSheet(false);
 $('#sh-dup').onclick = () => addSheet(true);
 $('#sh-del').onclick = deleteSheet;
@@ -3149,8 +3556,9 @@ function changeSheet(mut) {
 function syncDocUI() {
   const s = activeSheet(), i = sheetIndex(s.id);
   const tpl = mode === 'tpl';
-  $('#h-sheet-fmt').textContent = tpl ? `Formato do ${sheetLabel(s, i)}` : `Formato da folha ${i + 1}`;
-  $('#h-sheets-title').textContent = tpl ? 'Modelos do projeto' : 'Folhas do projeto';
+  $('#h-sheet-fmt').textContent = `Formato · ${sheetLabel(s, i)}`;
+  $('#h-sheet-frame').textContent = `Moldura · ${sheetLabel(s, i)}`; $('#h-sheet-stamp').textContent = `Selo · ${sheetLabel(s, i)}`; $('#h-sheet-tpl').textContent = `Modelo de fundo · ${sheetLabel(s, i)}`;
+  renderPresList();
   $('#sh-add').textContent = tpl ? 'Novo modelo' : 'Nova folha';
   $('#sh-del').textContent = tpl ? 'Excluir modelo ativo' : 'Excluir folha ativa';
   $('#tab-sheet-lbl').textContent = tpl ? 'Modelos' : 'Folhas';
@@ -3187,7 +3595,7 @@ $('#mode-sheets').onclick = () => setMode('sheets');
 $('#mode-tpl').onclick = () => setMode('tpl');
 $$('[data-field]').forEach(b => b.addEventListener('click', () => {
   if (mode !== 'tpl') return;
-  const t = new fabric.Textbox(b.dataset.field, { left: viewCenter().x, top: viewCenter().y, width: mm2pt(60), ...defText, editingBorderColor: BRAND });
+  const t = new fabric.Kvtext(b.dataset.field, { left: viewCenter().x, top: viewCenter().y, width: mm2pt(60), ...defText, editingBorderColor: BRAND });
   addUser(t, 'Campo', true);
 }));
 const setGrid = (k, v) => { doc.grid[k] = v; syncDocUI(); invalidateSnap(); canvas.requestRenderAll(); commit(); };
@@ -3251,8 +3659,10 @@ async function withExport(fn) {
   const cache = [];
   forEachDeep(o => { cache.push([o, o.objectCaching]); o.objectCaching = false; o.dirty = true; });
   exporting = true;
+  const lim = [fabric.perfLimitSizeTotal, fabric.maxCacheSideLimit]; fabric.perfLimitSizeTotal = 60e6; fabric.maxCacheSideLimit = 16384;
   try { return await fn(); }
   finally {
+    fabric.perfLimitSizeTotal = lim[0]; fabric.maxCacheSideLimit = lim[1];
     cache.forEach(([o, v]) => { o.objectCaching = v; o.dirty = true; });
     exporting = false; exportTransparent = false;
     canvas.setViewportTransform(canvas.viewportTransform.slice()); canvas.requestRenderAll();
@@ -3447,7 +3857,7 @@ tabs.forEach((t, i) => {
 });
 
 const typing = e => { const t = e.target, a = canvas.getActiveObject(); return (a && a.isEditing) || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable; };
-const KEYTOOLS = { f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
+const KEYTOOLS = { d: 'measure', f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
 document.addEventListener('keydown', e => {
   if (typing(e)) return;
   const k = e.key, mod = e.ctrlKey || e.metaKey;
@@ -3515,9 +3925,11 @@ mq.addEventListener ? mq.addEventListener('change', applyTheme) : mq.addListener
 
 /* ---------------- Inicialização ---------------- */
 applyTheme();
+ensurePres();
 syncDocUI(); rebuildChrome(); renderSheetList(); refreshPanel(); renderLinks(); renderLayers();
 (async () => {
   const restored = await restoreAutosave();
+  ensurePres(); renderPresList();
   resetHistory();
   if (restored) { fitPage(); toast('Projeto restaurado do salvamento automático.'); }
   await checkStoredDir();
