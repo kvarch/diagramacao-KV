@@ -83,7 +83,7 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stro
 .zoom-btn:hover{background:var(--md-sys-color-surface-container-high)}
 
 /* ---------- Workspace ---------- */
-.workspace{position:relative;display:grid;grid-template-columns:56px minmax(0,1fr) 320px;min-height:0}
+.workspace{position:relative;display:grid;grid-template-columns:56px minmax(0,1fr) var(--dock-w,320px);min-height:0}
 .workspace.dock-closed{grid-template-columns:56px minmax(0,1fr) 0}
 .toolbox{
   display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;overflow-y:auto;scrollbar-width:thin;
@@ -265,7 +265,23 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
 .sym-tile svg{width:100%;height:40px;pointer-events:none}
 .sym-tile:hover{border-color:var(--md-sys-color-primary)}
 #tool-shapes[aria-pressed="true"]{background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary)}
-@media (max-width:760px){.cg{padding:0 6px}.cg-label{display:none}}
+.dock{position:relative}
+.dock-resizer{position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:25;touch-action:none}
+.dock-resizer::after{content:"";position:absolute;left:4px;top:0;bottom:0;width:2px;background:transparent}
+.dock-resizer:hover::after,.dock-resizer.active::after,.dock-resizer:focus-visible::after{background:var(--md-sys-color-primary)}
+body.resizing-dock{cursor:col-resize;user-select:none}
+.tree .tree-root{background:var(--md-sys-color-surface-container-low)}
+.tree .tree-label{cursor:default}
+.tree .tree-label span{font-weight:600}
+.tree .tree-dir .name,.tree .tree-file .name{padding-left:calc(var(--depth,1) * 14px)}
+.tree .tree-dir .name span{font-weight:500}
+.tree .thumb-sm{width:40px;height:40px;object-fit:cover;flex:none;background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant)}
+.tree .tree-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:8px 0 8px calc(var(--depth,1) * 14px);border-bottom:1px solid var(--md-sys-color-outline-variant)}
+.thumb-tile{display:flex;flex-direction:column;gap:4px;padding:4px;min-height:48px;background:transparent;border:1px solid var(--md-sys-color-outline-variant);cursor:pointer;color:var(--md-sys-color-on-surface);font-size:11px;text-align:left}
+.thumb-tile:hover{border-color:var(--md-sys-color-primary)}
+.thumb-tile .thumb-lg{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--md-sys-color-surface-container-high)}
+.thumb-tile span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:760px){.dock-resizer{display:none}.cg{padding:0 6px}.cg-label{display:none}}
 </style>
 </head>
 <body>
@@ -488,6 +504,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
   </section>
 
   <aside class="dock" id="dock" aria-label="Painéis">
+    <div class="dock-resizer" id="dock-resizer" role="separator" aria-orientation="vertical" aria-label="Largura do painel lateral: arraste ou use as setas" tabindex="0" title="Arraste para ajustar a largura (duplo clique restaura)"></div>
     <div class="tabs" role="tablist" aria-label="Painéis">
       <button class="tab" role="tab" id="tab-obj" aria-controls="panel-obj" aria-selected="true"><span data-icon="sliders"></span>Objeto</button>
       <button class="tab" role="tab" id="tab-sheet" aria-controls="panel-sheet" aria-selected="false" tabindex="-1"><span data-icon="file"></span><span id="tab-sheet-lbl">Folhas</span></button>
@@ -734,11 +751,10 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
         <details class="diag"><summary>Diagnóstico da integração</summary><pre id="gv-log"></pre></details>
       </section>
       <section class="section">
-        <h2>Pasta vinculada</h2>
-        <p class="hint">Vincule a pasta onde os mapas são exportados (inclusive Google Drive para computador). Ao recarregar, a imagem mantém posição, escala, recorte, filtros e máscara.</p>
+        <h2>Pastas vinculadas</h2>
+        <p class="hint">Vincule uma ou mais pastas (de locais diferentes, inclusive Google Drive para computador). As subpastas aparecem em árvore. Ao recarregar, a imagem mantém posição, escala, recorte, filtros e máscara.</p>
         <p class="hint" id="link-folder"><span class="badge">Sem pasta</span></p>
-        <button class="btn primary block" id="lk-connect">Vincular pasta</button>
-        <button class="btn block" id="lk-reconnect" hidden>Reconectar pasta</button>
+        <button class="btn primary block" id="lk-connect">Adicionar pasta</button>
         <div class="btn-grid">
           <button class="btn" id="lk-reload">Recarregar</button>
           <button class="btn" id="lk-file">Imagem avulsa</button>
@@ -747,12 +763,17 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
         <p class="info" id="lk-mode"></p>
       </section>
       <section class="section">
-        <h2>Em uso nas folhas</h2>
-        <ul class="list" id="lk-used"></ul>
+        <h2>Imagens das pastas</h2>
+        <div class="field"><label for="lk-filter">Filtrar por nome</label><input type="text" id="lk-filter" placeholder="ex.: implantação, 2026…"></div>
+        <div class="seg" role="group" aria-label="Modo de exibição" id="lk-view" style="margin-bottom:12px">
+          <button data-view="list" aria-pressed="true">Lista</button>
+          <button data-view="grid" aria-pressed="false">Miniaturas</button>
+        </div>
+        <ul class="list tree" id="lk-tree"></ul>
       </section>
       <section class="section">
-        <h2>Imagens da pasta</h2>
-        <ul class="list" id="lk-files"></ul>
+        <h2>Em uso nas folhas</h2>
+        <ul class="list" id="lk-used"></ul>
       </section>
     </div>
 
@@ -817,7 +838,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
   <div class="palette" id="palette" role="group" aria-label="Paleta: clique aplica preenchimento, Shift+clique aplica traço"></div>
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V10 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V11 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -844,7 +865,7 @@ body.mode-tpl .ruler-corner{background:var(--md-sys-color-tertiary)}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V10 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V11 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1408,7 +1429,8 @@ function drawGuides(ctx) {
   const v = canvas.viewportTransform, z = v[0];
   ctx.save(); ctx.lineWidth = 1;
   doc.guides.forEach(g => {
-    ctx.strokeStyle = (guideDrag && guideDrag.g === g) ? '#ff5632' : BRAND;
+    ctx.strokeStyle = (guideDrag && guideDrag.g === g) ? (g.snapped ? '#2fAF83' : '#ff5632') : BRAND;
+    ctx.lineWidth = (guideDrag && guideDrag.g === g && g.snapped) ? 2 : 1;
     ctx.beginPath();
     if (g.o === 'v') { const X = Math.round(g.p * z + v[4]) + 0.5; ctx.moveTo(X, 0); ctx.lineTo(X, canvas.height); }
     else { const Y = Math.round(g.p * z + v[5]) + 0.5; ctx.moveTo(0, Y); ctx.lineTo(canvas.width, Y); }
@@ -1489,18 +1511,40 @@ function gridSnapScalar(val, origin) {
   if (!doc.grid.snap) return val;
   const s = mm2pt(doc.grid.size); return origin + Math.round((val - origin) / s) * s;
 }
+/* Guias encaixam em bordas, centros e vértices dos elementos, folhas, molduras e margens */
+let guideCache = null;
+function guideSnapCache(g) {
+  const i = doc.guides.indexOf(g); if (i >= 0) doc.guides.splice(i, 1);
+  const c = buildSnapCache(typeof editingPoly !== 'undefined' && editingPoly ? [editingPoly] : []);
+  if (i >= 0) doc.guides.splice(i, 0, g);
+  c.pts.forEach(p => { c.xs.push(p.x); c.ys.push(p.y); });
+  return c;
+}
+function snapGuide(g, raw, e) {
+  snapLines = [];
+  if (e && e.altKey) return raw;
+  if (doc.snapObj) {
+    if (!guideCache) guideCache = guideSnapCache(g);
+    const list = g.o === 'v' ? guideCache.xs : guideCache.ys, th = 8 / canvas.getZoom();
+    let best = null, bd = th; list.forEach(v => { const d = Math.abs(v - raw); if (d < bd) { bd = d; best = v; } });
+    if (best !== null) { g.snapped = true; return best; }
+  }
+  g.snapped = false;
+  const r = sheetRect(sheetAt(g.o === 'v' ? { x: raw, y: 0 } : { x: 0, y: raw }).id);
+  return g.o === 'v' ? gridSnapScalar(raw, r.x) : gridSnapScalar(raw, r.y);
+}
 function startRulerGuide(e, o) {
   e.preventDefault();
-  const p = scenePt(e.clientX, e.clientY), a = sheetRect(activeSheet().id);
+  const p = scenePt(e.clientX, e.clientY);
   const g = { o, p: o === 'v' ? p.x : p.y };
-  doc.guides.push(g); guideDrag = { g };
-  const move = ev => { const q = scenePt(ev.clientX, ev.clientY); g.p = o === 'v' ? gridSnapScalar(q.x, a.x) : gridSnapScalar(q.y, a.y); cursorScreen = { x: q.sx, y: q.sy }; canvas.requestRenderAll(); };
+  doc.guides.push(g); guideDrag = { g }; guideCache = null;
+  const move = ev => { const q = scenePt(ev.clientX, ev.clientY); g.p = snapGuide(g, o === 'v' ? q.x : q.y, ev); cursorScreen = { x: q.sx, y: q.sy }; canvas.requestRenderAll(); };
   const up = ev => {
     document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up);
     const r = stageEl.getBoundingClientRect();
     const inside = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
     if (!inside) doc.guides.splice(doc.guides.indexOf(g), 1); else commit();
-    guideDrag = null; canvas.requestRenderAll();
+    guideDrag = null; guideCache = null; delete g.snapped; invalidateSnap(); canvas.requestRenderAll();
   };
   document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
 }
@@ -2037,7 +2081,7 @@ canvas.on('mouse:down:before', opt => {
   }
   const g = hitGuide(e);
   if (g && !(canvas._target && canvas._target === canvas.getActiveObject() && canvas._target.__corner)) {
-    guideDrag = { g }; canvas._target = null; canvas.selection = false;
+    guideDrag = { g }; guideCache = null; canvas._target = null; canvas.selection = false;
   }
 });
 canvas.on('mouse:down', opt => {
@@ -2072,7 +2116,7 @@ canvas.on('mouse:move', opt => {
   const sh = sheetAt(p), r = sheetRect(sh.id);
   $('#st-xy').textContent = `F${sheetIndex(sh.id) + 1}  X ${fmt(pt2mm(p.x - r.x))}  Y ${fmt(pt2mm(p.y - r.y))} mm`;
   if (panState) { canvas.relativePan(new fabric.Point(e.clientX - panState.x, e.clientY - panState.y)); panState = { x: e.clientX, y: e.clientY }; afterView(); return; }
-  if (guideDrag) { const g = guideDrag.g; g.p = g.o === 'v' ? gridSnapScalar(p.x, r.x) : gridSnapScalar(p.y, r.y); canvas.requestRenderAll(); return; }
+  if (guideDrag) { const g = guideDrag.g; g.p = snapGuide(g, g.o === 'v' ? p.x : p.y, e); canvas.requestRenderAll(); return; }
   if (DRAW_TOOLS.includes(tool)) {
     let q = snapPoint(p, e, drawState && drawState.pts);
     if (drawState) {
@@ -2098,7 +2142,7 @@ canvas.on('mouse:up', opt => {
     const r = stageEl.getBoundingClientRect();
     const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
     if (!inside) doc.guides.splice(doc.guides.indexOf(guideDrag.g), 1);
-    guideDrag = null; canvas.selection = true; invalidateSnap(); canvas.requestRenderAll(); commit(); return;
+    delete guideDrag.g.snapped; guideDrag = null; guideCache = null; canvas.selection = true; invalidateSnap(); canvas.requestRenderAll(); commit(); return;
   }
   if (drawState && drawState.start) finishDraw();
 });
@@ -2555,31 +2599,37 @@ async function openProject(file) {
   } catch (err) { toast('Não foi possível abrir o projeto: ' + err.message, true); }
 }
 
-/* ---------------- Pasta vinculada ---------------- */
-const fileHandles = new Map(), fallbackFiles = new Map();
-let dirHandle = null, fallbackName = '', pendingDir = null, autoTimer = null, reloading = false;
+/* ---------------- Pastas vinculadas (várias pastas, subpastas em árvore, miniaturas) ---------------- */
+const folders = [];            // { id, name, handle|null, files: Map(caminho relativo -> FileHandle|File), mode: 'handle'|'file', perm }
+const dropHandles = new Map(); // 'drop:nome' -> FileHandle
+let autoTimer = null, reloading = false, linkView = 'list', linkFilter = '';
+const folderOpen = new Set();  // chaves de subpastas expandidas
 const inIframe = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
-async function scanDir(h, prefix, depth) {
+async function scanInto(h, prefix, depth, map) {
   for await (const [name, child] of h.entries()) {
-    if (child.kind === 'file' && isImageName(name)) fileHandles.set(prefix + name, child);
-    else if (child.kind === 'directory' && depth < 2 && !name.startsWith('.')) await scanDir(child, prefix + name + '/', depth + 1);
+    if (name.startsWith('.')) continue;
+    if (child.kind === 'file' && isImageName(name)) map.set(prefix + name, child);
+    else if (child.kind === 'directory' && depth < 6) await scanInto(child, prefix + name + '/', depth + 1, map);
   }
 }
-const dirKeys = () => [...fileHandles.keys()].filter(k => !k.startsWith('drop:'));
-async function setDir(h) {
-  dirHandle = h; pendingDir = null;
-  dirKeys().forEach(k => fileHandles.delete(k));
-  await scanDir(h, '', 0);
-  try { await idb.set('dir', h); } catch (e) {}
-  $('#lk-reconnect').hidden = true;
-  renderLinks();
-  const n = await reloadAll(false, true);
-  toast(`Pasta vinculada: ${h.name} — ${dirKeys().length} imagens${n ? `, ${n} atualizada(s)` : ''}.`);
+async function saveFolders() { try { await idb.set('dirs', folders.filter(f => f.handle).map(f => ({ id: f.id, name: f.name, handle: f.handle }))); } catch (e) {} }
+async function rescan(f) {
+  if (f.mode !== 'handle' || f.perm !== 'granted') return;
+  const m = new Map(); try { await scanInto(f.handle, '', 0, m); f.files = m; } catch (e) { f.perm = 'prompt'; }
+}
+const imgCount = () => folders.reduce((s, f) => s + f.files.size, 0);
+async function addFolderHandle(h, id) {
+  for (const f of folders) { if (f.handle && await f.handle.isSameEntry(h).catch(() => false)) { f.perm = 'granted'; await rescan(f); return f; } }
+  const f = { id: id || uid(), name: h.name, handle: h, files: new Map(), mode: 'handle', perm: 'granted' };
+  folders.push(f); folderOpen.add(f.id); await rescan(f); await saveFolders(); return f;
 }
 async function linkFolder() {
   if ('showDirectoryPicker' in window) {
-    try { await setDir(await window.showDirectoryPicker({ id: 'kv-pranchas', mode: 'read' })); return; }
-    catch (err) {
+    try {
+      const f = await addFolderHandle(await window.showDirectoryPicker({ id: 'kv-pranchas', mode: 'read' }));
+      renderLinks(); const n = await reloadAll(false, true);
+      toast(`Pasta “${f.name}” vinculada — ${f.files.size} imagens${n ? `, ${n} atualizada(s)` : ''}.`); return;
+    } catch (err) {
       if (err.name === 'AbortError') return;
       toast('O navegador bloqueou o seletor de pastas neste painel. Usando o modo compatível; para vínculo contínuo, abra em nova janela.', true);
     }
@@ -2588,18 +2638,34 @@ async function linkFolder() {
 }
 $('#in-dir').addEventListener('change', async e => {
   const files = [...e.target.files].filter(f => isImageName(f.name));
-  if (!files.length) { toast('Nenhuma imagem encontrada na pasta.'); return; }
-  fallbackFiles.clear();
-  files.forEach(f => {
-    const parts = (f.webkitRelativePath || f.name).split('/');
-    fallbackName = parts.length > 1 ? parts[0] : '';
-    fallbackFiles.set(parts.length > 1 ? parts.slice(1).join('/') : f.name, f);
-  });
   e.target.value = '';
+  if (!files.length) { toast('Nenhuma imagem encontrada na pasta.'); return; }
+  const root = (files[0].webkitRelativePath || '').split('/')[0] || 'pasta';
+  let f = folders.find(x => x.mode === 'file' && x.name === root);
+  if (!f) { f = { id: uid(), name: root, handle: null, files: new Map(), mode: 'file', perm: 'file' }; folders.push(f); folderOpen.add(f.id); }
+  f.files = new Map();
+  files.forEach(x => { const parts = (x.webkitRelativePath || x.name).split('/'); f.files.set(parts.length > 1 ? parts.slice(1).join('/') : x.name, x); });
   renderLinks();
   const n = await reloadAll(false, true);
-  toast(`Pasta lida (modo compatível): ${files.length} imagens${n ? `, ${n} atualizada(s)` : ''}.`);
+  toast(`Pasta “${root}” lida (modo compatível): ${files.length} imagens${n ? `, ${n} atualizada(s)` : ''}.`);
 });
+function removeFolder(id) {
+  const i = folders.findIndex(f => f.id === id); if (i < 0) return;
+  const [f] = folders.splice(i, 1); saveFolders(); renderLinks();
+  toast(`Pasta “${f.name}” desvinculada. As imagens já inseridas continuam nas folhas.`);
+}
+/* Localiza o arquivo de um vínculo: pasta registrada → qualquer pasta com o mesmo caminho → mesmo nome de arquivo */
+function findLinked(L) {
+  if (!L || !L.path) return null;
+  if (L.path.startsWith('drop:')) return dropHandles.has(L.path) ? { src: dropHandles.get(L.path), f: null } : null;
+  const f = L.folder && folders.find(x => x.id === L.folder);
+  if (f && f.files.has(L.path)) return { src: f.files.get(L.path), f };
+  for (const g of folders) if (g.files.has(L.path)) return { src: g.files.get(L.path), f: g };
+  const base = L.path.split('/').pop();
+  for (const g of folders) for (const [k, v] of g.files) if (k.split('/').pop() === base) return { src: v, f: g };
+  return null;
+}
+const srcFile = async src => src instanceof File ? src : src.getFile();
 async function reloadLinked(img, force) {
   const L = img.kvLink; if (!L) return false;
   if (L.kind === 'giraffe') {
@@ -2608,10 +2674,7 @@ async function reloadLinked(img, force) {
     catch (err) { gvLog('Recaptura falhou: ' + err.message); toast('Não foi possível recapturar a vista: ' + err.message, true); return false; }
   }
   let file = null;
-  try {
-    if (fileHandles.has(L.path)) file = await fileHandles.get(L.path).getFile();
-    else if (fallbackFiles.has(L.path)) file = fallbackFiles.get(L.path);
-  } catch (err) { file = null; }
+  try { const hit = findLinked(L); if (hit) file = await srcFile(hit.src); } catch (err) { file = null; }
   if (!file) return false;
   if (!force && !img.kvMissing && file.lastModified === L.lastModified) return false;
   await replaceImageSource(img, file);
@@ -2623,15 +2686,19 @@ async function reloadAll(force, quiet) {
     const imgs = []; forEachDeep(o => { if (o.type === 'image' && o.kvLink && o.kvLink.kind !== 'giraffe' && !o.kvTemp) imgs.push(o); });
     for (const img of imgs) { if (await reloadLinked(img, force)) n++; }
     if (n) { canvas.requestRenderAll(); commit(); if (!quiet) toast(`${n} imagem(ns) recarregada(s).`); }
-    else if (!quiet) toast(fileHandles.size || fallbackFiles.size ? 'Nenhuma alteração nas imagens vinculadas.' : 'Vincule a pasta para recarregar.');
+    else if (!quiet) toast(folders.length ? 'Nenhuma alteração nas imagens vinculadas.' : 'Vincule uma pasta para recarregar.');
   } finally { reloading = false; renderLinks(); }
   return n;
 }
-async function insertLinked(path) {
-  let file = null, mode = 'handle';
-  if (fileHandles.has(path)) file = await fileHandles.get(path).getFile();
-  else if (fallbackFiles.has(path)) { file = fallbackFiles.get(path); mode = 'file'; }
-  if (file) await insertImageBlob(file, { name: path.replace(/^drop:/, ''), link: { path, lastModified: file.lastModified, mode } });
+async function reloadFolders() {
+  for (const f of folders) await rescan(f);
+  if (folders.length && folders.every(f => f.mode === 'file')) toast('Pastas em modo compatível: selecione a pasta de novo para atualizar.');
+  await reloadAll(false, false);
+}
+async function insertLinked(folderId, rel) {
+  const f = folders.find(x => x.id === folderId); if (!f || !f.files.has(rel)) return;
+  const file = await srcFile(f.files.get(rel));
+  await insertImageBlob(file, { name: rel.split('/').pop(), link: { folder: f.id, path: rel, lastModified: file.lastModified, mode: f.mode } });
 }
 function setAuto(on) {
   clearInterval(autoTimer); autoTimer = null;
@@ -2639,46 +2706,129 @@ function setAuto(on) {
 }
 async function checkStoredDir() {
   try {
-    const h = await idb.get('dir'); if (!h || !h.queryPermission) return;
-    if (await h.queryPermission({ mode: 'read' }) === 'granted') await setDir(h);
-    else { pendingDir = h; const b = $('#lk-reconnect'); b.hidden = false; b.textContent = `Reconectar “${h.name}”`; }
+    let list = await idb.get('dirs');
+    if (!list) { const h = await idb.get('dir'); list = h ? [{ id: uid(), name: h.name, handle: h }] : []; }
+    for (const it of list) {
+      if (!it.handle || !it.handle.queryPermission) continue;
+      const perm = await it.handle.queryPermission({ mode: 'read' });
+      const f = { id: it.id, name: it.name, handle: it.handle, files: new Map(), mode: 'handle', perm: perm === 'granted' ? 'granted' : 'prompt' };
+      folders.push(f); folderOpen.add(f.id);
+      if (f.perm === 'granted') await rescan(f);
+    }
+    renderLinks();
+    if (folders.some(f => f.perm === 'granted')) await reloadAll(false, true);
   } catch (e) {}
 }
-$('#lk-reconnect').addEventListener('click', async () => {
-  if (!pendingDir) return;
-  try { if (await pendingDir.requestPermission({ mode: 'read' }) === 'granted') await setDir(pendingDir); }
-  catch (e) { toast('Permissão negada. Use “Vincular pasta”.', true); }
-});
+async function reconnectFolder(f) {
+  try { if (await f.handle.requestPermission({ mode: 'read' }) === 'granted') { f.perm = 'granted'; await rescan(f); renderLinks(); await reloadAll(false, true); } }
+  catch (e) { toast('Permissão negada. Use “Adicionar pasta”.', true); }
+}
+
+/* Miniaturas: geradas sob demanda, em fila, a partir do arquivo local */
+const thumbCache = new Map(), thumbQueue = []; let thumbBusy = 0;
+const thumbIO = 'IntersectionObserver' in window ? new IntersectionObserver(ents => ents.forEach(en => { if (en.isIntersecting) { thumbIO.unobserve(en.target); queueThumb(en.target); } }), { root: null, rootMargin: '200px' }) : null;
+function queueThumb(img) { thumbQueue.push(img); pumpThumbs(); }
+async function pumpThumbs() {
+  while (thumbBusy < 3 && thumbQueue.length) {
+    const el = thumbQueue.shift(); thumbBusy++;
+    makeThumb(el.dataset.fid, el.dataset.rel).then(u => { if (u) el.src = u; }).finally(() => { thumbBusy--; pumpThumbs(); });
+  }
+}
+async function makeThumb(fid, rel) {
+  const f = folders.find(x => x.id === fid); if (!f || !f.files.has(rel)) return null;
+  const file = await srcFile(f.files.get(rel)), key = fid + '|' + rel + '|' + file.lastModified;
+  if (thumbCache.has(key)) return thumbCache.get(key);
+  let url = null;
+  try {
+    const bmp = await createImageBitmap(file, { resizeWidth: 240, resizeQuality: 'medium' });
+    const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0); bmp.close && bmp.close();
+    url = URL.createObjectURL(await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8)));
+  } catch (e) { url = URL.createObjectURL(file); }
+  thumbCache.set(key, url); return url;
+}
+function thumbImg(fid, rel, cls) {
+  const im = document.createElement('img'); im.className = cls; im.alt = ''; im.dataset.fid = fid; im.dataset.rel = rel; im.decoding = 'async';
+  if (thumbIO) thumbIO.observe(im); else queueThumb(im);
+  return im;
+}
+function buildTree(paths) {
+  const root = { dirs: new Map(), files: [] };
+  paths.forEach(p => { const parts = p.split('/'); let n = root; for (let i = 0; i < parts.length - 1; i++) { if (!n.dirs.has(parts[i])) n.dirs.set(parts[i], { dirs: new Map(), files: [] }); n = n.dirs.get(parts[i]); } n.files.push(p); });
+  return root;
+}
+function countTree(n) { let c = n.files.length; n.dirs.forEach(d => { c += countTree(d); }); return c; }
+
 function renderLinks() {
-  const folder = $('#link-folder');
-  if (dirHandle) folder.innerHTML = `<span class="badge ok">Vinculada</span> ${escapeHtml(dirHandle.name)}`;
-  else if (fallbackFiles.size) folder.innerHTML = `<span class="badge">Modo compatível</span> ${escapeHtml(fallbackName || 'pasta')}`;
-  else folder.innerHTML = '<span class="badge">Sem pasta</span>';
-  $('#lk-mode').textContent = dirHandle ? 'Leitura direta do disco: recarregar não pede a pasta novamente.' : fallbackFiles.size ? 'Modo compatível: para recarregar, selecione a pasta outra vez.' : '';
+  const box = $('#link-folder');
+  box.innerHTML = folders.length ? `<span class="badge ok">${folders.length} pasta(s)</span> ${imgCount()} imagens` : '<span class="badge">Sem pasta</span>';
+  const anyFile = folders.some(f => f.mode === 'file');
+  $('#lk-mode').textContent = anyFile ? 'Pastas em modo compatível precisam ser selecionadas de novo para recarregar. Para vínculo contínuo, abra em nova janela.' : folders.length ? 'Leitura direta do disco: recarregar não pede as pastas novamente.' : '';
+  /* Em uso */
   const used = []; forEachDeep(o => { if (o.type === 'image' && o.kvLink && !o.kvTemp) used.push(o); });
   const ul = $('#lk-used'); ul.innerHTML = '';
   if (!used.length) ul.innerHTML = '<li class="empty">Nenhuma imagem vinculada nas folhas.</li>';
   used.forEach(img => {
     const L = img.kvLink, gir = L.kind === 'giraffe', label = gir ? `Giraffe: ${L.viewName || 'mapa atual'}` : L.path.replace(/^drop:/, '');
-    const avail = gir || fileHandles.has(L.path) || fallbackFiles.has(L.path);
+    const hit = gir ? null : findLinked(L), avail = gir || !!hit;
     const li = document.createElement('li');
-    li.innerHTML = `<button class="name" aria-label="Selecionar ${escapeHtml(label)}">${svgIcon(gir ? 'camera' : 'image')}<span>${escapeHtml(label)}</span><small class="${img.kvMissing ? 'warn' : avail ? 'ok' : ''}">${img.kvMissing ? 'ausente' : avail ? 'ok' : 'sem pasta'}</small></button>
+    li.innerHTML = `<button class="name" aria-label="Selecionar ${escapeHtml(label)}">${svgIcon(gir ? 'camera' : 'image')}<span>${escapeHtml(label)}</span><small class="${img.kvMissing ? 'warn' : avail ? 'ok' : ''}">${img.kvMissing ? 'ausente' : avail ? (hit && hit.f ? hit.f.name : 'ok') : 'sem pasta'}</small></button>
       <button class="icon-btn" aria-label="Recarregar ${escapeHtml(label)}" title="Recarregar">${svgIcon('refresh')}</button>`;
     li.children[0].onclick = () => { if (!img.group) { setActiveSheet(sheetOf(img).id); canvas.setActiveObject(img); canvas.requestRenderAll(); refreshPanel(); } };
-    li.children[1].onclick = async () => { if (await reloadLinked(img, true)) { commit(); toast('Imagem recarregada.'); } else if (!gir) toast('Arquivo não encontrado. Vincule a pasta.'); renderLinks(); };
+    li.children[1].onclick = async () => { if (await reloadLinked(img, true)) { commit(); toast('Imagem recarregada.'); } else if (!gir) toast('Arquivo não encontrado nas pastas vinculadas.'); renderLinks(); };
     ul.appendChild(li);
   });
-  const paths = [...new Set([...dirKeys(), ...fallbackFiles.keys()])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  const fl = $('#lk-files'); fl.innerHTML = '';
-  if (!paths.length) fl.innerHTML = '<li class="empty">Vincule uma pasta para listar as imagens.</li>';
-  paths.forEach(p => {
-    const li = document.createElement('li');
-    li.innerHTML = `<button class="name" aria-label="Inserir ${escapeHtml(p)}">${svgIcon('image')}<span>${escapeHtml(p)}</span></button>
-      <button class="icon-btn" aria-label="Inserir ${escapeHtml(p)} na folha ativa" title="Inserir">${svgIcon('plus')}</button>`;
-    li.children[0].onclick = li.children[1].onclick = () => insertLinked(p);
-    fl.appendChild(li);
+  /* Árvore de pastas */
+  const root = $('#lk-tree'); root.innerHTML = '';
+  root.classList.toggle('grid-view', linkView === 'grid');
+  if (!folders.length) { root.innerHTML = '<li class="empty">Adicione uma ou mais pastas para listar as imagens, inclusive subpastas.</li>'; return; }
+  const q = linkFilter.trim().toLowerCase();
+  folders.forEach(f => {
+    const paths = [...f.files.keys()].filter(p => !q || p.toLowerCase().includes(q)).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+    const open = folderOpen.has(f.id) || !!q;
+    const head = document.createElement('li'); head.className = 'tree-root';
+    head.innerHTML = `<button class="icon-btn" aria-expanded="${open}" aria-label="${open ? 'Recolher' : 'Expandir'} ${escapeHtml(f.name)}">${svgIcon(open ? 'chevDown' : 'chevRight')}</button>
+      <span class="name tree-label">${svgIcon('folderOpen')}<span>${escapeHtml(f.name)}</span><small>${f.perm === 'prompt' ? 'sem permissão' : f.mode === 'file' ? 'compatível · ' + f.files.size : f.files.size}</small></span>
+      ${f.perm === 'prompt' ? `<button class="icon-btn" aria-label="Reconectar ${escapeHtml(f.name)}" title="Reconectar (conceder acesso)">${svgIcon('link')}</button>` : `<button class="icon-btn" aria-label="Atualizar lista de ${escapeHtml(f.name)}" title="Atualizar lista">${svgIcon('refresh')}</button>`}
+      <button class="icon-btn" aria-label="Desvincular ${escapeHtml(f.name)}" title="Desvincular pasta">${svgIcon('trash')}</button>`;
+    const btns = head.querySelectorAll('button');
+    btns[0].onclick = () => { open ? folderOpen.delete(f.id) : folderOpen.add(f.id); renderLinks(); };
+    btns[1].onclick = async () => { if (f.perm === 'prompt') await reconnectFolder(f); else if (f.mode === 'file') $('#in-dir').click(); else { await rescan(f); renderLinks(); toast(`“${f.name}”: ${f.files.size} imagens.`); } };
+    btns[2].onclick = () => removeFolder(f.id);
+    root.appendChild(head);
+    if (!open) return;
+    if (!paths.length) { const e = document.createElement('li'); e.className = 'empty'; e.textContent = q ? 'Nenhuma imagem com esse nome.' : f.perm === 'prompt' ? 'Reconecte a pasta para listar.' : 'Nenhuma imagem.'; root.appendChild(e); return; }
+    const renderNode = (node, prefix, depth) => {
+      [...node.dirs.keys()].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })).forEach(dn => {
+        const key = f.id + '/' + prefix + dn, sub = node.dirs.get(dn), op = folderOpen.has(key) || !!q;
+        const li = document.createElement('li'); li.className = 'tree-dir'; li.style.setProperty('--depth', depth);
+        li.innerHTML = `<button class="name" aria-expanded="${op}">${svgIcon(op ? 'chevDown' : 'chevRight')}${svgIcon('folderOpen')}<span>${escapeHtml(dn)}</span><small>${countTree(sub)}</small></button>`;
+        li.firstElementChild.onclick = () => { op ? folderOpen.delete(key) : folderOpen.add(key); renderLinks(); };
+        root.appendChild(li);
+        if (op) renderNode(sub, prefix + dn + '/', depth + 1);
+      });
+      if (!node.files.length) return;
+      if (linkView === 'grid') {
+        const li = document.createElement('li'); li.className = 'tree-grid'; li.style.setProperty('--depth', depth);
+        node.files.forEach(p => {
+          const nm = p.split('/').pop(), b = document.createElement('button'); b.className = 'thumb-tile'; b.title = `Inserir ${nm}`; b.setAttribute('aria-label', `Inserir ${nm} na folha ativa`);
+          b.appendChild(thumbImg(f.id, p, 'thumb-lg')); const s = document.createElement('span'); s.textContent = nm; b.appendChild(s);
+          b.onclick = () => insertLinked(f.id, p); li.appendChild(b);
+        });
+        root.appendChild(li);
+      } else node.files.forEach(p => {
+        const nm = p.split('/').pop(), li = document.createElement('li'); li.className = 'tree-file'; li.style.setProperty('--depth', depth);
+        const b = document.createElement('button'); b.className = 'name'; b.setAttribute('aria-label', `Inserir ${nm} na folha ativa`); b.title = p;
+        b.appendChild(thumbImg(f.id, p, 'thumb-sm')); const s = document.createElement('span'); s.textContent = nm; b.appendChild(s);
+        const add = document.createElement('button'); add.className = 'icon-btn'; add.setAttribute('aria-label', `Inserir ${nm}`); add.title = 'Inserir na folha ativa'; add.innerHTML = svgIcon('plus');
+        b.onclick = add.onclick = () => insertLinked(f.id, p);
+        li.append(b, add); root.appendChild(li);
+      });
+    };
+    renderNode(buildTree(paths), '', 1);
   });
 }
+$('#lk-filter').addEventListener('input', e => { linkFilter = e.target.value; renderLinks(); });
+$$('#lk-view button').forEach(b => b.addEventListener('click', () => { linkView = b.dataset.view; $$('#lk-view button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderLinks(); }));
 /* Arrastar e soltar */
 stageEl.addEventListener('dragover', e => { e.preventDefault(); stageEl.classList.add('dragging'); });
 stageEl.addEventListener('dragleave', e => { if (!stageEl.contains(e.relatedTarget)) stageEl.classList.remove('dragging'); });
@@ -2692,7 +2842,7 @@ stageEl.addEventListener('drop', async e => {
     if (/\.json$/i.test(j.file.name)) { await openProject(j.file); return; }
     if (!isImageName(j.file.name) && !/^image\//.test(j.file.type)) continue;
     const h = await j.handleP;
-    if (h && h.kind === 'file') { const path = 'drop:' + j.file.name; fileHandles.set(path, h); await insertImageBlob(j.file, { name: j.file.name, point: p, link: { path, lastModified: j.file.lastModified, mode: 'handle' } }); }
+    if (h && h.kind === 'file') { const path = 'drop:' + j.file.name; dropHandles.set(path, h); await insertImageBlob(j.file, { name: j.file.name, point: p, link: { path, lastModified: j.file.lastModified, mode: 'handle' } }); }
     else await insertImageBlob(j.file, { name: j.file.name, point: p });
   }
 });
@@ -4073,15 +4223,33 @@ $('#cmd-fit').onclick = fitPage; $('#cmd-fit-all').onclick = fitAll;
 $('#tool-image').onclick = $('#lk-file').onclick = () => $('#in-image').click();
 $('#in-image').addEventListener('change', async e => { for (const f of e.target.files) await insertImageBlob(f, { name: f.name }); e.target.value = ''; });
 $('#lk-connect').onclick = linkFolder;
-$('#lk-reload').onclick = async () => {
-  if (!dirHandle && !fileHandles.size && fallbackFiles.size) { $('#in-dir').click(); return; }
-  if (dirHandle) { dirKeys().forEach(k => fileHandles.delete(k)); await scanDir(dirHandle, '', 0); }
-  await reloadAll(false, false);
-};
+$('#lk-reload').onclick = reloadFolders;
 $('#lk-auto').addEventListener('change', e => setAuto(e.target.checked));
 $('#home-link').onclick = e => { e.preventDefault(); fitPage(); };
 if (inIframe) { $('#cmd-popout').hidden = false; $('#cmd-popout').onclick = () => window.open(location.href, '_blank', 'noopener'); $('#gv-status').textContent = 'Clique em “Listar vistas” para carregar as vistas salvas do projeto.'; }
 
+/* Largura ajustável do painel lateral */
+function setDockW(w, save) {
+  w = clamp(Math.round(w), 260, Math.max(300, Math.min(760, window.innerWidth * 0.6)));
+  document.documentElement.style.setProperty('--dock-w', w + 'px');
+  const r = $('#dock-resizer'); r.setAttribute('aria-valuenow', w); r.setAttribute('aria-valuemin', 260); r.setAttribute('aria-valuemax', 760);
+  if (save) { try { localStorage.setItem('kv-pranchas-dockw', w); } catch (e) {} }
+}
+try { const w = +localStorage.getItem('kv-pranchas-dockw'); if (w) setDockW(w); else setDockW(320); } catch (e) { setDockW(320); }
+(function () {
+  const r = $('#dock-resizer'); let start = null;
+  r.addEventListener('pointerdown', e => { e.preventDefault(); r.setPointerCapture(e.pointerId); start = { x: e.clientX, w: $('#dock').getBoundingClientRect().width }; r.classList.add('active'); document.body.classList.add('resizing-dock'); });
+  r.addEventListener('pointermove', e => { if (start) setDockW(start.w + (start.x - e.clientX)); });
+  const end = () => { if (!start) return; start = null; r.classList.remove('active'); document.body.classList.remove('resizing-dock'); setDockW($('#dock').getBoundingClientRect().width, true); };
+  r.addEventListener('pointerup', end); r.addEventListener('pointercancel', end);
+  r.addEventListener('dblclick', () => setDockW(320, true));
+  r.addEventListener('keydown', e => {
+    const w = $('#dock').getBoundingClientRect().width, st = e.shiftKey ? 64 : 16;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); setDockW(w + st, true); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); setDockW(w - st, true); }
+    if (e.key === 'Home') { e.preventDefault(); setDockW(320, true); }
+  });
+})();
 const dockBtn = $('#cmd-dock'), ws = $('#workspace');
 function setDock(open) { ws.classList.toggle('dock-closed', !open); dockBtn.setAttribute('aria-expanded', String(open)); setPressed(dockBtn, open); }
 dockBtn.onclick = () => setDock(ws.classList.contains('dock-closed'));
