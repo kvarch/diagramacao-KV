@@ -797,12 +797,12 @@ code{font-size:11.5px}
         <div class="field" style="margin-top:12px"><label for="gv-wait">Espera após ativar a vista (s)</label><input type="number" id="gv-wait" min="0.5" max="20" step="0.5" value="3"></div>
 <div class="row2">
           <div class="field"><label for="gv-frame">Enquadramento</label>
-            <select id="gv-frame"><option value="view">Igual à vista salva</option><option value="window">Janela atual do mapa</option><option value="snapshot">Imagem salva da vista</option></select></div>
+            <select id="gv-frame"><option value="snapshot">Imagem salva da vista (rápida, não move o mapa)</option><option value="view">Captura no enquadramento da vista</option><option value="window">Captura da janela atual</option></select></div>
           <div class="field"><label for="gv-quality">Resolução</label>
             <select id="gv-quality"><option value="1">Normal</option><option value="2" selected>Alta (2×)</option><option value="3">Muito alta (3×)</option><option value="4">Máxima (4×)</option></select></div>
         </div>
                 <label class="check"><input type="checkbox" id="gv-top"> Capturar em planta (sem inclinação) — escala e norte exatos</label>
-        <p class="info">“Igual à vista salva” reproduz a proporção e o enquadramento do preview da vista, independente do tamanho da janela. Alta resolução monta um mosaico de capturas (vistas em planta); vistas inclinadas usam captura única.</p>
+        <p class="info"><strong>Imagem salva</strong>: usa o preview guardado pelo Giraffe, como os outros apps — instantâneo e sem mexer no mapa. <strong>Captura no enquadramento</strong>: gera no momento, com a proporção da vista; a resolução depende do tamanho da janela do mapa (estreite o painel do app para aumentá-la) e, em vistas em planta, pode ser multiplicada por mosaico. Ao final, o mapa volta ao enquadramento anterior.</p>
         <ul class="list" id="gv-list"></ul>
         <details class="diag"><summary>Diagnóstico da integração</summary><pre id="gv-log"></pre></details>
       </section>
@@ -939,7 +939,7 @@ code{font-size:11.5px}
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V20 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V21 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -968,7 +968,7 @@ code{font-size:11.5px}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V20 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V21 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -3509,24 +3509,18 @@ async function grabPng(rpc, label) {
   throw new Error('o Giraffe devolveu capturas vazias');
 }
 /* Tamanho atual da janela do mapa em px de tela: limites (área útil) + margens internas (padding) */
+/* Tamanho real da janela do mapa: lido da própria captura (px da imagem ÷ densidade de pixels).
+   O cálculo pelos limites do mapa falha quando a janela fica mais estreita que as margens internas do Giraffe (400 px). */
 async function measureViewport(rpc, cam) {
-  await flyExact(rpc, { ...cam, bearing: 0, pitch: 0 }); await wait(700);
-  /* getMapView (usado no exemplo oficial view-controller da Giraffe): se trouxer o tamanho da janela, usa direto */
+  await flyExact(rpc, { ...cam, bearing: 0, pitch: 0 }); await wait(300);
+  const dpr = window.devicePixelRatio || 1;
+  const r = await rpc.invoke('getPng', []), b = await toBlobAny(r), u = URL.createObjectURL(b);
   try {
-    const mvr = await rpc.invoke('getMapView', []);
-    if (mvr && typeof mvr === 'object') {
-      gvLog('getMapView: ' + JSON.stringify(mvr).slice(0, 400));
-      const w = mvr.width ?? mvr.canvasWidth ?? (mvr.size && mvr.size.width) ?? (mvr.dimensions && mvr.dimensions.width);
-      const h = mvr.height ?? mvr.canvasHeight ?? (mvr.size && mvr.size.height) ?? (mvr.dimensions && mvr.dimensions.height);
-      if (w > 50 && h > 50) { gvLog(`Janela do mapa (getMapView): ${Math.round(w)}×${Math.round(h)} px de tela`); return { Wc: w, Hc: h }; }
-    }
-  } catch (e) { gvLog('getMapView indisponível: ' + e.message); }
-  const mv = gi.state.get('mapView') || {}, b = mv.bounds, z = mv.zoom ?? cam.zoom, pd = mv.padding || {};
-  if (!b) throw new Error('mapView sem limites');
-  const Wc = lonToPx(b[1][0], z) - lonToPx(b[0][0], z) + (pd.left || 0) + (pd.right || 0);
-  const Hc = latToPx(b[0][1], z) - latToPx(b[1][1], z) + (pd.top || 0) + (pd.bottom || 0);
-  gvLog(`Janela do mapa: ${Math.round(Wc)}×${Math.round(Hc)} px de tela`);
-  return { Wc, Hc };
+    const im = await loadImg(u), Wc = im.naturalWidth / dpr, Hc = im.naturalHeight / dpr;
+    gvLog(`Janela do mapa: ${Math.round(Wc)}×${Math.round(Hc)} px de tela (densidade ${dpr})`);
+    if (Wc < 300 || Hc < 300) toast(`A janela do mapa está pequena (${Math.round(Wc)}×${Math.round(Hc)} px), o que limita a qualidade. Estreite o painel deste app no Giraffe para o mapa ficar maior e insira de novo.`, true);
+    return { Wc, Hc };
+  } finally { URL.revokeObjectURL(u); }
 }
 async function captureFramed(view, rpc) {
   const cam0 = normCam(camOf(view)); if (!cam0) throw new Error('a vista não tem câmera (centro/zoom) reconhecível');
@@ -3535,10 +3529,13 @@ async function captureFramed(view, rpc) {
   const quality = +$('#gv-quality').value || 1, delay = clamp(parseFloat($('#gv-wait').value) || 3, 0.5, 20) * 1000;
   const { Wc, Hc } = await measureViewport(rpc, cam0);
   const cam = { ...cam0, pitch };
-  if (quality > 1 && pitch < 1) {   // mosaico: várias capturas em zoom maior, costuradas no enquadramento da vista
-    const m = quality, z2 = cam.zoom + Math.log2(m), FW = Wv * m, FH = Hv * m;
+  let mq = quality;
+  const tilesFor = q => Math.max(1, Math.ceil(Wv * q / Math.max(50, Wc * 0.9))) * Math.max(1, Math.ceil(Hv * q / Math.max(50, Hc * 0.9)));
+  while (mq > 1 && tilesFor(mq) > 36) mq--;
+  if (mq < quality && pitch < 1) { gvLog(`Resolução reduzida de ${quality}× para ${mq}× (a janela do mapa exigiria capturas demais)`); toast(`Janela do mapa pequena: resolução reduzida para ${mq}×. Estreite o painel do app para permitir resoluções maiores.`, true); }
+  if (mq > 1 && pitch < 1) {   // mosaico: várias capturas em zoom maior, costuradas no enquadramento da vista
+    const m = mq, z2 = cam.zoom + Math.log2(m), FW = Wv * m, FH = Hv * m;
     const TW = Math.max(50, Wc * 0.9), TH = Math.max(50, Hc * 0.9), nx = Math.max(1, Math.ceil(FW / TW)), ny = Math.max(1, Math.ceil(FH / TH));
-    if (nx * ny > 49) throw new Error('mosaico grande demais para esta janela; reduza a qualidade');
     const br = cam.bearing * Math.PI / 180, cx0 = lonToPx(cam.lng, z2), cy0 = latToPx(cam.lat, z2);
     let out = null, ctx = null, dpr = 1, n = 0;
     for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) {
@@ -3550,7 +3547,7 @@ async function captureFramed(view, rpc) {
       await wait(n === 1 ? delay : Math.max(900, delay * 0.6));
       const g = await grabPng(rpc, `Bloco ${n}/${nx * ny}`);
       if (!out) {
-        dpr = g.im.naturalWidth / Wc;
+        dpr = window.devicePixelRatio || 1;
         out = document.createElement('canvas'); out.width = Math.round(FW * dpr); out.height = Math.round(FH * dpr);
         if (out.width * out.height > 64e6) throw new Error('imagem final grande demais; reduza a qualidade');
         ctx = out.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, out.width, out.height);
@@ -3558,7 +3555,6 @@ async function captureFramed(view, rpc) {
       ctx.drawImage(g.im, Math.round((FW / 2 + tx - Wc / 2) * dpr), Math.round((FH / 2 + ty - Hc / 2) * dpr));
       URL.revokeObjectURL(g.url);
     }
-    await flyExact(rpc, cam0).catch(() => {});
     const blob = await new Promise(r => out.toBlob(r, 'image/png'));
     gvLog(`Mosaico ${nx}×${ny}: ${out.width}×${out.height} px no enquadramento da vista (${Wv}×${Hv} × ${m})`);
     status('Pronto');
@@ -3568,11 +3564,10 @@ async function captureFramed(view, rpc) {
   const k = Math.min(Wc / Wv, Hc / Hv), z1 = cam.zoom + Math.log2(k);
   await flyExact(rpc, { ...cam, zoom: z1 }); await wait(delay);
   const g = await grabPng(rpc, 'Captura');
-  const dpr = g.im.naturalWidth / Wc, cw = Math.round(Wv * k * dpr), ch = Math.round(Hv * k * dpr);
+  const dpr = window.devicePixelRatio || 1, cw = Math.round(Wv * k * dpr), ch = Math.round(Hv * k * dpr);
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   c.getContext('2d').drawImage(g.im, Math.round((g.im.naturalWidth - cw) / 2), Math.round((g.im.naturalHeight - ch) / 2), cw, ch, 0, 0, cw, ch);
   URL.revokeObjectURL(g.url);
-  await flyExact(rpc, cam0).catch(() => {});
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   gvLog(`Recorte no enquadramento da vista: ${cw}×${ch} px (proporção ${Wv}:${Hv})${pitch >= 1 && quality > 1 ? ' — vista inclinada: alta resolução só em planta' : ''}`);
   if (pitch >= 1 && quality > 1) toast('Vistas inclinadas usam captura única. Para alta resolução, marque “Capturar em planta”.', true);
@@ -3581,19 +3576,28 @@ async function captureFramed(view, rpc) {
 async function captureView(view) {
   const { rpc } = await loadSdk();
   const frame = $('#gv-frame').value;
-  if (view && frame === 'snapshot') {
-    try { await rpc.invoke('activateViewLayers', [view]); } catch (e) {}
+  if (view && frame === 'snapshot') {   // não mexe no mapa: usa a imagem que o Giraffe guardou ao salvar a vista
     const sb = await fetchSnapshot(view, rpc);
-    if (!sb) throw new Error('não foi possível baixar a imagem salva da vista (veja o Diagnóstico)');
+    if (!sb) { gvLog('Imagem salva indisponível; capturando do mapa.'); toast('Não foi possível baixar a imagem salva da vista; capturando do mapa.', true); return captureLive(view, rpc, 'view'); }
     const c = normCam(camOf(view)), size = (view.details && view.details.size) || {};
     return { blob: sb, raw: c ? { camMode: true, zoom: c.zoom, lat: c.lat, bearing: c.bearing, pitch: c.pitch, cssW: size.width } : null, lowRes: true };
   }
-  if (view && frame === 'view') {
-    try { await rpc.invoke('activateViewLayers', [view]); gvLog('activateViewLayers ok'); } catch (e) { gvLog('activateViewLayers: ' + e.message); }
-    try { return await captureFramed(view, rpc); }
-    catch (e) { gvLog('Enquadramento da vista falhou (' + e.message + '); usando a janela atual.'); }
+  return captureLive(view, rpc, frame);
+}
+/* Captura do mapa ao vivo; ao final, devolve o mapa ao enquadramento em que o usuário estava */
+async function captureLive(view, rpc, frame) {
+  let before = null;
+  try { const mv = gi.state.get('mapView') || {}; const c = Array.isArray(mv.center) ? mv.center : mv.center ? [mv.center.lng, mv.center.lat] : null; if (c && mv.zoom !== undefined) before = { lng: c[0], lat: c[1], zoom: mv.zoom, bearing: mv.bearing || 0, pitch: mv.pitch || 0 }; } catch (e) {}
+  try {
+    if (view && frame === 'view') {
+      try { await rpc.invoke('activateViewLayers', [view]); gvLog('activateViewLayers ok'); } catch (e) { gvLog('activateViewLayers: ' + e.message); }
+      try { return await captureFramed(view, rpc); }
+      catch (e) { gvLog('Enquadramento da vista falhou (' + e.message + '); usando a janela atual.'); }
+    }
+    return await captureWindow(view);
+  } finally {
+    if (before && view) { try { await flyExact(rpc, before); gvLog('Mapa devolvido ao enquadramento anterior'); } catch (e) {} }
   }
-  return captureWindow(view);
 }
 async function captureWindow(view) {
   const { rpc } = await loadSdk();
