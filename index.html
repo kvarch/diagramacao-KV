@@ -301,14 +301,24 @@ body.resizing-dock{cursor:col-resize;user-select:none}
 .askbar-actions{display:flex;flex-wrap:wrap;gap:8px}
 .status-cell.warn{color:var(--md-sys-color-error)}
 code{font-size:11.5px}
-.color-pop{position:fixed;z-index:130;width:318px;max-height:calc(100vh - 16px);overflow-y:auto;padding:12px;background:var(--md-sys-color-surface-container-lowest);border:1px solid var(--md-sys-color-outline)}
-.color-pop .shape-pop-h{margin:8px 0 6px}
-.color-pop .shape-pop-h small{font-weight:400;letter-spacing:0;text-transform:none}
-.cp-grid{display:grid;grid-template-columns:repeat(6,48px);gap:0}
-.cp-sw{width:48px;height:40px;display:grid;place-items:center;background:transparent;border:0;cursor:pointer;padding:0}
-.cp-sw i{width:30px;height:30px;border:1px solid var(--md-sys-color-outline-variant)}
-.cp-sw:hover i,.cp-sw:focus-visible i{outline:2px solid var(--md-sys-color-primary);outline-offset:1px}
-.cp-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0 8px}
+.color-pop{position:fixed;z-index:130;width:240px;padding:10px 12px;background:var(--md-sys-color-surface-container-lowest);border:1px solid var(--md-sys-color-outline)}
+.color-pop canvas{display:block;width:216px;cursor:crosshair;touch-action:none;border:1px solid var(--md-sys-color-outline-variant)}
+#cp-sv{height:118px}
+#cp-hue{height:12px;margin-top:6px;cursor:ew-resize}
+.cp-row{display:grid;grid-template-columns:30px 1fr 30px;gap:6px;margin:8px 0 2px;align-items:center}
+.cp-prev{width:30px;height:30px;border:1px solid var(--md-sys-color-outline-variant)}
+.cp-row input{min-height:30px;height:30px;padding:0 8px;font-size:12.5px;font-variant-numeric:tabular-nums}
+.cp-h{display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--md-sys-color-on-surface-variant)}
+.cp-grid8{display:grid;grid-template-columns:repeat(8,24px);gap:3px}
+.cp-sw{width:24px;height:24px;padding:0;border:1px solid var(--md-sys-color-outline-variant);cursor:pointer}
+.cp-sw:hover,.cp-sw:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:1px}
+.cp-sw.empty{background:transparent;border-style:dashed;cursor:default}
+.cp-add{width:24px;height:24px;display:grid;place-items:center;padding:0;border:1px solid var(--md-sys-color-outline);background:transparent;color:var(--md-sys-color-on-surface);font-size:16px;line-height:1;cursor:pointer}
+.cp-add:hover{background:var(--md-sys-color-surface-container-high)}
+.cp-drop{width:30px;height:30px}
+.cp-drop svg.i{width:16px;height:16px}
+.cp-drop[aria-pressed="true"]{background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary)}
+body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .pal-sep{width:1px;min-width:1px;height:28px;background:var(--md-sys-color-outline-variant);margin:10px 6px}
 #sym-north-grid{grid-template-columns:repeat(4,1fr)}
 .sym-pop{width:380px}
@@ -487,6 +497,11 @@ code{font-size:11.5px}
     <select id="s-style" title="Estilo"></select>
     <input type="color" id="s-c1" aria-label="Cor principal" title="Cor principal">
     <input type="color" id="s-c2" aria-label="Cor secundária" title="Cor secundária (preenchimento alternado)">
+    <button class="btn sym-scale" id="s-ttoggle" aria-pressed="true" aria-label="Mostrar ou ocultar o texto ESCALA 1:N" title="Mostrar/ocultar o texto da escala (ESCALA 1:…)" style="min-width:48px;padding:0 10px;letter-spacing:0">1:N</button>
+    <button class="btn sym-scale" id="s-ltoggle" aria-pressed="true" aria-label="Mostrar ou ocultar os textos das medidas" title="Mostrar/ocultar os textos das medidas" style="min-width:48px;padding:0 10px;letter-spacing:0">0·5·10</button>
+    <button class="btn sym-north" id="s-ntoggle" aria-pressed="true" aria-label="Mostrar ou ocultar a letra N" title="Mostrar/ocultar a letra N" style="min-width:48px;padding:0 10px;font-weight:700;letter-spacing:0">N</button>
+    <span class="unit" title="Espessura das linhas">≡</span><label class="sr-only" for="s-lw">Espessura das linhas em milímetros</label><input type="number" id="s-lw" min="0.05" max="10" step="0.05" title="Espessura das linhas (mm) — vazio = automática"><span class="unit">mm</span>
+    <span class="unit" title="Tamanho do texto">T</span><label class="sr-only" for="s-fs">Tamanho do texto em pontos</label><input type="number" id="s-fs" min="3" max="200" step="0.5" title="Tamanho do texto (pt) — no norte, vazio = proporcional ao símbolo"><span class="unit">pt</span>
     <span class="unit sym-scale">1:</span><label class="sr-only" for="s-n">Escala numérica</label><input type="number" id="s-n" class="sym-scale" min="1" step="50" title="Escala (desativada quando vinculada à vista)">
     <label class="sr-only" for="s-len">Comprimento total em metros</label><input type="number" id="s-len" class="sym-scale" min="0" step="10" title="Comprimento total (m) — vazio = automático"><span class="unit sym-scale">m</span>
     <label class="sr-only" for="s-div">Divisões</label><input type="number" id="s-div" class="sym-scale" min="1" max="10" step="1" title="Divisões">
@@ -970,7 +985,7 @@ code{font-size:11.5px}
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V23 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V28 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -986,11 +1001,13 @@ code{font-size:11.5px}
   <p class="info" id="sym-hint"></p>
 </div>
 <div class="color-pop" id="color-pop" role="dialog" aria-label="Escolher cor" hidden>
-  <p class="shape-pop-h">Cores KV</p><div class="cp-grid" id="cp-kv"></div>
-  <p class="shape-pop-h">Urbanismo</p><div class="cp-grid" id="cp-urb"></div>
-  <p class="shape-pop-h">Minhas cores <small>(clique direito remove)</small></p><div class="cp-grid" id="cp-my"></div>
-  <div class="cp-row"><label class="sr-only" for="cp-hex">Código da cor</label><input type="text" id="cp-hex" maxlength="7" placeholder="#000000"><button class="btn" id="cp-save">Salvar cor atual</button></div>
-  <button class="btn block" id="cp-native">Mais cores…</button>
+  <canvas id="cp-sv" width="216" height="118" aria-label="Saturação e brilho"></canvas>
+  <canvas id="cp-hue" width="216" height="12" aria-label="Matiz"></canvas>
+  <div class="cp-row"><span class="cp-prev" id="cp-prev"></span><label class="sr-only" for="cp-hex">Código da cor</label><input type="text" id="cp-hex" maxlength="7" spellcheck="false"><button class="cp-add cp-drop" id="cp-drop" aria-label="Conta-gotas: pegar uma cor da tela" title="Conta-gotas (clique em qualquer lugar)"><span data-icon="pipette"></span></button></div>
+  <p class="cp-h">Cores padrão</p>
+  <div class="cp-grid8" id="cp-std"></div>
+  <p class="cp-h">Personalizadas <button class="cp-add" id="cp-add" aria-label="Adicionar a cor atual às personalizadas" title="Adicionar a cor atual">+</button></p>
+  <div class="cp-grid8" id="cp-my"></div>
 </div>
 <div class="askbar" id="askbar" role="alertdialog" aria-live="assertive" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1007,7 +1024,7 @@ code{font-size:11.5px}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V23 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V28 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1110,6 +1127,7 @@ const ICONS = {
   flipH:'<path d="M12 3v18"/><path d="M8 7 3 12l5 5z"/><path d="M16 7l5 5-5 5z"/>',
   flipV:'<path d="M3 12h18"/><path d="M7 8l5-5 5 5z"/><path d="M7 16l5 5 5-5z"/>',
   belowTpl:'<rect x="3" y="3" width="13" height="13" stroke-dasharray="3 2"/><rect x="8" y="8" width="13" height="13"/>',
+  pipette:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>',
   groupSm:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -3757,7 +3775,7 @@ const NORTH_STYLES = [['crossN', 'Cruz com N'], ['triN', 'Triângulo e N'], ['ar
   ['triChord', 'Triângulo com N interno'], ['discChevron', 'Disco com seta'], ['chevron', 'Seta em chevron'], ['crossBar', 'Cruz com barra'], ['crossDouble', 'Cruz com linha dupla'], ['construct', 'Traçado construtivo'],
   ['triOpenCross', 'Triângulo e cruz'], ['triFillCross', 'Triângulo cheio e cruz'], ['barN', 'Barra e N'], ['chevronOpen', 'Chevron vazado'], ['arrowSmall', 'Seta simples'], ['fan', 'Leque']];
 const SCALE_STYLES = [['ticksLine', 'Linha com marcas'], ['stepped', 'Degraus'], ['steppedSub', 'Degraus subdivididos'], ['steppedBold', 'Degraus espessos'], ['ticksDual', 'Linha dupla graduada'],
-  ['ticksRuler', 'Régua'], ['barAltSub', 'Barra alternada'], ['barDouble', 'Barra dupla'], ['barDoubleSub', 'Barra dupla subdividida'], ['numeric', 'Numérica']];
+  ['ticksRuler', 'Régua'], ['barAltSub', 'Barra alternada'], ['steppedTicks', 'Traços alternados'], ['barDouble', 'Barra dupla'], ['barDoubleSub', 'Barra dupla subdividida'], ['numeric', 'Numérica']];
 const LEGACY_SYM = { classic: 'arrowCircle', triangle: 'triN', circle: 'arrowCircle', star4: 'construct', rose8: 'construct', minimal: 'arrowSmall', alt: 'barAltSub', double: 'barDouble', line: 'ticksLine' };
 const SYM_DEF = {
   north: { kind: 'north', style: 'crossN', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', sizeMm: 18, label: true, link: null },
@@ -3794,13 +3812,14 @@ function niceLen(target) {
 }
 
 function northItems(p) {
-  const R = mm2pt(p.sizeMm) / 2, c1 = p.c1, c2 = p.c2, sw = Math.max(mm2pt(0.18), R * 0.035), it = [];
+  const R = mm2pt(p.sizeMm) / 2, c1 = p.c1, c2 = p.c2, sw = p.lineMm > 0 ? mm2pt(p.lineMm) : Math.max(mm2pt(0.18), R * 0.035), it = [];
   const O = { objectCaching: false };
   const circle = (r, fill, w) => it.push(new fabric.Circle({ radius: r, left: 0, top: 0, originX: 'center', originY: 'center', fill: fill || '', stroke: c1, strokeWidth: w ?? sw, ...O }));
   const line = (x1, y1, x2, y2, w, col) => it.push(new fabric.Line([x1, y1, x2, y2], { stroke: col || c1, strokeWidth: w ?? sw, strokeLineCap: 'butt', ...O }));
   const poly = (pts, fill, w, col) => it.push(new fabric.Polygon(pts.map(([x, y]) => ({ x, y })), { fill, stroke: col === undefined ? c1 : col, strokeWidth: w ?? sw, strokeLineJoin: 'miter', ...O }));
   const open = (pts, w, col) => it.push(new fabric.Polyline(pts.map(([x, y]) => ({ x, y })), { fill: '', stroke: col || c1, strokeWidth: w ?? sw, strokeLineJoin: 'miter', strokeLineCap: 'butt', ...O }));
-  const N = (y, inside) => { if (p.label) it.push(new fabric.Text('N', { fontFamily: 'Hind', fontWeight: 600, fontSize: Math.max(5, R * (inside ? 0.62 : 0.7)), fill: c1, originX: 'center', originY: inside ? 'center' : 'bottom', left: 0, top: y, ...O })); };
+  let hasN = false;
+  const N = (y, inside) => { hasN = true; if (p.label) it.push(new fabric.Text('N', { fontFamily: 'Hind', fontWeight: 600, fontSize: p.labelPt > 0 ? p.labelPt : Math.max(5, R * (inside ? 0.62 : 0.7)), fill: c1, originX: 'center', originY: inside ? 'center' : 'bottom', left: 0, top: y, ...O })); };
   const cross = (ext) => { line(-R * ext, 0, R * ext, 0); line(0, -R * ext, 0, R * ext); };
   const bar = (y1, y2, wmul) => it.push(new fabric.Rect({ left: 0, top: (y1 + y2) / 2, originX: 'center', originY: 'center', width: sw * (wmul || 4), height: Math.abs(y2 - y1), fill: c1, strokeWidth: 0, ...O }));
   const gap = R * 0.12, k = Math.sqrt(3) / 2;
@@ -3811,8 +3830,8 @@ function northItems(p) {
     case 'lineTri': circle(R); open([[-R * k, R * 0.5], [0, -R], [R * k, R * 0.5]]); line(0, -R, 0, R); N(-R - gap); break;
     case 'house': poly([[0, -R * 0.55], [R, 0], [R * 0.55, 0], [R * 0.55, R * 0.4], [-R * 0.55, R * 0.4], [-R * 0.55, 0], [-R, 0]], c1, 0); N(-R * 0.55 - gap); break;
     case 'triChord': circle(R); poly([[0, -R], [R * 0.95, R * 0.3], [-R * 0.95, R * 0.3]], '', sw); N(R * 0.62, true); break;
-    case 'discChevron': circle(R, c1, 0); open([[-R * 0.6, -R * 0.12], [0, -R * 0.72], [R * 0.6, -R * 0.12]], R * 0.1, c2); line(0, -R * 0.72, 0, R * 0.95, R * 0.1, c2); break;
-    case 'chevron': circle(R); open([[-R * 0.62, -R * 0.1], [0, -R * 0.72], [R * 0.62, -R * 0.1]], R * 0.12); line(0, -R * 0.72, 0, R, R * 0.12); break;
+    case 'discChevron': circle(R, c1, 0); open([[-R * 0.6, -R * 0.12], [0, -R * 0.72], [R * 0.6, -R * 0.12]], sw * 3, c2); line(0, -R * 0.72, 0, R * 0.95, sw * 3, c2); break;
+    case 'chevron': circle(R); open([[-R * 0.62, -R * 0.1], [0, -R * 0.72], [R * 0.62, -R * 0.1]], sw * 3.4); line(0, -R * 0.72, 0, R, sw * 3.4); break;
     case 'crossBar': circle(R); cross(1); bar(-R, 0); break;
     case 'crossDouble': circle(R); line(-R, 0, R, 0); line(0, 0, 0, R); line(-R * 0.05, -R, -R * 0.05, 0); line(R * 0.05, -R, R * 0.05, 0); break;
     case 'construct': circle(R); cross(1.15); open([[-R, 0], [0, -R], [R, 0]]); { const s = R * 0.14, y = -R * 1.12; line(-s, y - s, s, y + s); line(-s, y + s, s, y - s); } break;
@@ -3828,10 +3847,12 @@ function northItems(p) {
     case 'fan': circle(R); [-0.55, -0.2, 0.2, 0.55].forEach(a => { const ang = Math.PI / 2 + a; line(0, -R, Math.cos(ang) * R, Math.sin(ang) * R); }); break;
     default: /* crossN */ circle(R); circle(R * 0.88, '', sw * 0.7); cross(1.18); bar(-R, 0); N(-R * 1.18 - gap * 0.4);
   }
+  /* todos os estilos aceitam a letra N (acima do símbolo) */
+  if (!hasN) N(p.style === 'construct' ? -R * 1.3 - gap * 0.3 : -R - gap);
   return it;
 }
 function scaleItems(p, N) {
-  const c1 = p.c1, c2 = p.c2, it = [], sw = mm2pt(0.2), fs = p.fontPt, O = { objectCaching: false };
+  const c1 = p.c1, c2 = p.c2, it = [], sw = p.lineMm > 0 ? mm2pt(p.lineMm) / 1.4 : mm2pt(0.2), fs = p.fontPt, O = { objectCaching: false };
   const text = (t, x, y, o = {}) => it.push(new fabric.Text(t, { left: x, top: y, fontSize: fs, fontFamily: 'Hind', fill: c1, originX: 'center', ...O, ...o }));
   if (p.style === 'numeric') {
     if (p.title) text('ESCALA', 0, 0, { fontWeight: 600, charSpacing: 120, fontSize: fs * 0.8, originX: 'left' });
@@ -3845,14 +3866,15 @@ function scaleItems(p, N) {
   const pline = (pts, w) => it.push(new fabric.Polyline(pts.map(([x, y]) => ({ x, y })), { fill: '', stroke: c1, strokeWidth: w ?? sw * 1.4, strokeLineJoin: 'miter', ...O }));
   const rect = (x, y, w, h, fill) => it.push(new fabric.Rect({ left: x, top: y, width: w, height: h, fill, stroke: c1, strokeWidth: sw, strokeUniform: true, ...O }));
   const top = y => y - fs * 1.25, below = y => y + mm2pt(0.8);
-  const labelsAt = (xs, vals, y, pos) => xs.forEach((x, i) => text(lf(vals[i]) + (i === xs.length - 1 ? ' ' + unit : ''), x, pos === 'top' ? top(y) : below(y)));
+  const showL = p.labels !== false, mtext = (...a) => { if (showL) text(...a); };
+  const labelsAt = (xs, vals, y, pos) => xs.forEach((x, i) => mtext(lf(vals[i]) + (i === xs.length - 1 ? ' ' + unit : ''), x, pos === 'top' ? top(y) : below(y)));
   const majX = Array.from({ length: div + 1 }, (_, i) => i * S), majV = majX.map((_, i) => i * seg);
   const sub = [0, S / 4, S / 2, (3 * S) / 4, S], subV = sub.map(x => x / S * seg);
   let titleY = -fs * 1.3;
   switch (p.style) {
     case 'ticksLine':
       line(0, H / 2, L, H / 2); majX.forEach(x => line(x, 0, x, H));
-      text(lf(total) + ' ' + unit, L, top(0), { originX: 'right' }); titleY = top(0) - fs * 1.2; break;
+      mtext(lf(total) + ' ' + unit, L, top(0), { originX: 'right' }); titleY = showL ? top(0) - fs * 1.2 : -fs * 1.3; break;
     case 'stepped': {
       const pts = [[0, 0]]; for (let i = 0; i < div; i++) { const y = i % 2 ? H : 0; pts.push([i * S, y], [(i + 1) * S, y]); if (i < div - 1) pts.push([(i + 1) * S, (i + 1) % 2 ? H : 0]); }
       pline(pts); line(0, 0, 0, H); labelsAt(majX.slice(1), majV.slice(1), 0, 'top'); titleY = top(0) - fs * 1.2; break;
@@ -3865,7 +3887,7 @@ function scaleItems(p, N) {
     case 'steppedBold': {
       const pts = []; for (let i = 0; i < div; i++) { const y = i % 2 ? H : 0; pts.push([i * S, y], [(i + 1) * S, y]); if (i < div - 1) pts.push([(i + 1) * S, (i + 1) % 2 ? H : 0]); }
       pline([[0, H]].concat(pts), sw * 4);
-      majX.forEach((x, i) => text(lf(majV[i]) + (i === div ? ' ' + unit : ''), x, i % 2 ? top(0) : below(H), { fontWeight: 700 })); titleY = top(0) - fs * 1.2; break;
+      majX.forEach((x, i) => mtext(lf(majV[i]) + (i === div ? ' ' + unit : ''), x, i % 2 ? top(0) : below(H), { fontWeight: 700 })); titleY = showL ? top(0) - fs * 1.2 : -fs * 1.3; break;
     }
     case 'ticksDual': {
       line(0, H / 2, L, H / 2); const n = div * 5; for (let i = 0; i <= n; i++) line(i * L / n, 0, i * L / n, H / 2, sw);
@@ -3885,8 +3907,14 @@ function scaleItems(p, N) {
       for (let i = 0; i < n; i++) rect(i * s2, 0, s2, H / 2, i % 2 ? c2 : c1);
       for (let i = 0; i < div; i++) rect(i * S, H / 2, S, H / 2, i % 2 ? c1 : c2);
       labelsAt(majX, majV, 0, 'top');
-      const halfX = Array.from({ length: n + 1 }, (_, i) => i * s2).filter((_, i) => i % 2 === 1); halfX.forEach(x => text(lf(x / S * seg), x, below(H)));
+      const halfX = Array.from({ length: n + 1 }, (_, i) => i * s2).filter((_, i) => i % 2 === 1); halfX.forEach(x => mtext(lf(x / S * seg), x, below(H)));
       titleY = top(0) - fs * 1.2; break;
+    }
+    case 'steppedTicks': {   /* traços espessos alternando em cima/embaixo, com marcas finas nas divisões */
+      const t = Math.max(H * 0.42, sw * 3), top0 = 0, bot = H - t;
+      for (let i = 0; i < div; i++) it.push(new fabric.Rect({ left: i * S, top: i % 2 ? bot : top0, width: S, height: t, fill: c1, strokeWidth: 0, ...O }));
+      majX.forEach(x => line(x, -H * 0.35, x, H, sw));
+      labelsAt(majX, majV, -H * 0.35, 'top'); titleY = showL ? top(-H * 0.35) - fs * 1.2 : -fs * 1.3 - H * 0.35; break;
     }
     default: { /* barAltSub: barra alternada com o primeiro trecho subdividido */
       for (let i = 0; i < 4; i++) rect(sub[i], 0, S / 4, H, i % 2 ? c2 : c1);
@@ -3894,6 +3922,7 @@ function scaleItems(p, N) {
       labelsAt([0, S / 2].concat(majX.slice(1)), [0, seg / 2].concat(majV.slice(1)), 0, 'top'); titleY = top(0) - fs * 1.2;
     }
   }
+  if (!showL && titleY < -fs * 1.5) titleY += fs * 1.2;
   if (p.title) text('ESCALA 1:' + fmtInt(N), 0, titleY - fs * 0.2, { fontWeight: 600, charSpacing: 120, fontSize: fs * 0.9, originX: 'left' });
   return { items: it, total };
 }
@@ -3982,6 +4011,11 @@ function refreshSymUI() {
   $$('.sym-north').forEach(el => { el.hidden = !north; });
   if (!north) { setVal('#s-n', p.N); $('#s-n').disabled = !!img; setVal('#s-len', p.lengthM || ''); $('#s-len').placeholder = p._total ? 'auto (' + (Math.round(p._total * 100) / 100).toLocaleString('pt-BR') + ')' : 'auto'; setVal('#s-div', p.div); setVal('#s-h', p.heightMm); setVal('#s-font', p.fontPt); $('#s-title').checked = !!p.title; }
   else { setVal('#s-size', r1(p.sizeMm * Math.abs(g.scaleX))); $('#s-label').checked = !!p.label; }
+  const autoLw = north ? pt2mm(Math.max(mm2pt(0.18), mm2pt(p.sizeMm) / 2 * 0.035)) : 0.28;
+  setVal('#s-lw', p.lineMm > 0 ? p.lineMm : ''); $('#s-lw').placeholder = 'auto ' + (Math.round(autoLw * 100) / 100).toLocaleString('pt-BR');
+  setVal('#s-fs', north ? (p.labelPt > 0 ? p.labelPt : '') : p.fontPt); $('#s-fs').placeholder = north ? 'auto' : '';
+  setPressed($('#s-ntoggle'), !!p.label); $('#s-ntoggle').title = p.label ? 'Ocultar a letra N' : 'Mostrar a letra N';
+  if (!north) { setPressed($('#s-ttoggle'), !!p.title); setPressed($('#s-ltoggle'), p.labels !== false); $('#s-ltoggle').disabled = p.style === 'numeric'; }
   $('#s-link').hidden = !p.link; setPressed($('#s-link'), !!p.link);
   const L = $('#s-link-info');
   if (img) { const G = img.kvGeo; L.textContent = north ? `Vinculado à orientação de “${img.kvName}”: norte a ${Math.round(((-northAngleFor(img)) % 360 + 360) % 360)}° da vertical.` : `Vinculado a “${img.kvName}”: escala 1:${fmtInt(p.N)}${G && G.approx ? ' (aproximada)' : ''}. Ao redimensionar a imagem, a barra se atualiza.`; }
@@ -3990,10 +4024,15 @@ function refreshSymUI() {
 function symPatch(patch, styleKeys = true) {
   const g = symTarget(); if (!g) return;
   const ng = rebuildSymbol(g, patch);
-  if (styleKeys) { const k = ng.kvSym.kind; ['style', 'c1', 'c2', 'div', 'heightMm', 'fontPt', 'title', 'label', 'sizeMm'].forEach(x => { if (x in patch) lastSym[k][x] = patch[x]; }); }
+  if (styleKeys) { const k = ng.kvSym.kind; ['style', 'c1', 'c2', 'div', 'heightMm', 'fontPt', 'title', 'labels', 'label', 'sizeMm', 'lineMm', 'labelPt'].forEach(x => { if (x in patch) lastSym[k][x] = patch[x]; }); }
   commit(); refreshPanel();
 }
 $('#s-style').addEventListener('change', e => symPatch({ style: e.target.value }));
+$('#s-lw').addEventListener('change', e => { const v = parseFloat(e.target.value); symPatch({ lineMm: v > 0 ? clamp(v, 0.05, 10) : null }); });
+$('#s-fs').addEventListener('change', e => { const g = symTarget(); if (!g) return; const v = parseFloat(e.target.value); if (g.kvSym.kind === 'north') symPatch({ labelPt: v > 0 ? clamp(v, 3, 200) : null }); else if (v > 0) symPatch({ fontPt: clamp(v, 3, 72) }); });
+$('#s-ttoggle').onclick = () => { const g = symTarget(); if (!g || g.kvSym.kind !== 'scale') return; symPatch({ title: !g.kvSym.title }); };
+$('#s-ltoggle').onclick = () => { const g = symTarget(); if (!g || g.kvSym.kind !== 'scale') return; symPatch({ labels: g.kvSym.labels === false }); };
+$('#s-ntoggle').onclick = () => { const g = symTarget(); if (!g || g.kvSym.kind !== 'north') return; symPatch({ label: !g.kvSym.label }); };
 $('#s-c1').addEventListener('input', e => symPatch({ c1: rgba(e.target.value, 1) }));
 $('#s-c2').addEventListener('input', e => symPatch({ c2: rgba(e.target.value, 1) }));
 $('#s-n').addEventListener('change', e => { const v = parseFloat(e.target.value); if (v > 0) symPatch({ N: v }, false); });
@@ -4482,55 +4521,107 @@ $('#tpl-import').onclick = () => $('#in-tpl').click();
 $('#in-tpl').addEventListener('change', e => { const f = e.target.files[0]; if (f) importTemplatesFile(f); e.target.value = ''; });
 $('#lib-add-all').onclick = async () => { if (!libTemplates || !libTemplates.length) { toast('Nenhum modelo da empresa publicado.'); return; } const n = await addTemplatesToProject(libTemplates); toast(`${n} modelo(s) da empresa adicionados.`); };
 
-/* ---------------- Seletor de cores com cores da empresa e cores salvas ---------------- */
-const KV_COLORS = [['#000000', 'Preto KV'], ['#FFFFFF', 'Branco'], ['#00ACCD', 'Ciano KV'], ['#00677C', 'Petróleo'], ['#26277D', 'Índigo'], ['#3E4095', 'Índigo claro'],
-  ['#2FAF83', 'Verde KV'], ['#303030', 'Grafite'], ['#767676', 'Cinza médio'], ['#C4C7C7', 'Cinza claro'], ['#E8E8E8', 'Cinza papel'], ['#F3F3F3', 'Off-white']];
-const URB_COLORS = [['#E53935', 'Vermelho'], ['#FB8C00', 'Laranja'], ['#FDD835', 'Amarelo'], ['#7CB342', 'Verde-claro'], ['#2E7D32', 'Verde'], ['#1E88E5', 'Azul'],
-  ['#8E24AA', 'Roxo'], ['#6D4C41', 'Marrom'], ['#F8BBD0', 'Rosa'], ['#90CAF9', 'Azul-claro'], ['#A5D6A7', 'Verde-água'], ['#FFE082', 'Areia']];
-let myColors = []; try { myColors = JSON.parse(localStorage.getItem('kv-pranchas-mycolors') || '[]'); } catch (e) {}
-const saveMyColors = () => { try { localStorage.setItem('kv-pranchas-mycolors', JSON.stringify(myColors.slice(0, 24))); } catch (e) {} };
-let colorTarget = null, bypassColorPop = false;
-function setInputColor(inp, hex) {
-  inp.value = hex.toLowerCase();
-  inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
+/* ---------------- Seletor de cores compacto (estilo Windows): espectro + 16 cores padrão + 16 personalizadas ---------------- */
+const STD_COLORS = [['#000000', 'Preto KV'], ['#FFFFFF', 'Branco'], ['#00ACCD', 'Ciano KV'], ['#00677C', 'Petróleo'], ['#26277D', 'Índigo'], ['#2FAF83', 'Verde KV'], ['#767676', 'Cinza médio'], ['#C4C7C7', 'Cinza claro'],
+  ['#E53935', 'Vermelho'], ['#FB8C00', 'Laranja'], ['#FDD835', 'Amarelo'], ['#7CB342', 'Verde-claro'], ['#2E7D32', 'Verde'], ['#1E88E5', 'Azul'], ['#8E24AA', 'Roxo'], ['#6D4C41', 'Marrom']];
+const MY_MAX = 16;
+let myColors = []; try { myColors = JSON.parse(localStorage.getItem('kv-pranchas-mycolors') || '[]').slice(0, MY_MAX); } catch (e) {}
+const saveMyColors = () => { try { localStorage.setItem('kv-pranchas-mycolors', JSON.stringify(myColors.slice(0, MY_MAX))); } catch (e) {} };
+let colorTarget = null;
+const cp = { h: 0, s: 0, v: 0 };
+function hsvToHex(h, s, v) {
+  const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return '#' + [f(5), f(3), f(1)].map(x => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
 }
-function swatchBtn(hex, label, onPick, removable) {
-  const b = document.createElement('button'); b.className = 'cp-sw'; b.title = `${label} ${hex}`; b.setAttribute('aria-label', `${label} ${hex}`);
-  b.innerHTML = `<i style="background:${hex}"></i>`; b.onclick = () => onPick(hex);
-  if (removable) b.oncontextmenu = e => { e.preventDefault(); removable(hex); };
-  return b;
+function hexToHsv(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return { h: 0, s: 0, v: 0 };
+  const n = parseInt(m[1], 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s: mx ? d / mx : 0, v: mx };
 }
-function renderColorPop() {
-  const pick = hex => { if (colorTarget) setInputColor(colorTarget, hex); $('#cp-hex').value = hex.toLowerCase(); };
-  const fill = (id, list, rem) => { const g = $(id); g.innerHTML = ''; list.forEach(([h, l]) => g.appendChild(swatchBtn(h, l, pick, rem))); };
-  fill('#cp-kv', KV_COLORS); fill('#cp-urb', URB_COLORS);
-  const g = $('#cp-my'); g.innerHTML = '';
-  myColors.forEach(h => g.appendChild(swatchBtn(h, 'Minha cor', pick, hex => { myColors = myColors.filter(x => x !== hex); saveMyColors(); renderColorPop(); buildPaletteMine(); })));
-  if (!myColors.length) g.innerHTML = '<p class="info" style="grid-column:1/-1;margin:0">Nenhuma cor salva ainda. Use “Salvar cor atual”.</p>';
+function drawCp() {
+  const sv = $('#cp-sv'), x = sv.getContext('2d'), W = sv.width, H = sv.height;
+  x.fillStyle = hsvToHex(cp.h, 1, 1); x.fillRect(0, 0, W, H);
+  let g = x.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, '#000'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const px = cp.s * W, py = (1 - cp.v) * H;
+  x.lineWidth = 2; x.strokeStyle = cp.v > 0.55 && cp.s < 0.5 ? '#000' : '#fff'; x.beginPath(); x.arc(px, py, 5, 0, Math.PI * 2); x.stroke();
+  const hu = $('#cp-hue'), y = hu.getContext('2d'), hg = y.createLinearGradient(0, 0, hu.width, 0);
+  [0, 60, 120, 180, 240, 300, 360].forEach(d => hg.addColorStop(d / 360, hsvToHex(d, 1, 1)));
+  y.fillStyle = hg; y.fillRect(0, 0, hu.width, hu.height);
+  const hx = cp.h / 360 * hu.width; y.fillStyle = '#fff'; y.strokeStyle = '#000'; y.lineWidth = 1; y.fillRect(hx - 2, 0, 4, hu.height); y.strokeRect(hx - 2.5, 0.5, 5, hu.height - 1);
+  const hex = hsvToHex(cp.h, cp.s, cp.v); $('#cp-prev').style.background = hex; if (document.activeElement !== $('#cp-hex')) $('#cp-hex').value = hex;
+}
+function emitColor(hex, final) {
+  if (!colorTarget) return;
+  colorTarget.value = hex.toLowerCase();
+  colorTarget.dispatchEvent(new Event('input', { bubbles: true }));
+  if (final) colorTarget.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function pickHex(hex) { Object.assign(cp, hexToHsv(hex)); $('#cp-hex').value = hex.toLowerCase(); drawCp(); emitColor(hex, true); }
+function renderSwatches() {
+  const std = $('#cp-std'); std.innerHTML = '';
+  STD_COLORS.forEach(([h, l]) => { const b = document.createElement('button'); b.className = 'cp-sw'; b.title = `${l} ${h}`; b.setAttribute('aria-label', `${l} ${h}`); b.style.background = h; b.onclick = () => pickHex(h); std.appendChild(b); });
+  const my = $('#cp-my'); my.innerHTML = '';
+  for (let i = 0; i < MY_MAX; i++) {
+    const h = myColors[i], b = document.createElement('button'); b.className = 'cp-sw' + (h ? '' : ' empty');
+    if (h) { b.style.background = h; b.title = `${h} (clique direito remove)`; b.setAttribute('aria-label', `Cor personalizada ${h}`); b.onclick = () => pickHex(h); b.oncontextmenu = e => { e.preventDefault(); myColors.splice(i, 1); saveMyColors(); renderSwatches(); buildPaletteMine(); }; }
+    else { b.title = 'Vazio — use “+” para guardar a cor atual'; b.setAttribute('aria-label', 'Espaço vazio para cor personalizada'); b.tabIndex = -1; }
+    my.appendChild(b);
+  }
 }
 function openColorPop(inp) {
-  colorTarget = inp; const pop = $('#color-pop'); renderColorPop();
-  $('#cp-hex').value = inp.value; pop.hidden = false;
+  colorTarget = inp; Object.assign(cp, hexToHsv(inp.value)); renderSwatches(); drawCp();
+  const pop = $('#color-pop'); pop.hidden = false;
   const r = inp.getBoundingClientRect(), W = pop.offsetWidth, H = pop.offsetHeight;
   pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8)) + 'px';
   pop.style.top = (r.bottom + 6 + H > window.innerHeight ? Math.max(8, r.top - H - 6) : r.bottom + 6) + 'px';
-  pop.querySelector('.cp-sw').focus();
+  $('#cp-hex').focus(); $('#cp-hex').select();
 }
 const closeColorPop = () => { $('#color-pop').hidden = true; colorTarget = null; };
+function dragOn(el, fn) {
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); if (document.activeElement === $('#cp-hex')) $('#cp-hex').blur(); el.setPointerCapture(e.pointerId); fn(e, false);
+    const mv = ev => fn(ev, false), up = ev => { fn(ev, true); el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); };
+    el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up);
+  });
+}
+dragOn($('#cp-sv'), (e, fin) => { const r = e.currentTarget.getBoundingClientRect(); cp.s = clamp((e.clientX - r.left) / r.width, 0, 1); cp.v = 1 - clamp((e.clientY - r.top) / r.height, 0, 1); drawCp(); emitColor(hsvToHex(cp.h, cp.s, cp.v), fin); });
+dragOn($('#cp-hue'), (e, fin) => { const r = e.currentTarget.getBoundingClientRect(); cp.h = clamp((e.clientX - r.left) / r.width, 0, 0.9999) * 360; if (cp.s === 0) cp.s = 1; if (cp.v === 0) cp.v = 1; drawCp(); emitColor(hsvToHex(cp.h, cp.s, cp.v), fin); });
+$('#cp-hex').addEventListener('change', e => { let v = e.target.value.trim(); if (!v.startsWith('#')) v = '#' + v; if (/^#[0-9a-f]{6}$/i.test(v)) pickHex(v.toLowerCase()); });
+/* Conta-gotas: EyeDropper do navegador (qualquer lugar da tela); se indisponível, pega da prancha */
+let eyedrop = false;
+function stopEyedrop() { eyedrop = false; document.body.classList.remove('eyedropping'); $('#cp-drop').setAttribute('aria-pressed', 'false'); }
+$('#cp-drop').onclick = async () => {
+  if (window.EyeDropper) {
+    const tgt = colorTarget;
+    try { const r = await new window.EyeDropper().open(); if (tgt) { colorTarget = tgt; pickHex(r.sRGBHex.length === 7 ? r.sRGBHex : rgbToHexStr(r.sRGBHex)); } return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  eyedrop = true; document.body.classList.add('eyedropping'); $('#cp-drop').setAttribute('aria-pressed', 'true');
+  status('Conta-gotas: clique na prancha para pegar a cor · Esc cancela');
+};
+function rgbToHexStr(s) { const m = String(s).match(/\d+/g); return m && m.length >= 3 ? '#' + m.slice(0, 3).map(n => (+n).toString(16).padStart(2, '0')).join('') : '#000000'; }
+document.addEventListener('pointerdown', e => {
+  if (!eyedrop) return;
+  const st = $('#stage'); if (!st.contains(e.target)) { if (!$('#color-pop').contains(e.target)) stopEyedrop(); return; }
+  e.preventDefault(); e.stopPropagation();
+  const c = canvas.lowerCanvasEl, r = c.getBoundingClientRect(), sx = c.width / r.width, sy = c.height / r.height;
+  try { const d = c.getContext('2d').getImageData(Math.floor((e.clientX - r.left) * sx), Math.floor((e.clientY - r.top) * sy), 1, 1).data; pickHex('#' + [d[0], d[1], d[2]].map(n => n.toString(16).padStart(2, '0')).join('')); }
+  catch (err) { toast('Não foi possível ler a cor neste ponto.', true); }
+  stopEyedrop(); status('Pronto');
+}, true);
+$('#cp-add').onclick = () => {
+  const v = hsvToHex(cp.h, cp.s, cp.v).toLowerCase();
+  myColors = [v, ...myColors.filter(x => x !== v)].slice(0, MY_MAX); saveMyColors(); renderSwatches(); buildPaletteMine();
+};
 document.addEventListener('click', e => {
   const inp = e.target.closest && e.target.closest('input[type=color]');
-  if (!inp || bypassColorPop) return;
-  e.preventDefault(); openColorPop(inp);
+  if (!inp) return; e.preventDefault(); openColorPop(inp);
 }, true);
-document.addEventListener('pointerdown', e => { const pop = $('#color-pop'); if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('input[type=color]'))) closeColorPop(); });
-$('#color-pop').addEventListener('keydown', e => { if (e.key === 'Escape') { const t = colorTarget; closeColorPop(); t && t.focus(); } e.stopPropagation(); });
-$('#cp-hex').addEventListener('change', e => { let v = e.target.value.trim(); if (!v.startsWith('#')) v = '#' + v; if (/^#[0-9a-f]{6}$/i.test(v) && colorTarget) setInputColor(colorTarget, v); });
-$('#cp-save').onclick = () => { const v = (colorTarget ? colorTarget.value : $('#cp-hex').value).toLowerCase(); if (!/^#[0-9a-f]{6}$/.test(v)) return; myColors = [v, ...myColors.filter(x => x !== v)].slice(0, 24); saveMyColors(); renderColorPop(); buildPaletteMine(); toast('Cor salva em “Minhas cores”.'); };
-$('#cp-native').onclick = () => {
-  const inp = colorTarget; if (!inp) return; closeColorPop(); bypassColorPop = true;
-  try { if (inp.showPicker) inp.showPicker(); else inp.click(); } catch (e) { inp.click(); }
-  setTimeout(() => { bypassColorPop = false; }, 400);
-};
+document.addEventListener('pointerdown', e => { const pop = $('#color-pop'); if (eyedrop) return; if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('input[type=color]'))) closeColorPop(); });
+$('#color-pop').addEventListener('keydown', e => { if (e.key === 'Escape' && eyedrop) { stopEyedrop(); status('Pronto'); e.stopPropagation(); return; } if (e.key === 'Escape') { const t = colorTarget; closeColorPop(); t && t.focus(); } if (e.key === 'Enter' && e.target.id === 'cp-hex') { e.target.dispatchEvent(new Event('change')); } e.stopPropagation(); });
 /* “Minhas cores” também na paleta da barra inferior */
 function buildPaletteMine() {
   const p = $('#palette'); p.querySelectorAll('.swatch.mine, .pal-sep').forEach(x => x.remove());
