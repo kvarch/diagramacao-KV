@@ -454,6 +454,7 @@ code{font-size:11.5px}
     <span class="cg-label">Imagem</span>
     <button class="btn" id="c-crop" title="Recortar (duplo clique na imagem)"><span data-icon="cropBox"></span>Recortar</button>
     <button class="icon-btn" id="c-gray" aria-pressed="false" aria-label="Tons de cinza" title="Tons de cinza"><span data-icon="gray"></span></button>
+    <button class="icon-btn" id="c-refresh" aria-label="Atualizar imagem" title="Atualizar" hidden><span data-icon="refresh"></span></button>
     <button class="icon-btn" id="c-add-north" aria-label="Inserir norte vinculado a esta imagem" title="Inserir norte (vinculado à orientação da vista)"><span data-icon="north"></span></button>
     <button class="icon-btn" id="c-add-scale" aria-label="Inserir escala gráfica vinculada a esta imagem" title="Inserir escala gráfica (vinculada à escala da vista)"><span data-icon="ruler"></span></button>
   </div>
@@ -615,6 +616,10 @@ code{font-size:11.5px}
         <div class="btn-grid">
           <button class="btn" id="im-fit">Ajustar à moldura</button>
           <button class="btn" id="im-reload">Recarregar</button>
+        </div>
+        <div id="im-auto-wrap" hidden>
+          <label class="check"><input type="checkbox" id="im-auto"> Atualizar automaticamente quando a vista mudar no Giraffe</label>
+          <p class="info" id="im-auto-info"></p>
         </div>
       </section>
 
@@ -804,6 +809,9 @@ code{font-size:11.5px}
                 <label class="check"><input type="checkbox" id="gv-top"> Capturar em planta (sem inclinação) — escala e norte exatos</label>
         <p class="info"><strong>Imagem salva</strong>: usa o preview guardado pelo Giraffe, como os outros apps — instantâneo e sem mexer no mapa. <strong>Captura no enquadramento</strong>: gera no momento, com a proporção da vista; a resolução depende do tamanho da janela do mapa (estreite o painel do app para aumentá-la) e, em vistas em planta, pode ser multiplicada por mosaico. Ao final, o mapa volta ao enquadramento anterior.</p>
         <ul class="list" id="gv-list"></ul>
+        <label class="check"><input type="checkbox" id="gv-auto-new"> Novas vistas inseridas com atualização automática</label>
+        <button class="btn block" id="gv-update-all">Atualizar todas as vistas nas folhas</button>
+        <p class="info">A atualização traz a versão atual de cada vista (imagem, câmera, camadas) e mantém o tamanho na folha, a posição, a rotação, o recorte, a máscara, os filtros e os símbolos vinculados. A automática verifica a cada 20 s e só atualiza quando a vista muda.</p>
         <details class="diag"><summary>Diagnóstico da integração</summary><pre id="gv-log"></pre></details>
       </section>
       <section class="section">
@@ -939,7 +947,7 @@ code{font-size:11.5px}
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V21 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V22 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -968,7 +976,7 @@ code{font-size:11.5px}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V21 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V22 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2532,11 +2540,11 @@ async function replaceImageSource(img, blob) {
   const rx = oldNatW / nw, ry = oldNatH / nh;
   img.setElement(el);
   const aspectChanged = Math.abs(rx / ry - 1) > 0.02;
-  if (aspectChanged) {   // proporção diferente: mantém a largura exibida sem distorcer (antes a imagem esticava/“perdia” o tamanho)
-    const dispW = w0 * img.scaleX;
-    img.set({ cropX: 0, cropY: 0, width: nw, height: nh }); const k = dispW / nw; img.set({ scaleX: k, scaleY: k * Math.sign(img.scaleY || 1) });
-    if (img.clipPath) img.clipPath = null;
-    toast(`A nova versão de “${img.kvName || 'imagem'}” tem outra proporção; mantive a largura e removi o recorte.`, true);
+  if (aspectChanged) {   // proporção diferente: mantém a largura exibida sem distorcer e conserva o recorte no mesmo lugar da folha
+    const sx0 = img.scaleX, sy0 = img.scaleY, dispW = w0 * sx0;
+    img.set({ cropX: 0, cropY: 0, width: nw, height: nh }); const k = dispW / nw; img.set({ scaleX: k, scaleY: k * Math.sign(sy0 || 1) });
+    if (img.clipPath) { const cp = img.clipPath, fx = sx0 / img.scaleX, fy = sy0 / img.scaleY; cp.set({ scaleX: cp.scaleX * fx, scaleY: cp.scaleY * fy, left: cp.left * fx, top: cp.top * fy }); }
+    toast(`A nova versão de “${img.kvName || 'imagem'}” tem outra proporção; mantive a largura e o recorte.`);
   } else img.set({ cropX: cx0 / rx, cropY: cy0 / ry, width: w0 / rx, height: h0 / ry, scaleX: img.scaleX * rx, scaleY: img.scaleY * ry });
   if (img.clipPath && !aspectChanged) { const cp = img.clipPath; cp.set({ scaleX: cp.scaleX / rx, scaleY: cp.scaleY / ry, left: cp.left / rx, top: cp.top / ry }); }
   img.setPositionByOrigin(c, 'center', 'center');
@@ -2969,7 +2977,7 @@ function restore(snap) {
     let list = snap.objects || [];
     if (mode === 'tpl') { presStore = list; list = templatesToLoad(); }
     enlivenOnto(list).then(() => {
-      applySheetStates(); rebuildChrome(); syncDocUI(); renderSheetList();
+      applySheetStates(); rebuildChrome(); syncDocUI(); renderSheetList(); if (typeof syncGvAuto === 'function') syncGvAuto();
       restoring = false; canvas.requestRenderAll(); scheduleLayers(); renderLinks(); refreshPanel();
       resolve();
     });
@@ -3107,12 +3115,22 @@ function findLinked(L, loose) {
   return null;
 }
 const srcFile = async src => { if (!src) throw new Error('pasta precisa ser selecionada de novo'); return src instanceof File ? src : src.getFile(); };
-async function reloadLinked(img, force) {
+async function reloadLinked(img, force, skipFetch) {
   const L = img.kvLink; if (!L) return false;
   if (L.kind === 'giraffe') {
-    if (!force) return false;
-    try { const { blob, raw } = await captureView(L.viewId ? findView(L.viewId, L.viewName) : null); await replaceImageSource(img, blob); const G = computeGeo(raw, img.kvNatW, img.kvNatH); if (G) { img.kvGeo = G; updateLinkedSymbols(img); } return true; }
-    catch (err) { gvLog('Recaptura falhou: ' + err.message); toast('Não foi possível recapturar a vista: ' + err.message, true); return false; }
+    if (!force && !L.auto) return false;
+    try {
+      if (!skipFetch) await fetchViewsData(true);
+      const v = L.viewId ? findView(L.viewId, L.viewName) : null;
+      if (L.viewId && !v) { if (force) toast(`A vista “${L.viewName}” não existe mais no Giraffe.`, true); return false; }
+      if (!force && v && L.sig === viewSig(v)) return false;   // automática: só atualiza se a vista mudou
+      const { blob, raw } = await captureView(v, L.frame);
+      await replaceImageSource(img, blob);   // preserva tamanho na folha, posição, rotação, recorte, máscara e filtros
+      const G = computeGeo(raw, img.kvNatW, img.kvNatH); if (G) { img.kvGeo = G; updateLinkedSymbols(img); }
+      img.kvLink = { ...img.kvLink, sig: v ? viewSig(v) : null, updatedAt: Date.now() };
+      gvLog(`Vista atualizada: ${L.viewName || 'mapa atual'}`);
+      return true;
+    } catch (err) { gvLog('Atualização da vista falhou: ' + err.message); if (force) toast('Não foi possível atualizar a vista: ' + err.message, true); return false; }
   }
   let file = null, hit = findLinked(L, force);
   if (!hit || hit.pending) { img.kvStale = false; return false; }
@@ -3381,15 +3399,25 @@ async function loadSdk() {
 const viewName = (v, i) => v && (v.name || v.title || (v.properties && v.properties.name) || v.label) || `Vista ${i + 1}`;
 const viewId = (v, i) => v && (v.id || v._id || v.uuid || (v.properties && v.properties.id)) || viewName(v, i);
 function findView(id, name) { return gvViews.find((v, i) => viewId(v, i) === id) || gvViews.find((v, i) => viewName(v, i) === name) || null; }
+/* Assinatura da vista: muda quando a vista é regravada no app Views (imagem, câmera, tamanho, camadas, cenário, sol) */
+function viewSig(v) {
+  const d = (v && v.details) || {};
+  let lt = 0; try { lt = JSON.stringify(d.layerTree || '').length; } catch (e) {}
+  return JSON.stringify([d.snapShot, d.camera, d.size, d.activeLayer, d.solarDate, d.topView, d.scenarios, lt]);
+}
+async function fetchViewsData(quiet) {
+  const { state, rpc } = await loadSdk();
+  let views = state.get('views');
+  if (!Array.isArray(views) || !views.length) {
+    if (!quiet) gvLog('giraffeState.views vazio; tentando fetchVistas…');
+    try { const r = await rpc.invoke('fetchVistas', []); views = Array.isArray(r) ? r : (r && (r.vistas || r.views || r.data)) || []; } catch (e) { if (!quiet) gvLog('fetchVistas: ' + e.message); views = []; }
+  }
+  gvViews = Array.isArray(views) ? views : [];
+  return gvViews;
+}
 async function listViews() {
   try {
-    const { state, rpc } = await loadSdk();
-    let views = state.get('views');
-    if (!Array.isArray(views) || !views.length) {
-      gvLog('giraffeState.views vazio; tentando fetchVistas…');
-      try { const r = await rpc.invoke('fetchVistas', []); views = Array.isArray(r) ? r : (r && (r.vistas || r.views || r.data)) || []; } catch (e) { gvLog('fetchVistas: ' + e.message); }
-    }
-    gvViews = Array.isArray(views) ? views : [];
+    await fetchViewsData(false);
     if (gvViews[0]) {
       const v0 = gvViews[0], d0 = v0.details || {};
       gvLog('Campos da vista: ' + Object.keys(v0).join(', ') + (v0.details ? ' | details: ' + Object.keys(d0).join(', ') : ''));
@@ -3573,9 +3601,9 @@ async function captureFramed(view, rpc) {
   if (pitch >= 1 && quality > 1) toast('Vistas inclinadas usam captura única. Para alta resolução, marque “Capturar em planta”.', true);
   return { blob, raw: { camMode: true, zoom: z1, lat: cam.lat, bearing: cam.bearing, pitch, cssW: cw / dpr } };
 }
-async function captureView(view) {
+async function captureView(view, frameOverride) {
   const { rpc } = await loadSdk();
-  const frame = $('#gv-frame').value;
+  const frame = frameOverride || $('#gv-frame').value;
   if (view && frame === 'snapshot') {   // não mexe no mapa: usa a imagem que o Giraffe guardou ao salvar a vista
     const sb = await fetchSnapshot(view, rpc);
     if (!sb) { gvLog('Imagem salva indisponível; capturando do mapa.'); toast('Não foi possível baixar a imagem salva da vista; capturando do mapa.', true); return captureLive(view, rpc, 'view'); }
@@ -3657,10 +3685,39 @@ async function insertView(view, i) {
   status(`Capturando ${nm}…`);
   try {
     const { blob, raw } = await captureView(view);
-    await insertImageBlob(blob, { geoRaw: raw, name: nm, link: { kind: 'giraffe', path: 'giraffe:' + nm, viewId: view ? viewId(view, i) : null, viewName: view ? nm : null } });
+    await insertImageBlob(blob, { geoRaw: raw, name: nm, link: { kind: 'giraffe', path: 'giraffe:' + nm, viewId: view ? viewId(view, i) : null, viewName: view ? nm : null, frame: $('#gv-frame').value, sig: view ? viewSig(view) : null, auto: $('#gv-auto-new').checked, updatedAt: Date.now() } });
+    syncGvAuto();
     toast(`${nm} inserida na folha ${sheetIndex(activeSheet().id) + 1}.`); status('Pronto');
   } catch (err) { toast('Falha ao capturar: ' + err.message, true); gvLog('Falha: ' + err.message); status('Pronto'); }
 }
+/* Atualização das vistas nas folhas (manual ou automática por imagem) */
+const giraffeImgs = () => { const out = []; forEachDeep(o => { if (o.type === 'image' && o.kvLink && o.kvLink.kind === 'giraffe' && o.kvLink.viewId && !o.kvTemp) out.push(o); }); return out; };
+let gvAutoTimer = null, gvBusy = false;
+function syncGvAuto() {
+  const any = inIframe && giraffeImgs().some(i => i.kvLink.auto);
+  if (any && !gvAutoTimer) gvAutoTimer = setInterval(gvAutoTick, 20000);
+  if (!any && gvAutoTimer) { clearInterval(gvAutoTimer); gvAutoTimer = null; }
+}
+async function gvAutoTick() {
+  if (gvBusy || document.hidden) return; gvBusy = true;
+  try {
+    const imgs = giraffeImgs().filter(i => i.kvLink.auto); if (!imgs.length) return;
+    await fetchViewsData(true);
+    let n = 0; for (const im of imgs) if (await reloadLinked(im, false, true)) n++;
+    if (n) { commit(); renderLinks(); refreshPanel(); toast(`${n} vista(s) atualizada(s) automaticamente a partir do Giraffe.`); }
+  } catch (e) {} finally { gvBusy = false; }
+}
+async function updateAllViews() {
+  const imgs = giraffeImgs(); if (!imgs.length) { toast('Nenhuma vista do Giraffe inserida nas folhas.'); return; }
+  if (gvBusy) return; gvBusy = true;
+  try {
+    await fetchViewsData(true); let n = 0;
+    for (const [k, im] of imgs.entries()) { status(`Atualizando vistas: ${k + 1} de ${imgs.length}…`); if (await reloadLinked(im, true, true)) n++; }
+    if (n) commit(); renderLinks(); refreshPanel(); status('Pronto');
+    toast(`${n} de ${imgs.length} vista(s) atualizada(s). Escala, posição e recortes foram mantidos.`);
+  } finally { gvBusy = false; }
+}
+$('#gv-update-all').onclick = updateAllViews;
 $('#gv-refresh').onclick = listViews;
 $('#gv-current').onclick = () => insertView(null, 0);
 
@@ -4351,6 +4408,7 @@ function refreshCtx() {
     $$('#c-align button').forEach(b => setPressed(b, b.dataset.align === x.textAlign));
   }
   const im = t.find(o => o.type === 'image'); if (im) setPressed($('#c-gray'), readFilters(im).gray);
+  show('#c-refresh', !!(im && im.kvLink)); if (im && im.kvLink) $('#c-refresh').title = im.kvLink.kind === 'giraffe' ? 'Atualizar vista do Giraffe (mantém escala e recorte)' : 'Recarregar da pasta';
 }
 
 function refreshPanel() {
@@ -4369,6 +4427,9 @@ function refreshPanel() {
     const L = im.kvLink;
     $('#im-link-info').textContent = !L ? 'Imagem incorporada (sem vínculo).' : L.kind === 'giraffe' ? `Vista do Giraffe: ${L.viewName || 'mapa atual'}` : `Vinculada: ${L.path.replace(/^drop:/, '')}${im.kvMissing ? ' — arquivo ausente' : ''}`;
     $('#im-reload').disabled = !L; $('#im-mask-clear').disabled = !im.clipPath;
+    const gir = !!(L && L.kind === 'giraffe' && L.viewId);
+    $('#im-reload').textContent = gir ? 'Atualizar vista' : 'Recarregar';
+    show('#im-auto-wrap', gir); if (gir) { $('#im-auto').checked = !!L.auto; $('#im-auto-info').textContent = L.updatedAt ? `Última atualização: ${new Date(L.updatedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}${L.frame && L.frame !== 'snapshot' ? ' · captura do mapa (a atualização move o mapa)' : ' · imagem salva da vista'}` : ''; }
   }
   const single = objs.length === 1 ? objs[0] : null;
   show('#sec-poly', !!single && isPoly(single));
@@ -4622,6 +4683,14 @@ $('#im-mask-use').onclick = maskWithShape;
 $('#im-mask-clear').onclick = () => { targets().filter(o => o.type === 'image').forEach(o => { o.clipPath = null; o.dirty = true; }); canvas.requestRenderAll(); commit(); refreshPanel(); };
 $('#im-fit').onclick = () => { const im = activeImage(); if (im) fitImageToFrame(im); };
 $('#im-reload').onclick = () => { const im = activeImage(); if (im) reloadOne(im); };
+$('#c-refresh').onclick = () => { const im = activeImage(); if (im) reloadOne(im); };
+$('#im-auto').addEventListener('change', e => {
+  const imgs = targets().filter(o => o.type === 'image' && o.kvLink && o.kvLink.kind === 'giraffe'); if (!imgs.length) return;
+  imgs.forEach(im => { im.kvLink = { ...im.kvLink, auto: e.target.checked }; });
+  syncGvAuto(); commit(); refreshPanel();
+  if (e.target.checked && imgs.some(im => im.kvLink.frame && im.kvLink.frame !== 'snapshot')) toast('Esta vista foi inserida por captura do mapa: cada atualização automática vai mover o mapa. Para atualizações discretas, insira a vista com “Imagem salva da vista”.', true);
+  else toast(e.target.checked ? 'Atualização automática ligada: a imagem acompanha as alterações da vista (verificação a cada 20 s).' : 'Atualização automática desligada.');
+});
 $('#poly-edit').onclick = () => togglePolyEdit();
 $('#m-dim').onclick = insertDimension;
 $('#m-clear').onclick = () => { lastMeasure = null; canvas.clearContext(canvas.contextTop); refreshCtx(); };
@@ -5444,7 +5513,7 @@ syncDocUI(); rebuildChrome(); renderSheetList(); refreshPanel(); renderLinks(); 
 (async () => {
   const restored = await restoreAutosave();
   ensurePres(); renderPresList();
-  resetHistory();
+  resetHistory(); syncGvAuto();
   if (restored) { fitPage(); toast('Projeto restaurado do salvamento automático.'); }
   await checkStoredDir();
   await checkSaveDir();
