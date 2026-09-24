@@ -296,6 +296,11 @@ body.resizing-dock{cursor:col-resize;user-select:none}
 .svgc-row span{font-variant-numeric:tabular-nums;font-size:12.5px}
 .svgc-row small{margin-left:auto;color:var(--md-sys-color-on-surface-variant);font-size:11px}
 .tab{font-size:8.5px;letter-spacing:.05em;padding:4px 1px}
+.askbar{position:fixed;left:50%;top:132px;transform:translateX(-50%);z-index:120;width:min(620px,94vw);padding:14px 16px;background:var(--md-sys-color-surface-container-lowest);color:var(--md-sys-color-on-surface);border:1px solid var(--md-sys-color-outline);border-left:4px solid var(--md-sys-color-primary-container)}
+.askbar p{margin:0 0 12px;font-size:13.5px}
+.askbar-actions{display:flex;flex-wrap:wrap;gap:8px}
+.status-cell.warn{color:var(--md-sys-color-error)}
+code{font-size:11.5px}
 @media (max-width:760px){.dock-resizer{display:none}.cg{padding:0 6px}.cg-label{display:none}}
 </style>
 </head>
@@ -790,7 +795,14 @@ body.resizing-dock{cursor:col-resize;user-select:none}
           <button class="btn" id="gv-current">Mapa atual</button>
         </div>
         <div class="field" style="margin-top:12px"><label for="gv-wait">Espera após ativar a vista (s)</label><input type="number" id="gv-wait" min="0.5" max="20" step="0.5" value="3"></div>
-        <label class="check"><input type="checkbox" id="gv-top"> Capturar em planta (sem inclinação) — escala e norte exatos</label>
+<div class="row2">
+          <div class="field"><label for="gv-frame">Enquadramento</label>
+            <select id="gv-frame"><option value="view">Igual à vista salva</option><option value="window">Janela atual do mapa</option><option value="snapshot">Imagem salva da vista</option></select></div>
+          <div class="field"><label for="gv-quality">Resolução</label>
+            <select id="gv-quality"><option value="1">Normal</option><option value="2" selected>Alta (2×)</option><option value="3">Muito alta (3×)</option><option value="4">Máxima (4×)</option></select></div>
+        </div>
+                <label class="check"><input type="checkbox" id="gv-top"> Capturar em planta (sem inclinação) — escala e norte exatos</label>
+        <p class="info">“Igual à vista salva” reproduz a proporção e o enquadramento do preview da vista, independente do tamanho da janela. Alta resolução monta um mosaico de capturas (vistas em planta); vistas inclinadas usam captura única.</p>
         <ul class="list" id="gv-list"></ul>
         <details class="diag"><summary>Diagnóstico da integração</summary><pre id="gv-log"></pre></details>
       </section>
@@ -892,8 +904,26 @@ body.resizing-dock{cursor:col-resize;user-select:none}
         </div>
       </section>
       <section class="section">
-        <h2>Projeto</h2>
-        <p class="hint">O projeto é salvo automaticamente neste navegador. Para levar a outra máquina ou janela, salve o arquivo .json.</p>
+        <h2>Salvamento automático em pasta</h2>
+        <p class="hint">Escolha uma pasta do <strong>Google Drive para computador</strong>: o projeto é gravado nela automaticamente a cada alteração e sincroniza com os outros computadores. No outro computador, escolha a mesma pasta para abrir o projeto.</p>
+        <p class="hint" id="sv-folder"><span class="badge">Desligado</span></p>
+        <div class="drop-zone" id="sv-drop">Arraste a pasta do Drive para cá<br><small>necessário dentro do painel do Giraffe, onde o seletor de pastas é bloqueado</small></div>
+        <button class="btn primary block" id="sv-pick">Escolher pasta de salvamento</button>
+        <button class="btn block" id="sv-reauth" hidden>Reativar acesso à pasta</button>
+        <div class="field" style="margin-top:12px"><label for="sv-name">Nome do arquivo do projeto</label><input type="text" id="sv-name"></div>
+        <label class="check"><input type="checkbox" id="sv-auto" checked> Salvar automaticamente (alguns segundos após cada alteração)</label>
+        <div class="btn-grid">
+          <button class="btn" id="sv-now" disabled>Salvar agora</button>
+          <button class="btn" id="sv-off">Desligar</button>
+        </div>
+        <p class="info" id="sv-state" aria-live="polite"></p>
+        <h3>Projetos nesta pasta</h3>
+        <ul class="list" id="sv-files"></ul>
+        <p class="info">A pasta recebe <code>nome.kvp.json</code>, a subpasta <code>nome_imagens</code> (cada imagem uma única vez) e <code>nome_versoes</code> (cópia por hora, mantém as 12 últimas). Se o arquivo for alterado por outro computador, o app pergunta antes de sobrescrever.</p>
+      </section>
+      <section class="section">
+        <h2>Projeto (arquivo avulso)</h2>
+        <p class="hint">O projeto também é salvo automaticamente neste navegador. Para enviar a alguém ou guardar uma cópia única com tudo dentro, salve o arquivo .json.</p>
         <label class="check"><input type="checkbox" id="opt-embed" checked> Incorporar imagens vinculadas no arquivo</label>
         <div class="btn-grid">
           <button class="btn" id="pj-save">Salvar .json</button>
@@ -907,8 +937,9 @@ body.resizing-dock{cursor:col-resize;user-select:none}
 <footer class="statusbar">
   <div class="palette" id="palette" role="group" aria-label="Paleta: clique aplica preenchimento, Shift+clique aplica traço"></div>
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
+  <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V17 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V20 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -923,6 +954,7 @@ body.resizing-dock{cursor:col-resize;user-select:none}
   <div class="sym-grid" id="sym-scale-grid"></div>
   <p class="info" id="sym-hint"></p>
 </div>
+<div class="askbar" id="askbar" role="alertdialog" aria-live="assertive" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="in-image" accept="image/*" multiple hidden>
 <input type="file" id="in-project" accept=".json,application/json" hidden>
@@ -936,7 +968,7 @@ body.resizing-dock{cursor:col-resize;user-select:none}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V17 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V20 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2956,6 +2988,7 @@ async function autosave() {
     walkAll(s, o => { if (o.type === 'image' && blobReg.has(o.src)) blobs[o.src] = blobReg.get(o.src); });
     await idb.set('autosave', { s, blobs, t: Date.now() });
   } catch (err) { console.warn('Autosave indisponível:', err); }
+  if (typeof scheduleFolderSave === 'function') scheduleFolderSave();
 }
 async function restoreAutosave() {
   try {
@@ -3450,7 +3483,119 @@ async function fetchSnapshot(view, rpc) {
   }
   return null;
 }
+/* ---- Captura no enquadramento da vista salva (proporção de details.size), com mosaico de alta resolução ---- */
+const WORLD = z => 512 * Math.pow(2, z);
+const lonToPx = (lon, z) => (lon + 180) / 360 * WORLD(z);
+const latToPx = (lat, z) => (1 - Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) / Math.PI) / 2 * WORLD(z);
+const pxToLon = (x, z) => x / WORLD(z) * 360 - 180;
+const pxToLat = (y, z) => (2 * Math.atan(Math.exp(Math.PI * (1 - 2 * y / WORLD(z)))) - Math.PI / 2) * 180 / Math.PI;
+function normCam(cam) {
+  if (!cam) return null;
+  let c = cam.center; if (cam.longitude !== undefined) c = [cam.longitude, cam.latitude];
+  const lng = Array.isArray(c) ? c[0] : c && (c.lng ?? c.lon), lat = Array.isArray(c) ? c[1] : c && c.lat;
+  if (lng === undefined || lat === undefined || cam.zoom === undefined) return null;
+  return { lng, lat, zoom: cam.zoom, bearing: cam.bearing || 0, pitch: cam.pitch || 0 };
+}
+async function flyExact(rpc, o) { await rpc.invoke('flyTo', [{ center: [o.lng, o.lat], zoom: o.zoom, bearing: o.bearing, pitch: o.pitch, duration: 0, essential: true }]); }
+async function grabPng(rpc, label) {
+  for (let k = 0; k < 4; k++) {
+    try {
+      const r = await rpc.invoke('getPng', []), b = await toBlobAny(r), url = URL.createObjectURL(b), im = await loadImg(url), info = await analyzeBlob(b);
+      if (!info.blank) { if (label) gvLog(`${label}: ${im.naturalWidth}×${im.naturalHeight} px`); return { im, url, blob: b }; }
+      URL.revokeObjectURL(url); gvLog(`${label || 'Captura'}: vazia, nova tentativa…`);
+    } catch (e) { gvLog(`${label || 'Captura'} falhou: ${e.message}`); }
+    await wait(250 * (k + 1));
+  }
+  throw new Error('o Giraffe devolveu capturas vazias');
+}
+/* Tamanho atual da janela do mapa em px de tela: limites (área útil) + margens internas (padding) */
+async function measureViewport(rpc, cam) {
+  await flyExact(rpc, { ...cam, bearing: 0, pitch: 0 }); await wait(700);
+  /* getMapView (usado no exemplo oficial view-controller da Giraffe): se trouxer o tamanho da janela, usa direto */
+  try {
+    const mvr = await rpc.invoke('getMapView', []);
+    if (mvr && typeof mvr === 'object') {
+      gvLog('getMapView: ' + JSON.stringify(mvr).slice(0, 400));
+      const w = mvr.width ?? mvr.canvasWidth ?? (mvr.size && mvr.size.width) ?? (mvr.dimensions && mvr.dimensions.width);
+      const h = mvr.height ?? mvr.canvasHeight ?? (mvr.size && mvr.size.height) ?? (mvr.dimensions && mvr.dimensions.height);
+      if (w > 50 && h > 50) { gvLog(`Janela do mapa (getMapView): ${Math.round(w)}×${Math.round(h)} px de tela`); return { Wc: w, Hc: h }; }
+    }
+  } catch (e) { gvLog('getMapView indisponível: ' + e.message); }
+  const mv = gi.state.get('mapView') || {}, b = mv.bounds, z = mv.zoom ?? cam.zoom, pd = mv.padding || {};
+  if (!b) throw new Error('mapView sem limites');
+  const Wc = lonToPx(b[1][0], z) - lonToPx(b[0][0], z) + (pd.left || 0) + (pd.right || 0);
+  const Hc = latToPx(b[0][1], z) - latToPx(b[1][1], z) + (pd.top || 0) + (pd.bottom || 0);
+  gvLog(`Janela do mapa: ${Math.round(Wc)}×${Math.round(Hc)} px de tela`);
+  return { Wc, Hc };
+}
+async function captureFramed(view, rpc) {
+  const cam0 = normCam(camOf(view)); if (!cam0) throw new Error('a vista não tem câmera (centro/zoom) reconhecível');
+  const size = (view.details && view.details.size) || { width: 800, height: 600 };
+  const Wv = size.width || 800, Hv = size.height || 600, top = $('#gv-top').checked, pitch = top ? 0 : cam0.pitch;
+  const quality = +$('#gv-quality').value || 1, delay = clamp(parseFloat($('#gv-wait').value) || 3, 0.5, 20) * 1000;
+  const { Wc, Hc } = await measureViewport(rpc, cam0);
+  const cam = { ...cam0, pitch };
+  if (quality > 1 && pitch < 1) {   // mosaico: várias capturas em zoom maior, costuradas no enquadramento da vista
+    const m = quality, z2 = cam.zoom + Math.log2(m), FW = Wv * m, FH = Hv * m;
+    const TW = Math.max(50, Wc * 0.9), TH = Math.max(50, Hc * 0.9), nx = Math.max(1, Math.ceil(FW / TW)), ny = Math.max(1, Math.ceil(FH / TH));
+    if (nx * ny > 49) throw new Error('mosaico grande demais para esta janela; reduza a qualidade');
+    const br = cam.bearing * Math.PI / 180, cx0 = lonToPx(cam.lng, z2), cy0 = latToPx(cam.lat, z2);
+    let out = null, ctx = null, dpr = 1, n = 0;
+    for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) {
+      const tx = nx === 1 ? 0 : clamp(-FW / 2 + TW * (ix + 0.5), -FW / 2 + TW / 2, FW / 2 - TW / 2);
+      const ty = ny === 1 ? 0 : clamp(-FH / 2 + TH * (iy + 0.5), -FH / 2 + TH / 2, FH / 2 - TH / 2);
+      const wx = tx * Math.cos(br) - ty * Math.sin(br), wy = tx * Math.sin(br) + ty * Math.cos(br);
+      await flyExact(rpc, { lng: pxToLon(cx0 + wx, z2), lat: pxToLat(cy0 + wy, z2), zoom: z2, bearing: cam.bearing, pitch: 0 });
+      n++; status(`Capturando vista em alta resolução: ${n} de ${nx * ny}…`);
+      await wait(n === 1 ? delay : Math.max(900, delay * 0.6));
+      const g = await grabPng(rpc, `Bloco ${n}/${nx * ny}`);
+      if (!out) {
+        dpr = g.im.naturalWidth / Wc;
+        out = document.createElement('canvas'); out.width = Math.round(FW * dpr); out.height = Math.round(FH * dpr);
+        if (out.width * out.height > 64e6) throw new Error('imagem final grande demais; reduza a qualidade');
+        ctx = out.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, out.width, out.height);
+      }
+      ctx.drawImage(g.im, Math.round((FW / 2 + tx - Wc / 2) * dpr), Math.round((FH / 2 + ty - Hc / 2) * dpr));
+      URL.revokeObjectURL(g.url);
+    }
+    await flyExact(rpc, cam0).catch(() => {});
+    const blob = await new Promise(r => out.toBlob(r, 'image/png'));
+    gvLog(`Mosaico ${nx}×${ny}: ${out.width}×${out.height} px no enquadramento da vista (${Wv}×${Hv} × ${m})`);
+    status('Pronto');
+    return { blob, raw: { camMode: true, zoom: z2, lat: cam.lat, bearing: cam.bearing, pitch: 0, cssW: FW } };
+  }
+  /* Captura única: ajusta o zoom para o enquadramento da vista caber na janela e recorta exatamente esse enquadramento */
+  const k = Math.min(Wc / Wv, Hc / Hv), z1 = cam.zoom + Math.log2(k);
+  await flyExact(rpc, { ...cam, zoom: z1 }); await wait(delay);
+  const g = await grabPng(rpc, 'Captura');
+  const dpr = g.im.naturalWidth / Wc, cw = Math.round(Wv * k * dpr), ch = Math.round(Hv * k * dpr);
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  c.getContext('2d').drawImage(g.im, Math.round((g.im.naturalWidth - cw) / 2), Math.round((g.im.naturalHeight - ch) / 2), cw, ch, 0, 0, cw, ch);
+  URL.revokeObjectURL(g.url);
+  await flyExact(rpc, cam0).catch(() => {});
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  gvLog(`Recorte no enquadramento da vista: ${cw}×${ch} px (proporção ${Wv}:${Hv})${pitch >= 1 && quality > 1 ? ' — vista inclinada: alta resolução só em planta' : ''}`);
+  if (pitch >= 1 && quality > 1) toast('Vistas inclinadas usam captura única. Para alta resolução, marque “Capturar em planta”.', true);
+  return { blob, raw: { camMode: true, zoom: z1, lat: cam.lat, bearing: cam.bearing, pitch, cssW: cw / dpr } };
+}
 async function captureView(view) {
+  const { rpc } = await loadSdk();
+  const frame = $('#gv-frame').value;
+  if (view && frame === 'snapshot') {
+    try { await rpc.invoke('activateViewLayers', [view]); } catch (e) {}
+    const sb = await fetchSnapshot(view, rpc);
+    if (!sb) throw new Error('não foi possível baixar a imagem salva da vista (veja o Diagnóstico)');
+    const c = normCam(camOf(view)), size = (view.details && view.details.size) || {};
+    return { blob: sb, raw: c ? { camMode: true, zoom: c.zoom, lat: c.lat, bearing: c.bearing, pitch: c.pitch, cssW: size.width } : null, lowRes: true };
+  }
+  if (view && frame === 'view') {
+    try { await rpc.invoke('activateViewLayers', [view]); gvLog('activateViewLayers ok'); } catch (e) { gvLog('activateViewLayers: ' + e.message); }
+    try { return await captureFramed(view, rpc); }
+    catch (e) { gvLog('Enquadramento da vista falhou (' + e.message + '); usando a janela atual.'); }
+  }
+  return captureWindow(view);
+}
+async function captureWindow(view) {
   const { rpc } = await loadSdk();
   if (view) {
     try { await rpc.invoke('activateViewLayers', [view]); gvLog('activateViewLayers ok'); } catch (e) { gvLog('activateViewLayers: ' + e.message); }
@@ -3473,7 +3618,8 @@ async function captureView(view) {
   try {
     const mv = gi.state.get('mapView') || {}, cam = view ? camOf(view) || {} : {};
     gvLog('mapView: ' + JSON.stringify(mv).slice(0, 300));
-    raw = { bounds: mv.bounds, center: mv.center, zoom: mv.zoom, bearing: cam.bearing ?? mv.bearing, pitch: $('#gv-top').checked ? 0 : (cam.pitch ?? mv.pitch) };
+    const ctr = Array.isArray(mv.center) ? mv.center : mv.center ? [mv.center.lng, mv.center.lat] : null;
+    raw = ctr && mv.zoom !== undefined ? { camMode: true, zoom: mv.zoom, lat: ctr[1], center: mv.center, bearing: cam.bearing ?? mv.bearing ?? 0, pitch: $('#gv-top').checked ? 0 : (cam.pitch ?? mv.pitch ?? 0), dpr: window.devicePixelRatio || 1 } : { bounds: mv.bounds, center: mv.center, zoom: mv.zoom };
   } catch (e) { gvLog('mapView indisponível: ' + e.message); }
   let blob = null, info = null;
   try { blob = await toBlobAny(res); info = await analyzeBlob(blob); gvLog(`Imagem do getPng: ${info.W}×${info.H} px, ${info.type || '?'}, ${Math.round(info.size / 1024)} kB, conteúdo ${Math.round(info.ratio * 100)}%${info.blank ? ' → VAZIA' : ''}${info.error ? ' (erro: ' + info.error + ')' : ''}`); }
@@ -3529,7 +3675,7 @@ function mPerDegLon(lat) { const a = 6378137, e2 = 0.00669437999014, p = lat * M
 function computeGeo(raw, W, H) {
   if (raw && raw.camMode) {   // a partir da câmera da vista (zoom Mapbox, tiles de 512 px)
     const mppCss = 40075016.686 * Math.cos(raw.lat * Math.PI / 180) / (512 * Math.pow(2, raw.zoom));
-    const mpp = mppCss * ((raw.cssW || W) / W);
+    const mpp = mppCss * (raw.cssW ? raw.cssW / W : 1 / (raw.dpr || 1));
     if (!(mpp > 0) || !isFinite(mpp)) return null;
     return { mpp, bearing: raw.bearing || 0, source: 'giraffe', approx: (raw.pitch || 0) > 1 || !raw.cssW, pitch: raw.pitch || 0 };
   }
@@ -3912,6 +4058,199 @@ function refreshSvgColors() {
     ul.appendChild(li);
   });
 }
+
+/* ---------------- Salvamento automático numa pasta (ex.: Google Drive para computador) ----------------
+   Formato de pasta: <nome>.kvp.json (projeto, sem imagens embutidas) + <nome>_imagens/<hash>.<ext> (cada imagem uma vez)
+   + <nome>_versoes/ (cópia de segurança por hora, mantém as 12 mais recentes). */
+let saveDir = null, savePerm = 'none', saveTimer = 0, saving = false, savePaused = false, lastWriteMod = 0, lastBackup = 0, saveAuto = true;
+const hashCache = new Map(), writtenImgs = new Set();
+const deviceId = (() => { try { let d = localStorage.getItem('kv-pranchas-device'); if (!d) { d = uid(); localStorage.setItem('kv-pranchas-device', d); } return d; } catch (e) { return uid(); } })();
+const extOf = t => ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/gif': 'gif', 'image/avif': 'avif' }[t] || 'bin');
+const saveBase = () => sanitize(doc.saveName || doc.project.projeto || 'projeto');
+const hhmm = t => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+async function blobHash(blob) {
+  const d = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  return [...new Uint8Array(d)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function writeFileTo(dir, name, data) { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(data); await w.close(); return fh; }
+function setSaveStatus(msg, err) {
+  const c = $('#st-save'); c.hidden = !msg; c.textContent = msg || ''; c.classList.toggle('warn', !!err);
+  const s = $('#sv-state'); if (s) s.textContent = msg || '';
+}
+/* Barra de confirmação com botões (sem janelas modais, que o painel do Giraffe pode bloquear) */
+function askBar(msg, actions) {
+  const bar = $('#askbar'); bar.innerHTML = ''; const p = document.createElement('p'); p.textContent = msg; bar.appendChild(p);
+  const box = document.createElement('div'); box.className = 'askbar-actions';
+  actions.forEach(a => { const b = document.createElement('button'); b.className = 'btn' + (a.primary ? ' primary' : ''); b.textContent = a.label; b.onclick = () => { bar.hidden = true; a.fn && a.fn(); }; box.appendChild(b); });
+  bar.appendChild(box); bar.hidden = false; box.querySelector('button').focus();
+}
+function scheduleFolderSave() {
+  if (!saveDir || savePerm !== 'granted' || !saveAuto || savePaused) return;
+  clearTimeout(saveTimer); saveTimer = setTimeout(() => saveToFolder(false), 8000);
+}
+async function saveToFolder(force) {
+  if (!saveDir || savePerm !== 'granted' || saving) return false;
+  if (savePaused && !force) return false;
+  saving = true; setSaveStatus('Salvando na pasta…');
+  try {
+    const base = saveBase(), fname = base + '.kvp.json', s = snapshot();
+    const idir = await saveDir.getDirectoryHandle(base + '_imagens', { create: true });
+    if (!writtenImgs.size) { for await (const [n] of idir.entries()) writtenImgs.add(n); }
+    const imgs = []; walkAll(s, o => { if (o.type === 'image') imgs.push(o); });
+    for (const o of imgs) {
+      const u = o.src; if (!blobReg.has(u)) continue;
+      let nm = hashCache.get(u);
+      if (!nm) { const b = blobReg.get(u); nm = (await blobHash(b)) + '.' + extOf(b.type); hashCache.set(u, nm); }
+      if (!writtenImgs.has(nm)) { await writeFileTo(idir, nm, blobReg.get(u)); writtenImgs.add(nm); }
+      o.src = 'kvimg:' + nm;
+    }
+    /* Proteção: se o arquivo foi salvo por outro computador depois do nosso último salvamento, não sobrescreve sem perguntar */
+    if (!force) {
+      try {
+        const cur = await (await saveDir.getFileHandle(fname)).getFile();
+        if (lastWriteMod && cur.lastModified > lastWriteMod + 2000) {
+          savePaused = true; setSaveStatus('Salvamento pausado: versão mais nova na pasta', true);
+          askBar(`O arquivo “${fname}” na pasta foi alterado às ${hhmm(cur.lastModified)}, provavelmente em outro computador. O que fazer?`, [
+            { label: 'Carregar a versão da pasta', primary: true, fn: () => openFromFolder(fname) },
+            { label: 'Sobrescrever com a daqui', fn: () => { savePaused = false; saveToFolder(true); } },
+            { label: 'Decidir depois', fn: () => {} }
+          ]);
+          return false;
+        }
+      } catch (e) { /* arquivo ainda não existe */ }
+    }
+    const json = JSON.stringify({ app: 'kv-pranchas', version: 3, format: 'folder', imagesDir: base + '_imagens', savedAt: Date.now(), device: deviceId, snapshot: s });
+    const fh = await writeFileTo(saveDir, fname, new Blob([json], { type: 'application/json' }));
+    lastWriteMod = (await fh.getFile()).lastModified;
+    if (Date.now() - lastBackup > 3600e3) {
+      lastBackup = Date.now();
+      try {
+        const vdir = await saveDir.getDirectoryHandle(base + '_versoes', { create: true });
+        const st = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+        await writeFileTo(vdir, `${base}_${st}.kvp.json`, json);
+        const names = []; for await (const [n, h] of vdir.entries()) if (h.kind === 'file' && n.endsWith('.kvp.json')) names.push(n);
+        names.sort().slice(0, Math.max(0, names.length - 12)).forEach(n => vdir.removeEntry(n).catch(() => {}));
+      } catch (e) {}
+    }
+    setSaveStatus(`Salvo na pasta às ${hhmm(Date.now())}`);
+    renderSaveFiles();
+    return true;
+  } catch (e) { setSaveStatus('Falha ao salvar na pasta: ' + e.message, true); return false; }
+  finally { saving = false; }
+}
+async function readFolderProject(fname) {
+  const fh = await saveDir.getFileHandle(fname), file = await fh.getFile();
+  return { data: JSON.parse(await file.text()), mod: file.lastModified };
+}
+async function openFromFolder(fname) {
+  try {
+    setSaveStatus('Abrindo da pasta…');
+    const { data, mod } = await readFolderProject(fname);
+    if (data.app !== 'kv-pranchas' || !data.snapshot) throw new Error('arquivo não reconhecido');
+    const idir = data.imagesDir ? await saveDir.getDirectoryHandle(data.imagesDir).catch(() => null) : null;
+    const names = new Set(); walkAll(data.snapshot, o => { if (o.type === 'image' && String(o.src).startsWith('kvimg:')) names.add(o.src.slice(6)); });
+    const map = {};
+    for (const n of names) { try { const f = await (await idir.getFileHandle(n)).getFile(); const u = blobToUrl(f); map[n] = u; hashCache.set(u, n); writtenImgs.add(n); } catch (e) {} }
+    walkAll(data.snapshot, o => { if (o.type === 'image' && String(o.src).startsWith('kvimg:')) o.src = map[o.src.slice(6)] || PLACEHOLDER; });
+    await restore(data.snapshot);
+    if (!doc.saveName) doc.saveName = fname.replace(/\.kvp\.json$/, '');
+    resetHistory(); fitPage(); scheduleAutosave();
+    lastWriteMod = mod; savePaused = false; syncSaveUI();
+    const miss = [...names].filter(n => !map[n]).length;
+    setSaveStatus(`Aberto da pasta (salvo às ${hhmm(data.savedAt || mod)})`);
+    toast(miss ? `Projeto aberto da pasta. ${miss} imagem(ns) não encontrada(s) em “${data.imagesDir}”.` : `Projeto “${fname}” aberto da pasta.`, !!miss);
+  } catch (e) { toast('Não foi possível abrir da pasta: ' + e.message, true); setSaveStatus('Falha ao abrir da pasta', true); }
+}
+async function listFolderProjects() {
+  const out = []; if (!saveDir || savePerm !== 'granted') return out;
+  for await (const [n, h] of saveDir.entries()) if (h.kind === 'file' && n.endsWith('.kvp.json')) { try { out.push({ name: n, mod: (await h.getFile()).lastModified }); } catch (e) {} }
+  return out.sort((a, b) => b.mod - a.mod);
+}
+async function renderSaveFiles() {
+  const ul = $('#sv-files'); if (!ul) return;
+  const list = await listFolderProjects(); ul.innerHTML = '';
+  if (!saveDir) { ul.innerHTML = '<li class="empty">Nenhuma pasta escolhida.</li>'; return; }
+  if (savePerm !== 'granted') { ul.innerHTML = '<li class="empty">Reative o acesso à pasta para listar os projetos.</li>'; return; }
+  if (!list.length) { ul.innerHTML = '<li class="empty">Nenhum projeto nesta pasta ainda — o atual será salvo aqui.</li>'; return; }
+  list.forEach(f => {
+    const cur = f.name === saveBase() + '.kvp.json', li = document.createElement('li');
+    li.innerHTML = `<span class="name">${svgIcon('file')}<span>${escapeHtml(f.name.replace(/\.kvp\.json$/, ''))}</span><small>${cur ? 'atual · ' : ''}${new Date(f.mod).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</small></span>
+      <button class="icon-btn" aria-label="Abrir ${escapeHtml(f.name)}" title="Abrir este projeto">${svgIcon('folderOpen')}</button>`;
+    li.querySelector('button').onclick = () => askBar(`Abrir “${f.name}”? O projeto aberto agora será substituído${saveDir && !cur ? ' (ele continua salvo na pasta com o nome atual)' : ''}.`, [
+      { label: 'Abrir', primary: true, fn: async () => { if (!cur) await saveToFolder(true); openFromFolder(f.name); } }, { label: 'Cancelar' }]);
+    ul.appendChild(li);
+  });
+}
+function syncSaveUI() {
+  const st = $('#sv-folder');
+  st.innerHTML = saveDir ? `<span class="badge ${savePerm === 'granted' ? 'ok' : 'warn'}">${savePerm === 'granted' ? 'Ativa' : 'Sem acesso'}</span> ${escapeHtml(saveDir.name)}` : '<span class="badge">Desligado</span>';
+  $('#sv-reauth').hidden = !(saveDir && savePerm !== 'granted');
+  $('#sv-now').disabled = !(saveDir && savePerm === 'granted');
+  setVal('#sv-name', saveBase());
+  $('#sv-auto').checked = saveAuto;
+  renderSaveFiles();
+}
+async function setSaveDir(h, fromDrop) {
+  let perm = 'prompt';
+  try { perm = await h.queryPermission({ mode: 'readwrite' }); if (perm !== 'granted') perm = await h.requestPermission({ mode: 'readwrite' }); }
+  catch (e) { toast('O navegador não permitiu gravar nesta pasta aqui. Use “Abrir em nova janela” e escolha a pasta de lá.', true); return; }
+  if (perm !== 'granted') { toast('Permissão de gravação negada.', true); return; }
+  saveDir = h; savePerm = 'granted'; writtenImgs.clear(); lastWriteMod = 0; savePaused = false;
+  try { await idb.set('savedir', h); } catch (e) {}
+  syncSaveUI();
+  const list = await listFolderProjects();
+  const same = list.find(f => f.name === saveBase() + '.kvp.json');
+  if (list.length && (same || userObjects().length === 0)) {
+    const f = same || list[0];
+    askBar(`A pasta “${h.name}” já tem o projeto “${f.name.replace(/\.kvp\.json$/, '')}” (salvo em ${new Date(f.mod).toLocaleString('pt-BR')}). O que fazer?`, [
+      { label: 'Abrir o da pasta', primary: true, fn: () => openFromFolder(f.name) },
+      { label: 'Salvar o atual por cima', fn: () => saveToFolder(true) },
+      { label: 'Salvar o atual com outro nome', fn: () => { doc.saveName = saveBase() + ' ' + new Date().toLocaleDateString('pt-BR').replace(/\//g, '-'); syncSaveUI(); saveToFolder(true); } }
+    ]);
+  } else { await saveToFolder(true); toast(`Salvamento automático ativado em “${h.name}”.`); }
+}
+async function pickSaveDir() {
+  if (!('showDirectoryPicker' in window)) { toast('Este navegador não permite gravar em pastas. Use o Chrome ou o Edge.', true); return; }
+  try { await setSaveDir(await window.showDirectoryPicker({ id: 'kv-pranchas-save', mode: 'readwrite' })); }
+  catch (e) { if (e.name !== 'AbortError') toast('O painel bloqueou o seletor de pastas. Arraste a pasta do Explorer para a área indicada ou use “Abrir em nova janela”.', true); }
+}
+async function checkSaveDir() {
+  try {
+    const h = await idb.get('savedir'); if (!h || !h.queryPermission) { syncSaveUI(); return; }
+    saveDir = h; savePerm = (await h.queryPermission({ mode: 'readwrite' })) === 'granted' ? 'granted' : 'prompt';
+    syncSaveUI();
+    if (savePerm !== 'granted') { setSaveStatus('Pasta de salvamento sem acesso — reative na aba Exportar', true); return; }
+    const f = (await listFolderProjects()).find(x => x.name === saveBase() + '.kvp.json');
+    if (!f) return;
+    const { data, mod } = await readFolderProject(f.name);
+    const local = await idb.get('autosave').catch(() => null);
+    if (data.device !== deviceId && (!local || (data.savedAt || mod) > (local.t || 0) + 2000)) {
+      askBar(`Há uma versão mais recente de “${f.name.replace(/\.kvp\.json$/, '')}” na pasta, salva às ${hhmm(data.savedAt || mod)} em outro computador. Carregar?`, [
+        { label: 'Carregar da pasta', primary: true, fn: () => openFromFolder(f.name) },
+        { label: 'Manter a daqui', fn: () => { lastWriteMod = mod; } }
+      ]);
+    } else lastWriteMod = mod;
+  } catch (e) { syncSaveUI(); }
+}
+$('#sv-pick').onclick = pickSaveDir;
+$('#sv-reauth').onclick = () => saveDir && setSaveDir(saveDir);
+$('#sv-now').onclick = async () => { if (await saveToFolder(true)) toast('Projeto salvo na pasta.'); };
+$('#sv-off').onclick = async () => { saveDir = null; savePerm = 'none'; try { await idb.set('savedir', null); } catch (e) {} setSaveStatus(''); syncSaveUI(); toast('Salvamento em pasta desligado. O projeto continua salvo neste navegador.'); };
+$('#sv-auto').addEventListener('change', e => { saveAuto = e.target.checked; if (saveAuto) scheduleFolderSave(); });
+$('#sv-name').addEventListener('change', e => { const v = sanitize(e.target.value); doc.saveName = v; writtenImgs.clear(); lastWriteMod = 0; commit(); syncSaveUI(); if (saveDir && savePerm === 'granted') saveToFolder(true); });
+(function () {
+  const z = $('#sv-drop');
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('over'));
+  z.addEventListener('drop', async e => {
+    e.preventDefault(); z.classList.remove('over');
+    const it = [...(e.dataTransfer.items || [])].find(i => i.kind === 'file');
+    const h = it && it.getAsFileSystemHandle ? await it.getAsFileSystemHandle().catch(() => null) : null;
+    if (!h || h.kind !== 'directory') { toast('Arraste uma pasta (por exemplo, uma pasta do Google Drive para computador).', true); return; }
+    setSaveDir(h, true);
+  });
+})();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveDir && savePerm === 'granted' && saveAuto && !savePaused) saveToFolder(false); });
 
 /* ---------------- Barra contextual e painel Objeto ---------------- */
 const isText = o => ['textbox', 'i-text', 'text', 'kvtext'].includes(o.type);
@@ -5104,6 +5443,7 @@ syncDocUI(); rebuildChrome(); renderSheetList(); refreshPanel(); renderLinks(); 
   resetHistory();
   if (restored) { fitPage(); toast('Projeto restaurado do salvamento automático.'); }
   await checkStoredDir();
+  await checkSaveDir();
   try {
     await Promise.all(['400', '600', '700'].map(w => document.fonts.load(`${w} 16px Hind`)));
     fabric.util.clearFabricFontCache();
