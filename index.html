@@ -301,6 +301,17 @@ body.resizing-dock{cursor:col-resize;user-select:none}
 .askbar-actions{display:flex;flex-wrap:wrap;gap:8px}
 .status-cell.warn{color:var(--md-sys-color-error)}
 code{font-size:11.5px}
+.color-pop{position:fixed;z-index:130;width:318px;max-height:calc(100vh - 16px);overflow-y:auto;padding:12px;background:var(--md-sys-color-surface-container-lowest);border:1px solid var(--md-sys-color-outline)}
+.color-pop .shape-pop-h{margin:8px 0 6px}
+.color-pop .shape-pop-h small{font-weight:400;letter-spacing:0;text-transform:none}
+.cp-grid{display:grid;grid-template-columns:repeat(6,48px);gap:0}
+.cp-sw{width:48px;height:40px;display:grid;place-items:center;background:transparent;border:0;cursor:pointer;padding:0}
+.cp-sw i{width:30px;height:30px;border:1px solid var(--md-sys-color-outline-variant)}
+.cp-sw:hover i,.cp-sw:focus-visible i{outline:2px solid var(--md-sys-color-primary);outline-offset:1px}
+.cp-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0 8px}
+.pal-sep{width:1px;min-width:1px;height:28px;background:var(--md-sys-color-outline-variant);margin:10px 6px}
+#sym-north-grid{grid-template-columns:repeat(4,1fr)}
+.sym-pop{width:380px}
 @media (max-width:760px){.dock-resizer{display:none}.cg{padding:0 6px}.cg-label{display:none}}
 </style>
 </head>
@@ -699,6 +710,18 @@ code{font-size:11.5px}
         <p class="info">O modelo aparece ao fundo, abaixo dos elementos da folha, e sai na exportação. Para editá-lo, use o modo Modelos no topo.</p>
       </section>
       <section class="section only-tpl">
+        <h2>Levar modelos para outros projetos</h2>
+        <p class="hint">Exporte os modelos para um arquivo e importe em outro projeto. Para que todo mundo já comece com eles, publique o arquivo com o nome <code>modelos-kv.json</code> na mesma pasta do app (GitHub Pages): projetos novos recebem esses modelos automaticamente.</p>
+        <div class="btn-grid">
+          <button class="btn" id="tpl-export-all">Exportar todos</button>
+          <button class="btn" id="tpl-export-one">Exportar o ativo</button>
+        </div>
+        <button class="btn block" id="tpl-import">Importar modelos (.json)</button>
+        <h3>Modelos da empresa</h3>
+        <ul class="list" id="lib-list"></ul>
+        <button class="btn block" id="lib-add-all" style="margin-top:8px">Adicionar todos ao projeto</button>
+      </section>
+      <section class="section only-tpl">
         <h2>Campos automáticos</h2>
         <p class="hint">Textos com estes campos são preenchidos com os dados de cada folha que usa o modelo. Ideal para montar um selo próprio.</p>
         <div class="btn-grid">
@@ -947,7 +970,7 @@ code{font-size:11.5px}
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V22 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V23 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -962,10 +985,18 @@ code{font-size:11.5px}
   <div class="sym-grid" id="sym-scale-grid"></div>
   <p class="info" id="sym-hint"></p>
 </div>
+<div class="color-pop" id="color-pop" role="dialog" aria-label="Escolher cor" hidden>
+  <p class="shape-pop-h">Cores KV</p><div class="cp-grid" id="cp-kv"></div>
+  <p class="shape-pop-h">Urbanismo</p><div class="cp-grid" id="cp-urb"></div>
+  <p class="shape-pop-h">Minhas cores <small>(clique direito remove)</small></p><div class="cp-grid" id="cp-my"></div>
+  <div class="cp-row"><label class="sr-only" for="cp-hex">Código da cor</label><input type="text" id="cp-hex" maxlength="7" placeholder="#000000"><button class="btn" id="cp-save">Salvar cor atual</button></div>
+  <button class="btn block" id="cp-native">Mais cores…</button>
+</div>
 <div class="askbar" id="askbar" role="alertdialog" aria-live="assertive" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="in-image" accept="image/*" multiple hidden>
 <input type="file" id="in-project" accept=".json,application/json" hidden>
+<input type="file" id="in-tpl" accept=".json,application/json" hidden>
 <input type="file" id="in-svg" accept=".svg,image/svg+xml" multiple hidden>
 <input type="file" id="in-dir" webkitdirectory directory multiple hidden>
 
@@ -976,7 +1007,7 @@ code{font-size:11.5px}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V22 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V23 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -3722,11 +3753,15 @@ $('#gv-refresh').onclick = listViews;
 $('#gv-current').onclick = () => insertView(null, 0);
 
 /* ---------------- Símbolos: norte e escala gráfica (paramétricos, vinculáveis a vistas) ---------------- */
-const NORTH_STYLES = [['classic', 'Clássico'], ['triangle', 'Triângulo'], ['circle', 'Circular'], ['star4', 'Estrela de 4 pontas'], ['rose8', 'Rosa dos ventos'], ['minimal', 'Minimalista']];
-const SCALE_STYLES = [['alt', 'Barra alternada'], ['double', 'Barra dupla'], ['line', 'Linha com marcas'], ['numeric', 'Numérica']];
+const NORTH_STYLES = [['crossN', 'Cruz com N'], ['triN', 'Triângulo e N'], ['arrowCircle', 'Seta no círculo'], ['tick', 'Marcador simples'], ['lineTri', 'Triângulo aberto'], ['house', 'Flecha pentagonal'],
+  ['triChord', 'Triângulo com N interno'], ['discChevron', 'Disco com seta'], ['chevron', 'Seta em chevron'], ['crossBar', 'Cruz com barra'], ['crossDouble', 'Cruz com linha dupla'], ['construct', 'Traçado construtivo'],
+  ['triOpenCross', 'Triângulo e cruz'], ['triFillCross', 'Triângulo cheio e cruz'], ['barN', 'Barra e N'], ['chevronOpen', 'Chevron vazado'], ['arrowSmall', 'Seta simples'], ['fan', 'Leque']];
+const SCALE_STYLES = [['ticksLine', 'Linha com marcas'], ['stepped', 'Degraus'], ['steppedSub', 'Degraus subdivididos'], ['steppedBold', 'Degraus espessos'], ['ticksDual', 'Linha dupla graduada'],
+  ['ticksRuler', 'Régua'], ['barAltSub', 'Barra alternada'], ['barDouble', 'Barra dupla'], ['barDoubleSub', 'Barra dupla subdividida'], ['numeric', 'Numérica']];
+const LEGACY_SYM = { classic: 'arrowCircle', triangle: 'triN', circle: 'arrowCircle', star4: 'construct', rose8: 'construct', minimal: 'arrowSmall', alt: 'barAltSub', double: 'barDouble', line: 'ticksLine' };
 const SYM_DEF = {
-  north: { kind: 'north', style: 'classic', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', sizeMm: 18, label: true, link: null },
-  scale: { kind: 'scale', style: 'alt', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', N: 1000, lengthM: 0, div: 4, heightMm: 2.2, fontPt: 6.5, title: true, link: null }
+  north: { kind: 'north', style: 'crossN', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', sizeMm: 18, label: true, link: null },
+  scale: { kind: 'scale', style: 'barAltSub', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', N: 1000, lengthM: 0, div: 4, heightMm: 2.2, fontPt: 6.5, title: true, link: null }
 };
 const lastSym = { north: { ...SYM_DEF.north }, scale: { ...SYM_DEF.scale } };
 const PT_M = 0.0254 / 72;   // metros de papel por pt
@@ -3759,60 +3794,111 @@ function niceLen(target) {
 }
 
 function northItems(p) {
-  const H = mm2pt(p.sizeMm), R = H / 2, c1 = p.c1, c2 = p.c2, sw = mm2pt(0.2), it = [];
-  const poly = (pts, fill) => it.push(new fabric.Polygon(pts.map(([x, y]) => ({ x, y })), { fill, stroke: c1, strokeWidth: sw, strokeLineJoin: 'miter', objectCaching: false }));
-  const label = y => { if (p.label) it.push(new fabric.Text('N', { fontFamily: 'Hind', fontWeight: 700, fontSize: Math.max(6, H * 0.42), fill: c1, originX: 'center', originY: 'bottom', left: 0, top: y, objectCaching: false })); };
-  const star = (n, Rr, r, rot) => {
-    for (let k = 0; k < n; k++) {
-      const a = rot + k * Math.PI * 2 / n, tip = [Math.sin(a) * Rr, -Math.cos(a) * Rr];
-      const l = [Math.sin(a - Math.PI / n) * r, -Math.cos(a - Math.PI / n) * r], rr = [Math.sin(a + Math.PI / n) * r, -Math.cos(a + Math.PI / n) * r];
-      poly([[0, 0], tip, l], c1); poly([[0, 0], rr, tip], c2);
-    }
-  };
-  const gap = mm2pt(0.8);
+  const R = mm2pt(p.sizeMm) / 2, c1 = p.c1, c2 = p.c2, sw = Math.max(mm2pt(0.18), R * 0.035), it = [];
+  const O = { objectCaching: false };
+  const circle = (r, fill, w) => it.push(new fabric.Circle({ radius: r, left: 0, top: 0, originX: 'center', originY: 'center', fill: fill || '', stroke: c1, strokeWidth: w ?? sw, ...O }));
+  const line = (x1, y1, x2, y2, w, col) => it.push(new fabric.Line([x1, y1, x2, y2], { stroke: col || c1, strokeWidth: w ?? sw, strokeLineCap: 'butt', ...O }));
+  const poly = (pts, fill, w, col) => it.push(new fabric.Polygon(pts.map(([x, y]) => ({ x, y })), { fill, stroke: col === undefined ? c1 : col, strokeWidth: w ?? sw, strokeLineJoin: 'miter', ...O }));
+  const open = (pts, w, col) => it.push(new fabric.Polyline(pts.map(([x, y]) => ({ x, y })), { fill: '', stroke: col || c1, strokeWidth: w ?? sw, strokeLineJoin: 'miter', strokeLineCap: 'butt', ...O }));
+  const N = (y, inside) => { if (p.label) it.push(new fabric.Text('N', { fontFamily: 'Hind', fontWeight: 600, fontSize: Math.max(5, R * (inside ? 0.62 : 0.7)), fill: c1, originX: 'center', originY: inside ? 'center' : 'bottom', left: 0, top: y, ...O })); };
+  const cross = (ext) => { line(-R * ext, 0, R * ext, 0); line(0, -R * ext, 0, R * ext); };
+  const bar = (y1, y2, wmul) => it.push(new fabric.Rect({ left: 0, top: (y1 + y2) / 2, originX: 'center', originY: 'center', width: sw * (wmul || 4), height: Math.abs(y2 - y1), fill: c1, strokeWidth: 0, ...O }));
+  const gap = R * 0.12, k = Math.sqrt(3) / 2;
   switch (p.style) {
-    case 'triangle': poly([[0, -R], [R * 0.5, R], [-R * 0.5, R]], c1); label(-R - gap); break;
-    case 'circle': {
-      const r = R * 0.82;
-      it.push(new fabric.Circle({ radius: r, left: 0, top: 0, originX: 'center', originY: 'center', fill: c2, stroke: c1, strokeWidth: sw * 1.5, objectCaching: false }));
-      poly([[0, -r * 0.88], [0, r * 0.35], [-r * 0.45, r * 0.7]], c1); poly([[0, -r * 0.88], [r * 0.45, r * 0.7], [0, r * 0.35]], c2);
-      label(-r - gap); break;
+    case 'triN': circle(R); poly([[0, -R], [R * 0.97, 0], [-R * 0.97, 0]], c1, 0); N(R * 0.45, true); break;
+    case 'arrowCircle': circle(R); poly([[0, -R * 0.82], [0, R * 0.42], [-R * 0.42, R * 0.72]], c1); poly([[0, -R * 0.82], [R * 0.42, R * 0.72], [0, R * 0.42]], c2); break;
+    case 'tick': circle(R); bar(-R, -R * 0.28); break;
+    case 'lineTri': circle(R); open([[-R * k, R * 0.5], [0, -R], [R * k, R * 0.5]]); line(0, -R, 0, R); N(-R - gap); break;
+    case 'house': poly([[0, -R * 0.55], [R, 0], [R * 0.55, 0], [R * 0.55, R * 0.4], [-R * 0.55, R * 0.4], [-R * 0.55, 0], [-R, 0]], c1, 0); N(-R * 0.55 - gap); break;
+    case 'triChord': circle(R); poly([[0, -R], [R * 0.95, R * 0.3], [-R * 0.95, R * 0.3]], '', sw); N(R * 0.62, true); break;
+    case 'discChevron': circle(R, c1, 0); open([[-R * 0.6, -R * 0.12], [0, -R * 0.72], [R * 0.6, -R * 0.12]], R * 0.1, c2); line(0, -R * 0.72, 0, R * 0.95, R * 0.1, c2); break;
+    case 'chevron': circle(R); open([[-R * 0.62, -R * 0.1], [0, -R * 0.72], [R * 0.62, -R * 0.1]], R * 0.12); line(0, -R * 0.72, 0, R, R * 0.12); break;
+    case 'crossBar': circle(R); cross(1); bar(-R, 0); break;
+    case 'crossDouble': circle(R); line(-R, 0, R, 0); line(0, 0, 0, R); line(-R * 0.05, -R, -R * 0.05, 0); line(R * 0.05, -R, R * 0.05, 0); break;
+    case 'construct': circle(R); cross(1.15); open([[-R, 0], [0, -R], [R, 0]]); { const s = R * 0.14, y = -R * 1.12; line(-s, y - s, s, y + s); line(-s, y + s, s, y - s); } break;
+    case 'triOpenCross': circle(R); cross(1); open([[-R, 0], [0, -R], [R, 0]], sw * 2.6); break;
+    case 'triFillCross': circle(R); cross(1); poly([[0, -R], [R, 0], [-R, 0]], c1, 0); break;
+    case 'barN': circle(R); bar(-R, R, 5); N(-R - gap); break;
+    case 'chevronOpen': {
+      circle(R); const t = R * 0.09;
+      open([[-t, R], [-t, -R * 0.5], [-R * 0.56, -R * 0.05], [-R * 0.7, -R * 0.2], [0, -R * 0.82], [R * 0.7, -R * 0.2], [R * 0.56, -R * 0.05], [t, -R * 0.5], [t, R]]);
+      break;
     }
-    case 'star4': star(4, R, R * 0.26, 0); label(-R - gap); break;
-    case 'rose8': star(4, R * 0.62, R * 0.14, Math.PI / 4); star(4, R, R * 0.2, 0); label(-R - gap); break;
-    case 'minimal':
-      it.push(new fabric.Line([0, R, 0, -R], { stroke: c1, strokeWidth: sw * 2, objectCaching: false }));
-      it.push(new fabric.Polyline([{ x: -R * 0.32, y: -R * 0.5 }, { x: 0, y: -R }, { x: R * 0.32, y: -R * 0.5 }], { fill: '', stroke: c1, strokeWidth: sw * 2, strokeLineJoin: 'miter', objectCaching: false }));
-      label(-R - gap); break;
-    default: poly([[0, -R], [0, R * 0.45], [-R * 0.55, R]], c1); poly([[0, -R], [R * 0.55, R], [0, R * 0.45]], c2); label(-R - gap);
+    case 'arrowSmall': line(0, R, 0, -R * 0.2); poly([[0, -R], [R * 0.2, -R * 0.1], [-R * 0.2, -R * 0.1]], c1, 0); N(-R - gap); break;
+    case 'fan': circle(R); [-0.55, -0.2, 0.2, 0.55].forEach(a => { const ang = Math.PI / 2 + a; line(0, -R, Math.cos(ang) * R, Math.sin(ang) * R); }); break;
+    default: /* crossN */ circle(R); circle(R * 0.88, '', sw * 0.7); cross(1.18); bar(-R, 0); N(-R * 1.18 - gap * 0.4);
   }
   return it;
 }
 function scaleItems(p, N) {
-  const c1 = p.c1, c2 = p.c2, it = [], sw = mm2pt(0.2), fs = p.fontPt;
-  const text = (t, x, y, o = {}) => it.push(new fabric.Text(t, { left: x, top: y, fontSize: fs, fontFamily: 'Hind', fill: c1, objectCaching: false, ...o }));
+  const c1 = p.c1, c2 = p.c2, it = [], sw = mm2pt(0.2), fs = p.fontPt, O = { objectCaching: false };
+  const text = (t, x, y, o = {}) => it.push(new fabric.Text(t, { left: x, top: y, fontSize: fs, fontFamily: 'Hind', fill: c1, originX: 'center', ...O, ...o }));
   if (p.style === 'numeric') {
-    if (p.title) text('ESCALA', 0, 0, { fontWeight: 600, charSpacing: 120, fontSize: fs * 0.8 });
-    text('1:' + fmtInt(N), 0, p.title ? fs * 1.1 : 0, { fontWeight: 700, fontSize: fs * 2 });
+    if (p.title) text('ESCALA', 0, 0, { fontWeight: 600, charSpacing: 120, fontSize: fs * 0.8, originX: 'left' });
+    text('1:' + fmtInt(N), 0, p.title ? fs * 1.1 : 0, { fontWeight: 700, fontSize: fs * 2, originX: 'left' });
     return { items: it, total: 0 };
   }
   const total = p.lengthM > 0 ? p.lengthM : niceLen(60 * N / 1000);
-  const div = clamp(Math.round(p.div) || 4, 1, 10), seg = total / div, segPt = mm2pt(seg * 1000 / N), H = mm2pt(p.heightMm);
+  const div = clamp(Math.round(p.div) || 4, 1, 12), seg = total / div, S = mm2pt(seg * 1000 / N), H = mm2pt(p.heightMm), L = S * div;
   const km = total >= 1000, unit = km ? 'km' : 'm', lf = v => (Math.round((km ? v / 1000 : v) * 100) / 100).toLocaleString('pt-BR');
-  const rect = (x, y, w, h, fill) => it.push(new fabric.Rect({ left: x, top: y, width: w, height: h, fill, stroke: c1, strokeWidth: sw, strokeUniform: true, objectCaching: false }));
-  if (p.style === 'double') {
-    for (let i = 0; i < div; i++) { rect(i * segPt, 0, segPt, H / 2, i % 2 ? c2 : c1); rect(i * segPt, H / 2, segPt, H / 2, i % 2 ? c1 : c2); }
-  } else if (p.style === 'line') {
-    it.push(new fabric.Line([0, H, segPt * div, H], { stroke: c1, strokeWidth: sw * 1.5, objectCaching: false }));
-    for (let i = 0; i <= div; i++) it.push(new fabric.Line([i * segPt, i === 0 || i === div ? 0 : H * 0.45, i * segPt, H], { stroke: c1, strokeWidth: sw * 1.5, objectCaching: false }));
-  } else {
-    for (let i = 0; i < div; i++) rect(i * segPt, 0, segPt, H, i % 2 ? c2 : c1);
+  const line = (x1, y1, x2, y2, w) => it.push(new fabric.Line([x1, y1, x2, y2], { stroke: c1, strokeWidth: w ?? sw * 1.4, ...O }));
+  const pline = (pts, w) => it.push(new fabric.Polyline(pts.map(([x, y]) => ({ x, y })), { fill: '', stroke: c1, strokeWidth: w ?? sw * 1.4, strokeLineJoin: 'miter', ...O }));
+  const rect = (x, y, w, h, fill) => it.push(new fabric.Rect({ left: x, top: y, width: w, height: h, fill, stroke: c1, strokeWidth: sw, strokeUniform: true, ...O }));
+  const top = y => y - fs * 1.25, below = y => y + mm2pt(0.8);
+  const labelsAt = (xs, vals, y, pos) => xs.forEach((x, i) => text(lf(vals[i]) + (i === xs.length - 1 ? ' ' + unit : ''), x, pos === 'top' ? top(y) : below(y)));
+  const majX = Array.from({ length: div + 1 }, (_, i) => i * S), majV = majX.map((_, i) => i * seg);
+  const sub = [0, S / 4, S / 2, (3 * S) / 4, S], subV = sub.map(x => x / S * seg);
+  let titleY = -fs * 1.3;
+  switch (p.style) {
+    case 'ticksLine':
+      line(0, H / 2, L, H / 2); majX.forEach(x => line(x, 0, x, H));
+      text(lf(total) + ' ' + unit, L, top(0), { originX: 'right' }); titleY = top(0) - fs * 1.2; break;
+    case 'stepped': {
+      const pts = [[0, 0]]; for (let i = 0; i < div; i++) { const y = i % 2 ? H : 0; pts.push([i * S, y], [(i + 1) * S, y]); if (i < div - 1) pts.push([(i + 1) * S, (i + 1) % 2 ? H : 0]); }
+      pline(pts); line(0, 0, 0, H); labelsAt(majX.slice(1), majV.slice(1), 0, 'top'); titleY = top(0) - fs * 1.2; break;
+    }
+    case 'steppedSub': {
+      const xs = sub.slice(0, 4).concat(majX.slice(1)), pts = [[0, H]];
+      for (let i = 0; i < xs.length - 1; i++) { const y = i % 2 ? H : 0; pts.push([xs[i], y], [xs[i + 1], y]); if (i < xs.length - 2) pts.push([xs[i + 1], (i + 1) % 2 ? H : 0]); }
+      pline(pts); { const lx = xs.filter((_, i) => i !== 1 && i !== 3); labelsAt(lx, lx.map(x => x / S * seg), H, 'below'); } break;
+    }
+    case 'steppedBold': {
+      const pts = []; for (let i = 0; i < div; i++) { const y = i % 2 ? H : 0; pts.push([i * S, y], [(i + 1) * S, y]); if (i < div - 1) pts.push([(i + 1) * S, (i + 1) % 2 ? H : 0]); }
+      pline([[0, H]].concat(pts), sw * 4);
+      majX.forEach((x, i) => text(lf(majV[i]) + (i === div ? ' ' + unit : ''), x, i % 2 ? top(0) : below(H), { fontWeight: 700 })); titleY = top(0) - fs * 1.2; break;
+    }
+    case 'ticksDual': {
+      line(0, H / 2, L, H / 2); const n = div * 5; for (let i = 0; i <= n; i++) line(i * L / n, 0, i * L / n, H / 2, sw);
+      majX.forEach(x => line(x, H / 2, x, H)); labelsAt(majX, majV, H, 'below'); titleY = -fs * 1.3; break;
+    }
+    case 'ticksRuler': {
+      line(0, H, L, H);
+      for (let i = 1; i < 10; i++) line(S * i / 10, H, S * i / 10, H * (i === 5 ? 0.35 : 0.55), sw);
+      majX.forEach(x => line(x, H, x, 0));
+      labelsAt([0, S / 2].concat(majX.slice(1)), [0, seg / 2].concat(majV.slice(1)), 0, 'top'); titleY = top(0) - fs * 1.2; break;
+    }
+    case 'barDouble':
+      for (let i = 0; i < div; i++) { rect(i * S, 0, S, H / 2, i % 2 ? c2 : c1); rect(i * S, H / 2, S, H / 2, i % 2 ? c1 : c2); }
+      labelsAt(majX, majV, 0, 'top'); titleY = top(0) - fs * 1.2; break;
+    case 'barDoubleSub': {
+      const n = div * 2, s2 = L / n;
+      for (let i = 0; i < n; i++) rect(i * s2, 0, s2, H / 2, i % 2 ? c2 : c1);
+      for (let i = 0; i < div; i++) rect(i * S, H / 2, S, H / 2, i % 2 ? c1 : c2);
+      labelsAt(majX, majV, 0, 'top');
+      const halfX = Array.from({ length: n + 1 }, (_, i) => i * s2).filter((_, i) => i % 2 === 1); halfX.forEach(x => text(lf(x / S * seg), x, below(H)));
+      titleY = top(0) - fs * 1.2; break;
+    }
+    default: { /* barAltSub: barra alternada com o primeiro trecho subdividido */
+      for (let i = 0; i < 4; i++) rect(sub[i], 0, S / 4, H, i % 2 ? c2 : c1);
+      for (let i = 1; i < div; i++) rect(i * S, 0, S, H, i % 2 ? c2 : c1);
+      labelsAt([0, S / 2].concat(majX.slice(1)), [0, seg / 2].concat(majV.slice(1)), 0, 'top'); titleY = top(0) - fs * 1.2;
+    }
   }
-  for (let i = 0; i <= div; i++) text(lf(seg * i) + (i === div ? ' ' + unit : ''), i * segPt, H + mm2pt(0.9), { originX: 'center' });
-  if (p.title) text('ESCALA 1:' + fmtInt(N), 0, -fs * 1.5, { fontWeight: 600, charSpacing: 120, fontSize: fs * 0.9 });
+  if (p.title) text('ESCALA 1:' + fmtInt(N), 0, titleY - fs * 0.2, { fontWeight: 600, charSpacing: 120, fontSize: fs * 0.9, originX: 'left' });
   return { items: it, total };
 }
 function buildSymbolGroup(p) {
+  if (LEGACY_SYM[p.style]) p.style = LEGACY_SYM[p.style];
   let items;
   if (p.kind === 'north') items = northItems(p);
   else {
@@ -4312,6 +4398,150 @@ $('#sv-name').addEventListener('change', e => { const v = sanitize(e.target.valu
   });
 })();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveDir && savePerm === 'granted' && saveAuto && !savePaused) saveToFolder(false); });
+
+/* ---------------- Biblioteca de modelos: exportar, importar e modelos da empresa ----------------
+   Arquivo .kvmodelos.json = { app, kind:'templates', templates:[...], images:{src:dataURL} }.
+   Modelos da empresa: publicar um arquivo "modelos-kv.json" na mesma pasta do index.html (GitHub Pages).
+   Em projeto novo, esses modelos entram automaticamente; depois ficam disponíveis na lista "Biblioteca". */
+let libTemplates = null, libSource = '';
+async function packTemplates(list) {
+  const t = JSON.parse(JSON.stringify(list)), images = {};
+  t.forEach((tp, i) => { if (!tp.name) tp.name = sheetLabel(list[i], doc.templates.indexOf(list[i])); });
+  for (const tp of t) walkSer(tp.objects || [], o => { if (o.type === 'image' && blobReg.has(o.src) && !images[o.src]) images[o.src] = null; });
+  for (const u of Object.keys(images)) images[u] = await blobToDataURL(blobReg.get(u));
+  return { app: 'kv-pranchas', kind: 'templates', version: 1, exportedAt: new Date().toISOString(), templates: t, images };
+}
+async function unpackTemplates(data) {
+  if (!data || data.kind !== 'templates' || !Array.isArray(data.templates)) throw new Error('arquivo não é uma biblioteca de modelos');
+  const map = {};
+  for (const [u, d] of Object.entries(data.images || {})) { try { map[u] = blobToUrl(await dataURLToBlob(d)); } catch (e) {} }
+  const out = JSON.parse(JSON.stringify(data.templates));
+  out.forEach(tp => walkSer(tp.objects || [], o => { if (o.type === 'image') o.src = map[o.src] || (String(o.src).startsWith('data:') ? o.src : PLACEHOLDER); }));
+  return out;
+}
+/* Acrescenta modelos ao projeto (novos ids; nomes repetidos ganham sufixo) */
+async function addTemplatesToProject(list) {
+  if (!list.length) return 0;
+  if (mode === 'tpl') syncTemplatesFromCanvas();
+  const names = new Set(doc.templates.map((t, i) => sheetLabel(t, i)));
+  list.forEach(src => {
+    const t = { ...newTemplate(src), ...JSON.parse(JSON.stringify(src)), id: uid() };
+    let nm = t.name || 'Modelo', k = 2; while (names.has(nm)) nm = `${t.name || 'Modelo'} (${k++})`;
+    t.name = nm; names.add(nm); doc.templates.push(t);
+  });
+  if (mode === 'tpl') await restore({ doc: JSON.parse(JSON.stringify(doc)), objects: presStore || [] });
+  else { canvas.requestRenderAll(); syncDocUI(); }
+  renderSheetList(); renderLibList(); commit();
+  return list.length;
+}
+async function exportTemplates(onlyActive) {
+  if (mode === 'tpl') syncTemplatesFromCanvas();
+  const list = onlyActive ? doc.templates.filter(t => t.id === doc.activeTpl) : doc.templates;
+  if (!list.length) { toast('Não há modelos para exportar. Crie modelos no modo Modelos.'); return; }
+  const pack = await packTemplates(list), nm = sanitize(onlyActive ? sheetLabel(list[0], doc.templates.indexOf(list[0])) : (doc.project.projeto || 'modelos') + ' - modelos');
+  download(new Blob([JSON.stringify(pack)], { type: 'application/json' }), nm + '.kvmodelos.json');
+  toast(`${list.length} modelo(s) exportado(s). Para deixá-los prontos para toda a equipe, publique o arquivo como “modelos-kv.json” junto do app.`);
+}
+async function importTemplatesFile(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    const list = await unpackTemplates(data);
+    const n = await addTemplatesToProject(list);
+    toast(`${n} modelo(s) importado(s) para este projeto.`);
+  } catch (e) { toast('Não foi possível importar: ' + e.message, true); }
+}
+/* Modelos da empresa, publicados junto do app */
+async function loadCompanyLibrary() {
+  try {
+    const r = await fetch('modelos-kv.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    libTemplates = await unpackTemplates(await r.json()); libSource = 'modelos-kv.json';
+  } catch (e) { libTemplates = []; }
+  renderLibList();
+  /* primeira abertura de um projeto: entram os modelos da empresa */
+  if (libTemplates.length && !doc.libSeeded && !doc.templates.length) {
+    doc.libSeeded = true;
+    await addTemplatesToProject(libTemplates);
+    toast(`${libTemplates.length} modelo(s) da empresa adicionados ao projeto. Veja no modo Modelos.`);
+  }
+}
+function renderLibList() {
+  const ul = $('#lib-list'); if (!ul) return; ul.innerHTML = '';
+  if (!libTemplates || !libTemplates.length) { ul.innerHTML = '<li class="empty">Nenhum modelo da empresa publicado (arquivo modelos-kv.json ao lado do app).</li>'; return; }
+  libTemplates.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="name">${svgIcon('file')}<span>${escapeHtml(t.name || 'Modelo ' + (i + 1))}</span><small>${fmt(t.w, 0)}×${fmt(t.h, 0)}</small></span>
+      <button class="icon-btn" aria-label="Adicionar ${escapeHtml(t.name || 'modelo')} ao projeto" title="Adicionar ao projeto">${svgIcon('plus')}</button>`;
+    li.querySelector('button').onclick = async () => { await addTemplatesToProject([t]); toast(`Modelo “${t.name}” adicionado ao projeto.`); };
+    ul.appendChild(li);
+  });
+}
+$('#tpl-export-all').onclick = () => exportTemplates(false);
+$('#tpl-export-one').onclick = () => exportTemplates(true);
+$('#tpl-import').onclick = () => $('#in-tpl').click();
+$('#in-tpl').addEventListener('change', e => { const f = e.target.files[0]; if (f) importTemplatesFile(f); e.target.value = ''; });
+$('#lib-add-all').onclick = async () => { if (!libTemplates || !libTemplates.length) { toast('Nenhum modelo da empresa publicado.'); return; } const n = await addTemplatesToProject(libTemplates); toast(`${n} modelo(s) da empresa adicionados.`); };
+
+/* ---------------- Seletor de cores com cores da empresa e cores salvas ---------------- */
+const KV_COLORS = [['#000000', 'Preto KV'], ['#FFFFFF', 'Branco'], ['#00ACCD', 'Ciano KV'], ['#00677C', 'Petróleo'], ['#26277D', 'Índigo'], ['#3E4095', 'Índigo claro'],
+  ['#2FAF83', 'Verde KV'], ['#303030', 'Grafite'], ['#767676', 'Cinza médio'], ['#C4C7C7', 'Cinza claro'], ['#E8E8E8', 'Cinza papel'], ['#F3F3F3', 'Off-white']];
+const URB_COLORS = [['#E53935', 'Vermelho'], ['#FB8C00', 'Laranja'], ['#FDD835', 'Amarelo'], ['#7CB342', 'Verde-claro'], ['#2E7D32', 'Verde'], ['#1E88E5', 'Azul'],
+  ['#8E24AA', 'Roxo'], ['#6D4C41', 'Marrom'], ['#F8BBD0', 'Rosa'], ['#90CAF9', 'Azul-claro'], ['#A5D6A7', 'Verde-água'], ['#FFE082', 'Areia']];
+let myColors = []; try { myColors = JSON.parse(localStorage.getItem('kv-pranchas-mycolors') || '[]'); } catch (e) {}
+const saveMyColors = () => { try { localStorage.setItem('kv-pranchas-mycolors', JSON.stringify(myColors.slice(0, 24))); } catch (e) {} };
+let colorTarget = null, bypassColorPop = false;
+function setInputColor(inp, hex) {
+  inp.value = hex.toLowerCase();
+  inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function swatchBtn(hex, label, onPick, removable) {
+  const b = document.createElement('button'); b.className = 'cp-sw'; b.title = `${label} ${hex}`; b.setAttribute('aria-label', `${label} ${hex}`);
+  b.innerHTML = `<i style="background:${hex}"></i>`; b.onclick = () => onPick(hex);
+  if (removable) b.oncontextmenu = e => { e.preventDefault(); removable(hex); };
+  return b;
+}
+function renderColorPop() {
+  const pick = hex => { if (colorTarget) setInputColor(colorTarget, hex); $('#cp-hex').value = hex.toLowerCase(); };
+  const fill = (id, list, rem) => { const g = $(id); g.innerHTML = ''; list.forEach(([h, l]) => g.appendChild(swatchBtn(h, l, pick, rem))); };
+  fill('#cp-kv', KV_COLORS); fill('#cp-urb', URB_COLORS);
+  const g = $('#cp-my'); g.innerHTML = '';
+  myColors.forEach(h => g.appendChild(swatchBtn(h, 'Minha cor', pick, hex => { myColors = myColors.filter(x => x !== hex); saveMyColors(); renderColorPop(); buildPaletteMine(); })));
+  if (!myColors.length) g.innerHTML = '<p class="info" style="grid-column:1/-1;margin:0">Nenhuma cor salva ainda. Use “Salvar cor atual”.</p>';
+}
+function openColorPop(inp) {
+  colorTarget = inp; const pop = $('#color-pop'); renderColorPop();
+  $('#cp-hex').value = inp.value; pop.hidden = false;
+  const r = inp.getBoundingClientRect(), W = pop.offsetWidth, H = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8)) + 'px';
+  pop.style.top = (r.bottom + 6 + H > window.innerHeight ? Math.max(8, r.top - H - 6) : r.bottom + 6) + 'px';
+  pop.querySelector('.cp-sw').focus();
+}
+const closeColorPop = () => { $('#color-pop').hidden = true; colorTarget = null; };
+document.addEventListener('click', e => {
+  const inp = e.target.closest && e.target.closest('input[type=color]');
+  if (!inp || bypassColorPop) return;
+  e.preventDefault(); openColorPop(inp);
+}, true);
+document.addEventListener('pointerdown', e => { const pop = $('#color-pop'); if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('input[type=color]'))) closeColorPop(); });
+$('#color-pop').addEventListener('keydown', e => { if (e.key === 'Escape') { const t = colorTarget; closeColorPop(); t && t.focus(); } e.stopPropagation(); });
+$('#cp-hex').addEventListener('change', e => { let v = e.target.value.trim(); if (!v.startsWith('#')) v = '#' + v; if (/^#[0-9a-f]{6}$/i.test(v) && colorTarget) setInputColor(colorTarget, v); });
+$('#cp-save').onclick = () => { const v = (colorTarget ? colorTarget.value : $('#cp-hex').value).toLowerCase(); if (!/^#[0-9a-f]{6}$/.test(v)) return; myColors = [v, ...myColors.filter(x => x !== v)].slice(0, 24); saveMyColors(); renderColorPop(); buildPaletteMine(); toast('Cor salva em “Minhas cores”.'); };
+$('#cp-native').onclick = () => {
+  const inp = colorTarget; if (!inp) return; closeColorPop(); bypassColorPop = true;
+  try { if (inp.showPicker) inp.showPicker(); else inp.click(); } catch (e) { inp.click(); }
+  setTimeout(() => { bypassColorPop = false; }, 400);
+};
+/* “Minhas cores” também na paleta da barra inferior */
+function buildPaletteMine() {
+  const p = $('#palette'); p.querySelectorAll('.swatch.mine, .pal-sep').forEach(x => x.remove());
+  if (!myColors.length) return;
+  const sep = document.createElement('span'); sep.className = 'pal-sep'; sep.setAttribute('aria-hidden', 'true'); p.appendChild(sep);
+  myColors.forEach(c => {
+    const b = document.createElement('button'); b.className = 'swatch mine'; b.innerHTML = `<i style="background:${c}"></i>`;
+    b.title = `Minha cor ${c} — clique: preenchimento · Shift+clique: traço`; b.setAttribute('aria-label', `Minha cor ${c}: clique aplica preenchimento, Shift+clique aplica traço`);
+    b.onclick = e => paletteApply(c, e.shiftKey); p.appendChild(b);
+  });
+}
 
 /* ---------------- Barra contextual e painel Objeto ---------------- */
 const isText = o => ['textbox', 'i-text', 'text', 'kvtext'].includes(o.type);
@@ -5379,7 +5609,9 @@ let newArmed = 0;
 $('#cmd-new').onclick = async () => {
   if (Date.now() - newArmed > 3000) { newArmed = Date.now(); toast('Clique novamente em “Novo” em até 3 s para descartar o projeto atual.'); return; }
   newArmed = 0; exSelected = null;
-  await restore({ doc: defaultDoc(), objects: [] }); resetHistory(); fitPage(); scheduleAutosave(); toast('Novo projeto criado.');
+  await restore({ doc: defaultDoc(), objects: [] });
+  if (libTemplates && libTemplates.length) { doc.libSeeded = true; await addTemplatesToProject(libTemplates); }
+  resetHistory(); fitPage(); scheduleAutosave(); toast('Novo projeto criado.');
 };
 $('#cmd-open').onclick = $('#pj-open').onclick = () => $('#in-project').click();
 $('#in-project').addEventListener('change', e => { const f = e.target.files[0]; if (f) openProject(f); e.target.value = ''; });
@@ -5508,12 +5740,14 @@ mq.addEventListener ? mq.addEventListener('change', applyTheme) : mq.addListener
 
 /* ---------------- Inicialização ---------------- */
 applyTheme();
+buildPaletteMine();
 ensurePres();
 syncDocUI(); rebuildChrome(); renderSheetList(); refreshPanel(); renderLinks(); renderLayers();
 (async () => {
   const restored = await restoreAutosave();
   ensurePres(); renderPresList();
   resetHistory(); syncGvAuto();
+  await loadCompanyLibrary(); resetHistory();
   if (restored) { fitPage(); toast('Projeto restaurado do salvamento automático.'); }
   await checkStoredDir();
   await checkSaveDir();
