@@ -1010,7 +1010,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V33 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V34 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1049,7 +1049,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V33 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V34 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2104,7 +2104,14 @@ function newTemplate(base) {
   return t;
 }
 function enlivenOnto(list) {
-  return new Promise(res => fabric.util.enlivenObjects(list || [], objs => {
+  list = list || [];
+  return new Promise(res => fabric.util.enlivenObjects(list, async objs => {
+    /* imagem que não carregou: em vez de sumir, entra como marcador do mesmo tamanho (“ausente”), preservando posição, escala e vínculo */
+    for (let i = 0; i < list.length; i++) {
+      if (objs[i] || !list[i] || list[i].type !== 'image') continue;
+      objs[i] = await new Promise(r => fabric.Image.fromObject({ ...list[i], src: PLACEHOLDER, filters: [] }, o => r(o)));
+      if (objs[i]) console.warn('[restore] imagem sem arquivo, mantida como ausente:', list[i].kvName || list[i].kvId);
+    }
     objs.filter(Boolean).forEach(o => {
       if (o.visible === false && o.kvHidden === undefined) o.kvHidden = true;
       if (o.type === 'image') { o.objectCaching = false; if (o.getSrc() === PLACEHOLDER) o.kvMissing = true; }
@@ -4515,7 +4522,9 @@ async function imagesToAssets(lists) {
   for (const list of lists) {
     const imgs = []; walkSer(list, o => { if (o.type === 'image') imgs.push(o); });
     for (const o of imgs) {
-      const u = o.src; if (!blobReg.has(u)) continue;
+      const u = o.src;
+      if (!blobReg.has(u) && /^blob:/.test(u)) { try { const b = await (await fetch(u)).blob(); blobReg.set(u, b); } catch (e) {} }   // endereço temporário ainda válido nesta sessão: guarda o arquivo
+      if (!blobReg.has(u)) continue;
       let nm = hashCache.get(u);
       if (!nm) { const b = blobReg.get(u); nm = (await blobHash(b)) + '.' + extOf(b.type); hashCache.set(u, nm); }
       if (!storedAssets.has(nm)) { await idb.set('A:' + nm, blobReg.get(u)); storedAssets.add(nm); }
@@ -4585,6 +4594,34 @@ function describeSnap(s) {
   count(s.objects); (s.doc.pres || []).forEach(p => count(p.objects));
   return { sheets: (s.doc.sheets || []).length + (s.doc.pres || []).reduce((a, p) => a + ((p.sheets || []).length), 0), n, imgs, views };
 }
+/* Recupera imagens e vistas que existem num conjunto de dados mas faltam no projeto atual (mesmo elemento = mesmo kvId).
+   Cada imagem volta para a mesma folha (pelo id da folha) e na mesma posição dentro dela. */
+async function mergeMissingImages(src, isLegacy, legacyBlobs) {
+  const cur = snapshot(), have = new Set();
+  walkSer(cur.objects, o => o.kvId && have.add(o.kvId)); (cur.doc.pres || []).forEach(p => walkSer(p.objects || [], o => o.kvId && have.add(o.kvId)));
+  const s = JSON.parse(JSON.stringify(src));
+  if (isLegacy) { const map = {}; Object.entries(legacyBlobs || {}).forEach(([u, b]) => { map[u] = blobToUrl(b); }); walkAll(s, o => { if (o.type === 'image') o.src = map[o.src] || PLACEHOLDER; }); }
+  else await assetsToUrls([s.objects, ...(s.doc.pres || []).map(p => p.objects || [])]);
+  /* conjuntos de origem: apresentação aberta + guardadas */
+  const groups = [{ pid: s.doc.presActive, sheets: s.doc.sheets || [], objects: s.objects || [] }].concat((s.doc.pres || []).filter(p => p.id !== s.doc.presActive && p.sheets).map(p => ({ pid: p.id, sheets: p.sheets, objects: p.objects || [] })));
+  const liveRects = rectsFor(doc.sheets), toAdd = [];
+  let n = 0, views = 0;
+  for (const g of groups) {
+    const rects = rectsFor(g.sheets);
+    for (const o of g.objects) {
+      if (o.type !== 'image' || !o.kvId || have.has(o.kvId) || o.src === PLACEHOLDER) continue;
+      const c = serCenter(o); let si = rects.findIndex(q => c.x >= q.x && c.x <= q.x + q.w && c.y >= q.y && c.y <= q.y + q.h); if (si < 0) si = 0;
+      const sid = g.sheets[si] && g.sheets[si].id, rel = { x: (o.left || 0) - (rects[si] ? rects[si].x : 0), y: (o.top || 0) - (rects[si] ? rects[si].y : 0) };
+      let li = doc.sheets.findIndex(x => x.id === sid);
+      if (li < 0) { const p = (doc.pres || []).find(pp => pp.id !== doc.presActive && (pp.sheets || []).some(x => x.id === sid)); if (p) { const r2 = rectsFor(p.sheets)[p.sheets.findIndex(x => x.id === sid)]; p.objects = (p.objects || []).concat([{ ...o, left: rel.x + r2.x, top: rel.y + r2.y }]); have.add(o.kvId); n++; if (o.kvLink && o.kvLink.kind === 'giraffe') views++; continue; } li = sheetIndex(activeSheet().id); }
+      toAdd.push({ ...o, left: rel.x + liveRects[li].x, top: rel.y + liveRects[li].y }); have.add(o.kvId); n++; if (o.kvLink && o.kvLink.kind === 'giraffe') views++;
+    }
+  }
+  if (toAdd.length) await enlivenOnto(toAdd);
+  toAdd.length && raiseChrome && raiseChrome();
+  canvas.requestRenderAll(); commit(); await storeSave(); scheduleLayers(); renderLinks();
+  return { n, views };
+}
 async function renderDatasets() {
   const ul = $('#ds-list'); if (!ul) return; ul.innerHTML = '';
   const keys = await idb.keys(), sets = [...new Set(keys.filter(k => /^P:.+:meta$/.test(k)).map(k => k.slice(2, -5)))];
@@ -4596,8 +4633,12 @@ async function renderDatasets() {
   rows.sort((a, b) => b.at - a.at).forEach(r => {
     const cur = r.pk === projectKey, li = document.createElement('li');
     li.innerHTML = `<span class="name">${svgIcon('folderOpen')}<span>${escapeHtml(r.label)}${cur ? ' · atual' : ''}</span><small>${r.at ? new Date(r.at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''} · ${r.info.sheets} fl. · ${r.info.imgs} img. · ${r.info.views} vistas</small></span>
-      ${cur ? '' : `<button class="icon-btn" aria-label="Abrir estes dados neste projeto" title="Abrir estes dados neste projeto">${svgIcon('undo')}</button>`}`;
-    const b = li.querySelector('button');
+      ${cur ? '' : `<button class="icon-btn ds-img" aria-label="Trazer as imagens e vistas que faltam neste projeto" title="Trazer só as imagens e vistas que faltam (mantém o trabalho atual)">${svgIcon('image')}</button><button class="icon-btn ds-open" aria-label="Abrir estes dados neste projeto" title="Abrir estes dados neste projeto (substitui)">${svgIcon('undo')}</button>`}`;
+    const bi = li.querySelector('.ds-img');
+    if (bi) bi.onclick = () => askBar(`Trazer de “${r.label}” as imagens e vistas que não existem no projeto atual? O trabalho atual é mantido; cada imagem volta para a mesma folha e posição. (Uma versão de segurança é criada antes.)`, [
+      { label: 'Trazer', primary: true, fn: async () => { await maybeBackup(true); const res = await mergeMissingImages(r.legacy ? r.legacy.s : r.load(), !!r.legacy, r.legacy && r.legacy.blobs); renderDatasets(); toast(res.n ? `${res.n} imagem(ns) recuperada(s), sendo ${res.views} vista(s) do Giraffe.` : 'Nenhuma imagem faltando — o projeto atual já tem todas as imagens desse conjunto.'); } },
+      { label: 'Cancelar' }]);
+    const b = li.querySelector('.ds-open');
     if (b) b.onclick = () => askBar(`Abrir os dados de “${r.label}” (${r.info.sheets} folha(s), ${r.info.views} vista(s) do Giraffe) neste projeto? O estado atual vira uma versão de segurança antes.`, [
       { label: 'Abrir aqui', primary: true, fn: async () => {
         await maybeBackup(true);
