@@ -214,17 +214,24 @@ progress::-webkit-progress-value{background:var(--md-sys-color-primary)}
 
 /* ---------- Barra de propriedades contextual (V02) ---------- */
 .ctxbar{
-  min-width:0;display:flex;align-items:center;min-height:56px;padding:0 4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;
+  min-width:0;display:flex;align-items:center;min-height:50px;padding:0 3px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;
   background:var(--md-sys-color-surface-container-low);border-bottom:1px solid var(--md-sys-color-outline-variant);
 }
-.cg{display:flex;align-items:center;gap:4px;padding:0 10px;min-height:48px;flex:none;border-right:1px solid var(--md-sys-color-outline-variant)}
+.cg{display:flex;align-items:center;gap:3px;padding:0 8px;min-height:44px;flex:none;border-right:1px solid var(--md-sys-color-outline-variant)}
 .cg:last-child{border-right:0}
-.cg-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--md-sys-color-on-surface-variant);margin-right:2px;white-space:nowrap}
-.ctxbar input[type=number]{width:68px;padding:0 6px}
-.ctxbar select{width:auto;max-width:170px;padding:0 6px}
-.ctxbar input[type=range]{width:96px}
-.ctxbar .seg>button{min-width:44px}
-.ctxbar .btn{padding:0 12px;margin:0 !important}
+.cg-label{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--md-sys-color-on-surface-variant);margin-right:2px;white-space:nowrap}
+.ctxbar .icon-btn{width:40px;height:40px;min-width:40px;min-height:40px}
+.ctxbar .icon-btn svg.i{width:18px;height:18px}
+.ctxbar input[type=number]{width:58px;height:36px;min-height:36px;padding:0 5px;font-size:13px}
+.ctxbar input[type=text]{height:36px;min-height:36px;font-size:13px}
+.ctxbar select{width:auto;max-width:150px;height:36px;min-height:36px;padding:0 5px;font-size:13px}
+.ctxbar input[type=color]{width:36px;height:36px;min-height:36px;padding:2px}
+.ctxbar input[type=range]{width:84px}
+.ctxbar .seg>button{min-width:38px;min-height:36px;height:36px;padding:0 10px;font-size:11.5px}
+.ctxbar .btn{padding:0 10px;margin:0 !important;min-height:36px;height:36px;font-size:11.5px}
+.ctxbar .vsep{margin:0 4px;height:26px}
+.ctx-info-wrap,#ctx-info{font-size:12px}
+.ctxbar #c-dash,.ctxbar #b-dash{max-width:none;min-width:150px}
 .unit{font-size:11px;color:var(--md-sys-color-on-surface-variant);margin-right:2px}
 .ctx-hint{font-size:12.5px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap}
 .sheet-row .name small{font-variant-numeric:tabular-nums}
@@ -323,6 +330,42 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 #sym-north-grid{grid-template-columns:repeat(4,1fr)}
 .sym-pop{width:380px}
 #sync-push.has-changes{color:var(--md-sys-color-primary);box-shadow:inset 0 -3px 0 var(--md-sys-color-primary)}
+.pdf-dlg{position:fixed;inset:0;z-index:140;display:grid;place-items:center;background:rgba(0,0,0,.35)}
+.pdf-dlg[hidden]{display:none}
+.pdf-box{width:min(760px,94vw);max-height:90vh;display:flex;flex-direction:column;gap:10px;padding:16px 20px;background:var(--md-sys-color-surface-container-lowest);border:1px solid var(--md-sys-color-outline)}
+.pdf-box h2{margin:0;font-size:15px}
+.pdf-pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;overflow-y:auto;min-height:140px;max-height:46vh;padding:2px}
+.pdf-page{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;background:#fff;border:2px solid var(--md-sys-color-outline-variant);cursor:pointer;color:#303030;font-size:12px}
+.pdf-page canvas{max-width:110px;max-height:110px;box-shadow:0 0 0 1px #ddd}
+.pdf-page[aria-pressed="true"]{border-color:var(--md-sys-color-primary);background:color-mix(in srgb,var(--md-sys-color-primary) 8%,#fff)}
+.pdf-opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pdf-actions{display:flex;gap:8px;align-items:center}
+.ptree-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.ptree-head h2{margin:0;flex:1}
+.ptree-tools{display:flex;align-items:center;gap:2px}
+.icon-btn.sm{width:34px;height:34px;min-width:34px;min-height:34px}
+.icon-btn.sm svg.i{width:17px;height:17px}
+.icon-btn.danger{color:var(--md-sys-color-error)}
+.ptree{list-style:none;margin:0;padding:0;border-top:1px solid var(--md-sys-color-outline-variant)}
+.ptree li{display:flex;align-items:center;min-height:36px;border-bottom:1px solid var(--md-sys-color-outline-variant)}
+.ptree .pf{background:var(--md-sys-color-surface-container-low)}
+.ptree .pf.active{background:color-mix(in srgb,var(--md-sys-color-primary) 9%,var(--md-sys-color-surface-container-low))}
+.ptree .pf .name span{font-weight:600}
+.ptree .name{flex:1;min-width:0;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 6px;background:transparent;border:0;cursor:pointer;color:var(--md-sys-color-on-surface);text-align:left;font-size:13px}
+.ptree .name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptree .name small{margin-left:auto;color:var(--md-sys-color-on-surface-variant);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ptree .name svg.i{width:16px;height:16px;flex:none}
+.ptree .ps .name{padding-left:30px}
+.ptree .ps.active{background:color-mix(in srgb,var(--md-sys-color-primary) 14%,transparent)}
+.ptree .ps.active .name span{font-weight:600}
+.ptree .tb{width:26px;height:28px;min-width:26px;display:grid;place-items:center;padding:0;background:transparent;border:0;color:var(--md-sys-color-on-surface-variant);cursor:pointer}
+.ptree .tb svg.i{width:14px;height:14px}
+.ptree .tb:hover:not(:disabled){color:var(--md-sys-color-primary);background:var(--md-sys-color-surface-container-high)}
+.ptree .tb:disabled{opacity:.3;cursor:default}
+.ptree .tb.del:hover:not(:disabled){color:var(--md-sys-color-error)}
+.ptree .tb:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:-2px}
+.ptree .acts{display:flex;align-items:center;padding-right:2px;opacity:.55}
+.ptree li:hover .acts,.ptree li.active .acts,.ptree li:focus-within .acts{opacity:1}
 @media (max-width:760px){.dock-resizer{display:none}.cg{padding:0 6px}.cg-label{display:none}}
 </style>
 </head>
@@ -697,24 +740,20 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 
     <!-- FOLHAS -->
     <div class="panel" role="tabpanel" id="panel-sheet" aria-labelledby="tab-sheet" hidden>
-      <section class="section only-sheets">
-        <h2>Apresentações</h2>
-        <p class="hint">Cada apresentação é um conjunto de folhas com nome. Duplique para guardar versões e consultar depois; os modelos de fundo são compartilhados.</p>
-        <ul class="list" id="pres-list"></ul>
-        <div class="row3" style="margin-top:12px">
-          <button class="btn" id="pres-new">Nova</button>
-          <button class="btn" id="pres-dup">Duplicar</button>
-          <button class="btn danger" id="pres-del">Excluir</button>
-        </div>
-      </section>
       <section class="section">
-        <h2 id="h-sheets-title">Folhas do projeto</h2>
-        <ul class="list" id="sheet-list"></ul>
-        <div class="btn-grid" style="margin-top:12px">
-          <button class="btn" id="sh-add">Nova folha</button>
-          <button class="btn" id="sh-dup">Duplicar</button>
+        <div class="ptree-head">
+          <h2 id="h-sheets-title">Apresentações e folhas</h2>
+          <span class="ptree-tools">
+            <button class="icon-btn sm only-sheets" id="pres-new" aria-label="Nova apresentação" title="Nova apresentação"><span data-icon="folderPlus"></span></button>
+            <button class="icon-btn sm only-sheets" id="pres-dup" aria-label="Duplicar a apresentação aberta" title="Duplicar a apresentação aberta"><span data-icon="folderCopy"></span></button>
+            <button class="icon-btn sm only-sheets danger" id="pres-del" aria-label="Excluir a apresentação aberta" title="Excluir a apresentação aberta"><span data-icon="trash"></span></button>
+            <span class="vsep" aria-hidden="true"></span>
+            <button class="icon-btn sm" id="sh-add" aria-label="Nova folha" title="Nova folha na apresentação aberta"><span data-icon="filePlus"></span></button>
+          </span>
         </div>
-        <button class="btn danger block" id="sh-del">Excluir folha ativa</button>
+        <ul class="ptree" id="sheet-list"></ul>
+        <p class="hint only-sheets">Cada pasta é uma apresentação. Clique numa folha para abrir; duplo clique renomeia. Ícones da folha: mover, copiar (para colar em outra apresentação), duplicar e excluir.</p>
+        <button hidden id="sh-dup"></button><button hidden id="sh-del"></button><ul hidden id="pres-list"></ul>
       </section>
       <section class="section only-sheets">
         <h2 id="h-sheet-tpl">Modelo de fundo da folha ativa</h2>
@@ -989,6 +1028,10 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         <h3>Dados guardados neste navegador</h3>
         <p class="hint">Cada projeto do Giraffe (e o salvamento antigo) aparece aqui com a quantidade de folhas, imagens e vistas. Se algo sumiu, procure o conjunto que tem o conteúdo e use “Abrir estes dados neste projeto”.</p>
         <ul class="list" id="ds-list"></ul>
+        <h3>Imagens guardadas sem uso</h3>
+        <p class="hint">Imagens que ficaram guardadas no navegador mas não estão em nenhuma folha (por exemplo, vistas que sumiram). Clique para inserir de volta na folha ativa.</p>
+        <button class="btn block" id="orph-scan">Procurar imagens sem uso</button>
+        <div class="tree-grid" id="orph-grid" style="padding-left:0"></div>
       </section>
       <section class="section">
         <h2>Projeto (arquivo avulso)</h2>
@@ -1010,7 +1053,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V35 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V38 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1034,9 +1077,21 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <p class="cp-h">Personalizadas <button class="cp-add" id="cp-add" aria-label="Adicionar a cor atual às personalizadas" title="Adicionar a cor atual">+</button></p>
   <div class="cp-grid8" id="cp-my"></div>
 </div>
+<div class="pdf-dlg" id="pdf-dlg" role="dialog" aria-modal="true" aria-labelledby="pdf-title" hidden>
+  <div class="pdf-box">
+    <h2 id="pdf-title">PDF</h2>
+    <p class="hint">Escolha as páginas (clique para marcar ou desmarcar). Cada página vira uma imagem na folha.</p>
+    <div class="pdf-pages" id="pdf-pages"></div>
+    <div class="pdf-opts">
+      <div class="field"><label for="pdf-dpi">Resolução</label><select id="pdf-dpi"><option value="150">150 DPI (leve)</option><option value="300" selected>300 DPI (impressão)</option><option value="450">450 DPI</option><option value="600">600 DPI (máxima)</option></select></div>
+      <div class="field"><label for="pdf-size">Tamanho na folha</label><select id="pdf-size"><option value="real" selected>Tamanho real do PDF (mantém a escala)</option><option value="fit">Ajustar à área útil da folha</option></select></div>
+    </div>
+    <div class="pdf-actions"><button class="btn" id="pdf-all">Marcar/desmarcar todas</button><span style="flex:1"></span><button class="btn" id="pdf-cancel">Cancelar</button><button class="btn primary" id="pdf-ok">Inserir página</button></div>
+  </div>
+</div>
 <div class="askbar" id="askbar" role="alertdialog" aria-live="assertive" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<input type="file" id="in-image" accept="image/*" multiple hidden>
+<input type="file" id="in-image" accept="image/*,.pdf,application/pdf" multiple hidden>
 <input type="file" id="in-project" accept=".json,application/json" hidden>
 <input type="file" id="in-tpl" accept=".json,application/json" hidden>
 <input type="file" id="in-svg" accept=".svg,image/svg+xml" multiple hidden>
@@ -1049,7 +1104,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V35 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V38 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1065,7 +1120,7 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
@@ -1156,6 +1211,11 @@ const ICONS = {
   cloudUp:'<path d="M12 13v8"/><path d="m8 17 4-4 4 4"/><path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>',
   cloudDown:'<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>',
   history:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  folderPlus:'<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  folderCopy:'<path d="M2 8v11a2 2 0 0 0 2 2h14"/><path d="M20 17a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-5.8a2 2 0 0 1-1.7-.9L11.8 4a2 2 0 0 0-1.7-1H8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2Z"/>',
+  clipboard:'<rect x="8" y="2" width="8" height="4" rx="0"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+  paste:'<path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2M16 4h2a2 2 0 0 1 2 2v2M11 14h10"/><path d="m17 10 4 4-4 4"/>',
   groupSm:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -1179,7 +1239,7 @@ function download(blob, name) {
 const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
 const dataURLToBlob = async d => (await fetch(d)).blob();
 const sanitize = s => (s || 'prancha').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'prancha';
-const isImageName = n => /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(n);
+const isImageName = n => /\.(png|jpe?g|webp|gif|bmp|svg|avif|pdf)$/i.test(n);
 const blobReg = new Map();
 function blobToUrl(blob) { const u = URL.createObjectURL(blob); blobReg.set(u, blob); return u; }
 function loadImg(url) {
@@ -1941,6 +2001,35 @@ canvas.on('before:transform', e => {
   const t = e.transform && e.transform.target; if (!t) return;
   moveCache = buildSnapCache(t.type === 'activeSelection' ? t.getObjects() : [t]);
 });
+/* Encaixe ao redimensionar: a borda que está sendo arrastada encaixa em bordas, centros, guias, margens e folhas */
+canvas.on('object:scaling', opt => {
+  const o = opt.target, e = opt.e, t = opt.transform;
+  snapLines = [];
+  if (!o || !t || !t.corner || o.kvEditing || (e && e.altKey) || !doc.snapObj) return;
+  if (typeof guardDrag === 'function' && guardDrag(opt)) return;
+  if (Math.abs(((o.angle % 360) + 360) % 360) > 0.5 && Math.abs(((o.angle % 360) + 360) % 360 - 360) > 0.5) return;   // só sem rotação
+  if (!moveCache) moveCache = buildSnapCache(o.type === 'activeSelection' ? o.getObjects() : [o]);
+  const c = t.corner, L = c.includes('l'), R = c.includes('r'), T = c.includes('t'), B = c.includes('b');
+  const br = o.getBoundingRect(true, true), th = 8 / canvas.getZoom();
+  const near = (list, v) => { let best = null; list.forEach(p => { const d = p - v; if (Math.abs(d) < th && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, p }; }); return best; };
+  const sx = (L || R) ? near(moveCache.xs, R ? br.left + br.width : br.left) : null;
+  const sy = (T || B) ? near(moveCache.ys, B ? br.top + br.height : br.top) : null;
+  if (!sx && !sy) return;
+  const fx = R ? br.left : L ? br.left + br.width : br.left + br.width / 2, fy = B ? br.top : T ? br.top + br.height : br.top + br.height / 2;
+  const orig = t.original || {}, uniform = c.length === 2 && orig.scaleX && Math.abs(o.scaleX / o.scaleY - orig.scaleX / orig.scaleY) < 1e-4;
+  const kx = sx ? (br.width + (R ? sx.d : -sx.d)) / br.width : 1, ky = sy ? (br.height + (B ? sy.d : -sy.d)) / br.height : 1;
+  if (uniform) {
+    const useX = sx && (!sy || Math.abs(sx.d) <= Math.abs(sy.d)), k = useX ? kx : ky;
+    if (!(k > 0)) return;
+    o.set({ scaleX: o.scaleX * k, scaleY: o.scaleY * k });
+    snapLines.push(useX ? { o: 'v', p: sx.p } : { o: 'h', p: sy.p });
+  } else {
+    if (sx && kx > 0) { o.set('scaleX', o.scaleX * kx); snapLines.push({ o: 'v', p: sx.p }); }
+    if (sy && ky > 0) { o.set('scaleY', o.scaleY * ky); snapLines.push({ o: 'h', p: sy.p }); }
+  }
+  o.setPositionByOrigin(new fabric.Point(fx, fy), R ? 'left' : L ? 'right' : 'center', B ? 'top' : T ? 'bottom' : 'center');
+  o.setCoords();
+});
 canvas.on('object:moving', opt => {
   const o = opt.target, e = opt.e;
   snapLines = [];
@@ -2103,13 +2192,22 @@ function newTemplate(base) {
   t.frame.show = false; t.stamp.show = false; t.template = null; t.objects = [];
   return t;
 }
+async function resolveImageRefs(list) {
+  const todo = []; walkSer(list, o => { if (o.type !== 'image') return; if (String(o.src).startsWith('kvimg:')) todo.push([o, o.src]); else if (o.src === PLACEHOLDER && String(o.kvLostSrc || '').startsWith('kvimg:')) todo.push([o, o.kvLostSrc]); });
+  for (const [o, ref] of todo) {
+    const nm = ref.slice(6);
+    let url = null; for (const [u, n] of hashCache) if (n === nm && blobReg.has(u)) { url = u; break; }
+    if (!url) { try { const b = await idb.get('A:' + nm); if (b) { url = blobToUrl(b); hashCache.set(url, nm); } } catch (e) {} }
+    if (url) { o.src = url; delete o.kvLostSrc; }
+  }
+}
 function enlivenOnto(list) {
   list = list || [];
-  return new Promise(res => fabric.util.enlivenObjects(list, async objs => {
+  return new Promise(async res0 => { await resolveImageRefs(list); res0(); }).then(() => new Promise(res => fabric.util.enlivenObjects(list, async objs => {
     /* imagem que não carregou: em vez de sumir, entra como marcador do mesmo tamanho (“ausente”), preservando posição, escala e vínculo */
     for (let i = 0; i < list.length; i++) {
       if (objs[i] || !list[i] || list[i].type !== 'image') continue;
-      objs[i] = await new Promise(r => fabric.Image.fromObject({ ...list[i], src: PLACEHOLDER, filters: [] }, o => r(o)));
+      objs[i] = await new Promise(r => fabric.Image.fromObject({ ...list[i], src: PLACEHOLDER, filters: [], kvLostSrc: list[i].kvLostSrc || list[i].src }, o => r(o)));
       if (objs[i]) console.warn('[restore] imagem sem arquivo, mantida como ausente:', list[i].kvName || list[i].kvId);
     }
     objs.filter(Boolean).forEach(o => {
@@ -2118,7 +2216,7 @@ function enlivenOnto(list) {
       canvas.add(o);
     });
     res();
-  }));
+  })));
 }
 async function setMode(m, focusTplId) {
   if (m === mode) { if (focusTplId) { setActiveSheet(focusTplId); fitPage(); } return; }
@@ -3028,7 +3126,7 @@ const hist = { stack: [], idx: -1 };
 let commitTimer;
 function snapshot() {
   if (mode === 'tpl') syncTemplatesFromCanvas();
-  const objects = mode === 'tpl' ? (presStore || []) : userObjects().map(o => canvas._toObject(o, 'toObject', PROPS));
+  const objects = mode === 'tpl' ? JSON.parse(JSON.stringify(presStore || [])) : userObjects().map(o => canvas._toObject(o, 'toObject', PROPS));
   return { doc: JSON.parse(JSON.stringify(doc)), objects };
 }
 function allSer(snap) { const out = [snap.objects || []]; ((snap.doc && snap.doc.templates) || []).forEach(t => out.push(t.objects || [])); ((snap.doc && snap.doc.pres) || []).forEach(p => out.push(p.objects || [])); return out; }
@@ -3234,7 +3332,7 @@ async function reloadLinked(img, force, skipFetch) {
   img.kvStale = false;
   const changed = file.lastModified !== L.lastModified || (L.size !== undefined && file.size !== L.size);
   if (!force && !img.kvMissing && !changed) return false;
-  await replaceImageSource(img, file);
+  await replaceImageSource(img, (L.kind === 'pdf' || isPdfName(L.path)) ? await pdfBlobForLink(file, L) : file);
   img.kvLink = { ...img.kvLink, lastModified: file.lastModified, size: file.size };
   return true;
 }
@@ -3275,7 +3373,9 @@ async function insertLinked(folderId, rel) {
   const f = folders.find(x => x.id === folderId); if (!f) return;
   if (!f.files.has(rel)) { if (f.mode === 'file') askCompatReselect(null, 'Esta pasta precisa ser selecionada de novo nesta sessão.'); return; }
   const file = await srcFile(f.files.get(rel));
-  await insertImageBlob(file, { name: rel.split('/').pop(), link: { folder: f.id, path: rel, lastModified: file.lastModified, size: file.size, mode: f.mode } });
+  const link = { folder: f.id, path: rel, lastModified: file.lastModified, size: file.size, mode: f.mode };
+  if (isPdfName(rel)) { await importPdf(file, { name: rel.split('/').pop(), link }); return; }
+  await insertImageBlob(file, { name: rel.split('/').pop(), link });
 }
 function setAuto(on) {
   clearInterval(autoTimer); autoTimer = null;
@@ -3335,6 +3435,9 @@ async function makeThumb(fid, rel) {
   if (!file) return null;
   let url = null, blob = null;
   try {
+    if (isPdfName(rel)) {   // miniatura da 1ª página
+      const pdf = await openPdfDoc(file); try { const pg = await pdf.getPage(1), v0 = pg.getViewport({ scale: 1 }), v = pg.getViewport({ scale: 240 / Math.max(v0.width, v0.height) }), cv = document.createElement('canvas'); cv.width = v.width; cv.height = v.height; const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); await pg.render({ canvasContext: x, viewport: v }).promise; blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.8)); url = URL.createObjectURL(blob); idb.set(key, blob).catch(() => {}); thumbCache.set(key, url); return url; } finally { pdf.destroy().catch(() => {}); }
+    }
     const bmp = await createImageBitmap(file, { resizeWidth: 240, resizeQuality: 'medium' });
     const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0); bmp.close && bmp.close();
     blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8)); url = URL.createObjectURL(blob);
@@ -3441,6 +3544,7 @@ stageEl.addEventListener('drop', async e => {
     if (!j.file) continue;
     if (/\.json$/i.test(j.file.name)) { await openProject(j.file); return; }
     if (/\.svg$/i.test(j.file.name)) { await insertSvgText(await j.file.text(), j.file.name, p); continue; }
+    if (isPdfName(j.file.name) || j.file.type === 'application/pdf') { const pl = hd && hd.kind === 'file' ? (dropHandles.set('drop:' + j.file.name, hd), { path: 'drop:' + j.file.name, lastModified: j.file.lastModified, mode: 'handle' }) : null; await importPdf(j.file, { point: p, link: pl }); continue; }
     if (!isImageName(j.file.name) && !/^image\//.test(j.file.type)) continue;
     const h = hd;
     if (h && h.kind === 'file') { const path = 'drop:' + j.file.name; dropHandles.set(path, h); await insertImageBlob(j.file, { name: j.file.name, point: p, link: { path, lastModified: j.file.lastModified, mode: 'handle' } }); }
@@ -4283,6 +4387,95 @@ function refreshSvgColors() {
   });
 }
 
+/* ---------------- Importação de PDF (pdf.js, carregado sob demanda) ----------------
+   Cada página escolhida vira uma imagem na folha, na resolução escolhida; vinda de pasta vinculada, recarrega quando o PDF muda. */
+const PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let pdfjsReady = null, pdfState = null;
+const isPdfName = n => /\.pdf$/i.test(n || '');
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (pdfjsReady) return pdfjsReady;
+  pdfjsReady = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = PDFJS_URL;
+    s.onload = () => { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; res(window.pdfjsLib); } catch (e) { rej(e); } };
+    s.onerror = () => { pdfjsReady = null; rej(new Error('não foi possível carregar o leitor de PDF (verifique a conexão)')); };
+    document.head.appendChild(s);
+  });
+  return pdfjsReady;
+}
+async function openPdfDoc(fileOrBuf) {
+  const lib = await loadPdfJs();
+  const data = fileOrBuf instanceof ArrayBuffer ? fileOrBuf : await fileOrBuf.arrayBuffer();
+  return lib.getDocument({ data: new Uint8Array(data), isEvalSupported: false }).promise;
+}
+/* Renderiza uma página; limita a ~60 megapixels para não estourar a memória do navegador */
+async function renderPdfPage(pdf, n, dpi) {
+  const page = await pdf.getPage(n);
+  let scale = dpi / 72, vp = page.getViewport({ scale });
+  const maxPx = 60e6, maxSide = 16000;
+  const k = Math.min(1, Math.sqrt(maxPx / (vp.width * vp.height)), maxSide / Math.max(vp.width, vp.height));
+  if (k < 1) { scale *= k; vp = page.getViewport({ scale }); }
+  const c = document.createElement('canvas'); c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: ctx, viewport: vp, background: 'rgba(255,255,255,1)' }).promise;
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const base = page.getViewport({ scale: 1 });
+  c.width = c.height = 0;
+  return { blob, reduced: k < 1, effDpi: Math.round(scale * 72), wPt: base.width, hPt: base.height };
+}
+/* Diálogo: miniaturas das páginas, resolução e tamanho */
+async function importPdf(file, opts = {}) {
+  let pdf;
+  try { status('Abrindo PDF…'); pdf = await openPdfDoc(file); }
+  catch (e) { toast('Não foi possível abrir o PDF: ' + e.message, true); status('Pronto'); return; }
+  pdfState = { pdf, file, name: opts.name || file.name || 'documento.pdf', link: opts.link || null, point: opts.point || null, sel: new Set([1]) };
+  const dlg = $('#pdf-dlg'), grid = $('#pdf-pages');
+  $('#pdf-title').textContent = `${pdfState.name} — ${pdf.numPages} página(s)`;
+  grid.innerHTML = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const b = document.createElement('button'); b.className = 'pdf-page'; b.setAttribute('aria-pressed', i === 1 ? 'true' : 'false'); b.setAttribute('aria-label', `Página ${i}`);
+    b.innerHTML = `<canvas width="1" height="1"></canvas><span>${i}</span>`;
+    b.onclick = () => { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on)); on ? pdfState.sel.add(i) : pdfState.sel.delete(i); syncPdfBtn(); };
+    grid.appendChild(b);
+    if (i <= 60) (async () => { try { const pg = await pdf.getPage(i), v0 = pg.getViewport({ scale: 1 }), v = pg.getViewport({ scale: 110 / Math.max(v0.width, v0.height) }); const cv = b.querySelector('canvas'); cv.width = v.width; cv.height = v.height; await pg.render({ canvasContext: cv.getContext('2d'), viewport: v }).promise; } catch (e) {} })();
+  }
+  syncPdfBtn(); dlg.hidden = false; $('#pdf-ok').focus(); status('Pronto');
+}
+function syncPdfBtn() { const n = pdfState ? pdfState.sel.size : 0; $('#pdf-ok').disabled = !n; $('#pdf-ok').textContent = n > 1 ? `Inserir ${n} páginas` : 'Inserir página'; }
+function closePdfDlg() { $('#pdf-dlg').hidden = true; if (pdfState && pdfState.pdf) pdfState.pdf.destroy().catch(() => {}); pdfState = null; }
+$('#pdf-cancel').onclick = closePdfDlg;
+$('#pdf-all').onclick = () => { if (!pdfState) return; const all = pdfState.sel.size < pdfState.pdf.numPages; $$('#pdf-pages .pdf-page').forEach((b, i) => { b.setAttribute('aria-pressed', String(all)); all ? pdfState.sel.add(i + 1) : pdfState.sel.delete(i + 1); }); syncPdfBtn(); };
+$('#pdf-dlg').addEventListener('keydown', e => { if (e.key === 'Escape') { closePdfDlg(); e.stopPropagation(); } });
+$('#pdf-ok').onclick = async () => {
+  if (!pdfState) return;
+  const st = pdfState, dpi = +$('#pdf-dpi').value || 300, real = $('#pdf-size').value === 'real', pages = [...st.sel].sort((a, b) => a - b);
+  $('#pdf-ok').disabled = true;
+  let k = 0, reduced = false;
+  for (const n of pages) {
+    status(`Convertendo página ${n} (${++k} de ${pages.length}) em ${dpi} DPI…`);
+    try {
+      const r = await renderPdfPage(st.pdf, n, dpi); reduced = reduced || r.reduced;
+      const link = st.link ? { ...st.link, kind: 'pdf', page: n, dpi } : null;
+      const nm = pages.length > 1 || st.pdf.numPages > 1 ? `${st.name.replace(/\.pdf$/i, '')} — p. ${n}` : st.name.replace(/\.pdf$/i, '');
+      const pt = st.point ? { x: st.point.x + (k - 1) * mm2pt(8), y: st.point.y + (k - 1) * mm2pt(8) } : null;
+      const img = await insertImageBlob(r.blob, { name: nm, link, point: pt });
+      if (img && real) {   // tamanho real: 1 pt do PDF = 1 pt na folha (mantém a escala do desenho)
+        const c = img.getCenterPoint(), s = r.wPt / img.width; img.set({ scaleX: s, scaleY: s }); img.setPositionByOrigin(c, 'center', 'center'); img.setCoords();
+      }
+      if (img) img.kvPdf = { page: n, dpi: r.effDpi, wPt: r.wPt, hPt: r.hPt };
+    } catch (e) { toast(`Página ${n}: ${e.message}`, true); }
+  }
+  canvas.requestRenderAll(); commit(); status('Pronto');
+  toast(`${pages.length} página(s) inserida(s)${real ? ' no tamanho real do PDF' : ''}.${reduced ? ' Algumas páginas muito grandes tiveram a resolução reduzida para caber na memória.' : ''}`, reduced);
+  closePdfDlg();
+};
+/* Recarregar página de PDF vinculado (pasta) mantendo tamanho, posição e recorte */
+async function pdfBlobForLink(file, L) {
+  const pdf = await openPdfDoc(file);
+  try { const r = await renderPdfPage(pdf, L.page || 1, L.dpi || 300); return r.blob; } finally { pdf.destroy().catch(() => {}); }
+}
+
 /* ---------------- Salvamento automático numa pasta (ex.: Google Drive para computador) ----------------
    Formato de pasta: <nome>.kvp.json (projeto, sem imagens embutidas) + <nome>_imagens/<hash>.<ext> (cada imagem uma vez)
    + <nome>_versoes/ (cópia de segurança por hora, mantém as 12 mais recentes). */
@@ -4621,6 +4814,24 @@ async function mergeMissingImages(src, isLegacy, legacyBlobs) {
   toAdd.length && raiseChrome && raiseChrome();
   canvas.requestRenderAll(); commit(); await storeSave(); scheduleLayers(); renderLinks();
   return { n, views };
+}
+/* Imagens guardadas no navegador que não estão em nenhum projeto (ex.: vistas que sumiram das folhas) */
+async function renderOrphans() {
+  const box = $('#orph-grid'); if (!box) return; box.innerHTML = '<p class="info">Procurando…</p>';
+  const keys = await idb.keys(), assets = keys.filter(k => /^A:/.test(k)).map(k => k.slice(2)), used = new Set();
+  const addRefs = v => walkSer((v && (v.objects || (v.s && v.s.objects))) || [], o => { if (o.type === 'image') { const r = String(o.src || ''); if (r.startsWith('kvimg:')) used.add(r.slice(6)); const l = String(o.kvLostSrc || ''); if (l.startsWith('kvimg:')) used.add(l.slice(6)); } });
+  for (const k of keys) if (/^P:.+:(sheet|tpl|pres):/.test(k)) addRefs(await idb.get(k).catch(() => null));
+  for (const [u, n] of hashCache) if (blobReg.has(u)) { let live = false; forEachDeep(o => { if (o.type === 'image' && o.getSrc && o.getSrc() === u) live = true; }); if (live) used.add(n); }
+  const orph = assets.filter(n => !used.has(n));
+  box.innerHTML = '';
+  if (!orph.length) { box.innerHTML = '<p class="info">Nenhuma imagem sem uso encontrada.</p>'; return; }
+  for (const nm of orph) {
+    const b = await idb.get('A:' + nm).catch(() => null); if (!b) continue;
+    const u = URL.createObjectURL(b), btn = document.createElement('button'); btn.className = 'thumb-tile'; btn.title = 'Inserir na folha ativa';
+    btn.innerHTML = `<img class="thumb-lg" src="${u}" alt=""><span>${Math.round(b.size / 1024)} kB</span>`;
+    btn.onclick = async () => { const img = await insertImageBlob(b, { name: 'Imagem recuperada' }); if (img) toast('Imagem recuperada inserida na folha ativa.'); renderOrphans(); };
+    box.appendChild(btn);
+  }
 }
 async function renderDatasets() {
   const ul = $('#ds-list'); if (!ul) return; ul.innerHTML = '';
@@ -5913,24 +6124,85 @@ function renderLayersActive() {
 }
 
 /* ---------------- Folhas ---------------- */
+/* Árvore de apresentações (pastas) e folhas; no modo Modelos, lista plana de modelos */
+const presCollapsed = new Set();
+let sheetClip = null;
+function tb(icon, label, dis, cls) { return `<button class="tb${cls ? ' ' + cls : ''}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" ${dis ? 'disabled' : ''}>${svgIcon(icon)}</button>`; }
+function sheetRowHTML(label, meta, i, n, tpl) {
+  return `<button class="name" title="Clique: abrir · duplo clique: renomear">${svgIcon('file')}<span>${escapeHtml(label)}</span><small>${meta}</small></button>
+    <span class="acts">${tb('up', `Mover ${label} para cima`, i === 0)}${tb('down', `Mover ${label} para baixo`, i === n - 1)}${tpl ? '' : tb('copy', `Copiar ${label} (para colar em outra apresentação)`)}${tb('sheetPlus', `Duplicar ${label}`)}${tb('trash', `Excluir ${label}`, n < 2, 'del')}</span>`;
+}
 function renderSheetList() {
   const ul = $('#sheet-list');
   if (editingIn(ul)) return;
   ul.innerHTML = '';
-  const pages = P();
-  pages.forEach((s, i) => {
-    const li = document.createElement('li'); li.className = 'sheet-row' + (s.id === getActiveId() ? ' active' : '');
-    const label = sheetLabel(s, i), tp = mode === 'sheets' && tplById(s.template);
-    li.innerHTML = `<button class="name" aria-current="${s.id === getActiveId()}" title="Clique: ativar · duplo clique: renomear">${svgIcon('file')}<span>${escapeHtml(label)}</span><small>${tp ? '▣ ' : ''}${PRESET_LABEL[s.preset]} ${s.orient === 'portrait' ? 'R' : 'P'}</small></button>
-      <button class="icon-btn" aria-label="Mover ${escapeHtml(label)} para cima" title="Mover para cima" ${i === 0 ? 'disabled' : ''}>${svgIcon('up')}</button>
-      <button class="icon-btn" aria-label="Mover ${escapeHtml(label)} para baixo" title="Mover para baixo" ${i === pages.length - 1 ? 'disabled' : ''}>${svgIcon('down')}</button>`;
-    const [bName, bUp, bDown] = li.children;
-    clickOrDbl(bName, () => { setActiveSheet(s.id); fitPage(); }, () => inlineRename(bName, label, v => { s.name = v; canvas.requestRenderAll(); commit(); }));
-    bUp.onclick = () => moveSheet(i, -1); bDown.onclick = () => moveSheet(i, 1);
-    ul.appendChild(li);
-  });
+  if (mode === 'tpl') {
+    const pages = P();
+    pages.forEach((s, i) => {
+      const li = document.createElement('li'); li.className = 'ps' + (s.id === getActiveId() ? ' active' : ''); li.style.paddingLeft = '0';
+      const label = sheetLabel(s, i);
+      li.innerHTML = sheetRowHTML(label, `${PRESET_LABEL[s.preset]} ${s.orient === 'portrait' ? 'R' : 'P'}`, i, pages.length, true);
+      li.querySelector('.name').style.paddingLeft = '8px';
+      const [bUp, bDown, bDup, bDel] = li.querySelectorAll('.tb'), bName = li.querySelector('.name');
+      clickOrDbl(bName, () => { setActiveSheet(s.id); fitPage(); }, () => inlineRename(bName, label, v => { s.name = v; canvas.requestRenderAll(); commit(); }));
+      bUp.onclick = () => moveSheet(i, -1); bDown.onclick = () => moveSheet(i, 1);
+      bDup.onclick = () => { setActiveSheet(s.id); addSheet(true); };
+      bDel.onclick = () => { setActiveSheet(s.id); deleteSheet(); };
+      ul.appendChild(li);
+    });
+  } else {
+    ensurePres();
+    doc.pres.forEach(p => {
+      const act = p.id === doc.presActive, sheets = act ? doc.sheets : (p.sheets || []), open = !presCollapsed.has(p.id);
+      const fl = document.createElement('li'); fl.className = 'pf' + (act ? ' active' : '');
+      fl.innerHTML = `<button class="tb" aria-expanded="${open}" aria-label="${open ? 'Recolher' : 'Expandir'} ${escapeHtml(p.name)}">${svgIcon(open ? 'chevDown' : 'chevRight')}</button>
+        <button class="name" title="Clique: abrir a apresentação · duplo clique: renomear">${svgIcon(act ? 'folderOpen' : 'folder')}<span>${escapeHtml(p.name)}</span><small>${sheets.length} fl.</small></button>
+        <span class="acts">${sheetClip ? tb('paste', `Colar a folha copiada em ${p.name}`) : ''}${tb('filePlus', `Nova folha em ${p.name}`)}</span>`;
+      const [bTog] = fl.querySelectorAll('.tb'), bName = fl.querySelector('.name'), acts = fl.querySelectorAll('.acts .tb');
+      bTog.onclick = () => { open ? presCollapsed.add(p.id) : presCollapsed.delete(p.id); renderSheetList(); };
+      clickOrDbl(bName, () => switchPres(p.id), () => inlineRename(bName, p.name, v => { p.name = v; commit(); renderSheetList(); }));
+      if (sheetClip) acts[0].onclick = () => pasteSheet(p.id);
+      acts[acts.length - 1].onclick = async () => { await switchPres(p.id); addSheet(false); };
+      ul.appendChild(fl);
+      if (!open) return;
+      sheets.forEach((s, i) => {
+        const li = document.createElement('li'); li.className = 'ps' + (act && s.id === doc.active ? ' active' : '');
+        const label = sheetLabel(s, i), tp = tplById(s.template);
+        li.innerHTML = sheetRowHTML(label, `${tp ? '▣ ' : ''}${PRESET_LABEL[s.preset]} ${s.orient === 'portrait' ? 'R' : 'P'}`, i, sheets.length, false);
+        const bName = li.querySelector('.name'), [bUp, bDown, bCopy, bDup, bDel] = li.querySelectorAll('.tb');
+        const inPres = async () => { if (!act) await switchPres(p.id); setActiveSheet(s.id); };
+        clickOrDbl(bName, async () => { await inPres(); fitPage(); }, () => inlineRename(bName, label, v => { s.name = v; canvas.requestRenderAll(); commit(); renderSheetList(); }));
+        bUp.onclick = async () => { await inPres(); moveSheet(sheetIndex(s.id), -1); };
+        bDown.onclick = async () => { await inPres(); moveSheet(sheetIndex(s.id), 1); };
+        bCopy.onclick = async () => { await inPres(); copySheet(s.id); };
+        bDup.onclick = async () => { await inPres(); addSheet(true); };
+        bDel.onclick = async () => { await inPres(); deleteSheet(); };
+        ul.appendChild(li);
+      });
+    });
+  }
+  const cur = mode === 'sheets' ? presById(doc.presActive) : null;
+  $('#h-sheets-title').textContent = mode === 'tpl' ? 'Modelos do projeto' : 'Apresentações e folhas';
   renderExportSheets();
   const lt = $('#tab-layers'); if (lt && lt.getAttribute('aria-selected') === 'true') scheduleLayers();
+}
+/* Copiar uma folha (com o conteúdo) para colar em outra apresentação */
+function copySheet(sid) {
+  const s = doc.sheets.find(x => x.id === sid); if (!s) return;
+  const r = sheetRect(sid), objs = userObjects().filter(o => sheetOf(o).id === sid).map(o => { const j = canvas._toObject(o, 'toObject', PROPS); j.left -= r.x; j.top -= r.y; return j; });
+  sheetClip = { meta: JSON.parse(JSON.stringify(s)), label: sheetLabel(s, sheetIndex(sid)), objects: objs };
+  renderSheetList(); toast(`“${sheetClip.label}” copiada. Use o ícone “colar” na pasta da apresentação de destino.`);
+}
+async function pasteSheet(pid) {
+  if (!sheetClip) return;
+  await switchPres(pid);
+  const ns = { ...JSON.parse(JSON.stringify(sheetClip.meta)), id: uid(), name: (sheetClip.meta.name || sheetClip.label) + ' (cópia)' };
+  relayout(() => { P().push(ns); });
+  setActiveIdRaw(ns.id);
+  const r = sheetRect(ns.id), list = sheetClip.objects.map(o => ({ ...JSON.parse(JSON.stringify(o)), left: o.left + r.x, top: o.top + r.y, kvId: uid() }));
+  await enlivenOnto(list); userObjects().forEach(o => applyObjState(o));
+  raiseChrome(); rebuildChrome(); renderSheetList(); syncDocUI(); commit(); fitPage();
+  toast(`Folha “${ns.name}” colada em “${presById(pid).name}”.`);
 }
 function moveSheet(i, d) {
   const j = i + d; if (j < 0 || j >= P().length) return;
@@ -6021,18 +6293,8 @@ async function delPres() {
   await switchPres(other.id);
   doc.pres.splice(doc.pres.indexOf(cur), 1); renderPresList(); commit(); toast(`Apresentação “${cur.name}” excluída.`);
 }
-function renderPresList() {
-  const ul = $('#pres-list'); if (!ul || editingIn(ul)) return;
-  ensurePres(); ul.innerHTML = '';
-  doc.pres.forEach(p => {
-    const act = p.id === doc.presActive, li = document.createElement('li'); li.className = act ? 'active' : '';
-    const n = act ? doc.sheets.length : (p.sheets || []).length, when = new Date(p.updated || Date.now()).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    li.innerHTML = `<button class="name" aria-current="${act}" title="Clique: abrir · duplo clique: renomear">${svgIcon(act ? 'folderOpen' : 'layers')}<span>${escapeHtml(p.name)}</span><small>${n} fl. · ${when}</small></button>`;
-    clickOrDbl(li.firstElementChild, () => switchPres(p.id), () => inlineRename(li.firstElementChild, p.name, v => { p.name = v; commit(); }));
-    ul.appendChild(li);
-  });
-  const cur = presById(doc.presActive); $('#h-sheets-title').textContent = mode === 'tpl' ? 'Modelos do projeto' : `Folhas · ${cur ? cur.name : ''}`;
-}
+function renderPresList() { renderSheetList(); }
+$('#orph-scan').onclick = renderOrphans;
 $('#pres-new').onclick = newPres; $('#pres-dup').onclick = dupPres; $('#pres-del').onclick = delPres;
 $('#sh-add').onclick = $('#cmd-new-sheet').onclick = () => addSheet(false);
 $('#sh-dup').onclick = () => addSheet(true);
@@ -6054,8 +6316,8 @@ function syncDocUI() {
   $('#h-sheet-fmt').textContent = `Formato · ${sheetLabel(s, i)}`;
   $('#h-sheet-frame').textContent = `Moldura · ${sheetLabel(s, i)}`; $('#h-sheet-stamp').textContent = `Selo · ${sheetLabel(s, i)}`; $('#h-sheet-tpl').textContent = `Modelo de fundo · ${sheetLabel(s, i)}`;
   renderPresList();
-  $('#sh-add').textContent = tpl ? 'Novo modelo' : 'Nova folha';
-  $('#sh-del').textContent = tpl ? 'Excluir modelo ativo' : 'Excluir folha ativa';
+  $('#sh-add').title = tpl ? 'Novo modelo' : 'Nova folha na apresentação aberta'; $('#sh-add').setAttribute('aria-label', tpl ? 'Novo modelo' : 'Nova folha');
+
   $('#tab-sheet-lbl').textContent = tpl ? 'Modelos' : 'Folhas';
   if (!tpl) {
     const sel = $('#sh-tpl'); sel.innerHTML = '<option value="">Nenhum</option>' + doc.templates.map((t, k) => `<option value="${t.id}">${escapeHtml(sheetLabel(t, k))} — ${fmt(t.w, 0)}×${fmt(t.h, 0)}</option>`).join('');
@@ -6345,7 +6607,7 @@ $('#cmd-zoom-out').onclick = () => setZoom(canvas.getZoom() / 1.25);
 $('#cmd-zoom-100').onclick = () => setZoom(SCR);
 $('#cmd-fit').onclick = fitPage; $('#cmd-fit-all').onclick = fitAll;
 $('#tool-image').onclick = $('#lk-file').onclick = () => $('#in-image').click();
-$('#in-image').addEventListener('change', async e => { for (const f of e.target.files) await insertImageBlob(f, { name: f.name }); e.target.value = ''; });
+$('#in-image').addEventListener('change', async e => { const fs = [...e.target.files]; e.target.value = ''; for (const f of fs) { if (isPdfName(f.name) || f.type === 'application/pdf') await importPdf(f); else await insertImageBlob(f, { name: f.name }); } });
 $('#lk-connect').onclick = linkFolder;
 $('#lk-reload').onclick = reloadFolders;
 $('#lk-auto').addEventListener('change', e => setAuto(e.target.checked));
