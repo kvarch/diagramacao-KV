@@ -969,6 +969,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
       </section>
       <section class="section">
         <h2>Projeto (arquivo avulso)</h2>
+        <p class="hint">Dados deste app: <strong id="store-proj">—</strong>. Cada projeto do Giraffe guarda suas próprias folhas, modelos e apresentações.</p>
         <p class="hint">O projeto também é salvo automaticamente neste navegador. Para enviar a alguém ou guardar uma cópia única com tudo dentro, salve o arquivo .json.</p>
         <label class="check"><input type="checkbox" id="opt-embed" checked> Incorporar imagens vinculadas no arquivo</label>
         <div class="btn-grid">
@@ -985,7 +986,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V28 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V29 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1024,7 +1025,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V28 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V29 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1172,7 +1173,8 @@ const idb = {
     return this.db;
   },
   async get(k) { const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
-  async set(k, v) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+  async set(k, v) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); },
+  async del(k) { const db = await this.open(); return new Promise(res => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 };
 
 /* ---------------- Documento (multi-folha) ---------------- */
@@ -3039,12 +3041,9 @@ function resetHistory() { hist.stack = [JSON.stringify(snapshot())]; hist.idx = 
 /* ---------------- Autosave ---------------- */
 let autosaveTimer;
 function scheduleAutosave() { clearTimeout(autosaveTimer); autosaveTimer = setTimeout(autosave, 1500); }
+/* salvamento local agora vai para a camada de armazenamento por projeto (storeSave) */
 async function autosave() {
-  try {
-    const s = snapshot(), blobs = {};
-    walkAll(s, o => { if (o.type === 'image' && blobReg.has(o.src)) blobs[o.src] = blobReg.get(o.src); });
-    await idb.set('autosave', { s, blobs, t: Date.now() });
-  } catch (err) { console.warn('Autosave indisponível:', err); }
+  await storeSave();
   if (typeof scheduleFolderSave === 'function') scheduleFolderSave();
 }
 async function restoreAutosave() {
@@ -4409,8 +4408,8 @@ async function checkSaveDir() {
     const f = (await listFolderProjects()).find(x => x.name === saveBase() + '.kvp.json');
     if (!f) return;
     const { data, mod } = await readFolderProject(f.name);
-    const local = await idb.get('autosave').catch(() => null);
-    if (data.device !== deviceId && (!local || (data.savedAt || mod) > (local.t || 0) + 2000)) {
+    const localT = await localSavedAt();
+    if (data.device !== deviceId && (data.savedAt || mod) > localT + 2000) {
       askBar(`Há uma versão mais recente de “${f.name.replace(/\.kvp\.json$/, '')}” na pasta, salva às ${hhmm(data.savedAt || mod)} em outro computador. Carregar?`, [
         { label: 'Carregar da pasta', primary: true, fn: () => openFromFolder(f.name) },
         { label: 'Manter a daqui', fn: () => { lastWriteMod = mod; } }
@@ -4437,6 +4436,136 @@ $('#sv-name').addEventListener('change', e => { const v = sanitize(e.target.valu
   });
 })();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveDir && savePerm === 'granted' && saveAuto && !savePaused) saveToFolder(false); });
+
+/* ================= Camada de armazenamento (etapa 0 da sincronização multiusuário) =================
+   Dados separados por projeto do Giraffe, gravados em partes independentes — hoje no navegador (IndexedDB),
+   amanhã na nuvem (Firestore/Storage) trocando só esta camada:
+     P:<proj>:meta              estrutura (folhas, modelos, apresentações, dados do projeto) sem conteúdo pesado
+     P:<proj>:sheet:<id>        elementos de uma folha, em coordenadas relativas à própria folha
+     P:<proj>:tpl:<id>          elementos de um modelo de fundo
+     P:<proj>:pres:<id>         apresentações não abertas (folhas + elementos)
+     A:<hash>.<ext>             imagens, identificadas pelo conteúdo (gravadas uma única vez)            */
+const STORE_V = 3;
+let projectKey = 'local', projectLabel = 'Local (fora do Giraffe)';
+const storedAssets = new Set(), lastPart = new Map();
+let storeSaving = false, storeAgain = false, localSavedAtMem = 0;
+function pickProjectId(p) {
+  const c = [p && p.id, p && p.properties && p.properties.id, p && p.properties && p.properties.projectId, p && p.project && p.project.id, p && p.projectId];
+  for (const x of c) { if (typeof x === 'number') return String(x); if (typeof x === 'string' && /^\d+$/.test(x)) return x; }
+  return null;
+}
+async function detectProject() {
+  if (inIframe) {
+    try {
+      const { state } = await loadSdk();
+      for (let k = 0; k < 25; k++) { const id = pickProjectId(state.get('project')); if (id) return { key: 'giraffe:' + id, label: 'Giraffe · projeto ' + id }; await wait(120); }
+    } catch (e) {}
+    try { const m = /\/project\/(\d+)/.exec(document.referrer) || /[?&#]project(?:Id)?=(\d+)/.exec(location.search + location.hash); if (m) return { key: 'giraffe:' + m[1], label: 'Giraffe · projeto ' + m[1] }; } catch (e) {}
+  }
+  return { key: 'local', label: 'Local (fora do Giraffe)' };
+}
+const K = (...a) => ['P', projectKey, ...a].join(':');
+function rectsFor(sheets) { let y = 0; return sheets.map(s => { const r = { id: s.id, x: 0, y, w: mm2pt(s.w), h: mm2pt(s.h) }; y += r.h + GAP; return r; }); }
+function serCenter(o) { return { x: (o.left || 0) + (o.width || 0) * Math.abs(o.scaleX || 1) / 2, y: (o.top || 0) + (o.height || 0) * Math.abs(o.scaleY || 1) / 2 }; }
+/* Imagens: blob URL → 'kvimg:<hash>.<ext>' (e grava o arquivo uma vez) */
+async function imagesToAssets(lists) {
+  for (const list of lists) {
+    const imgs = []; walkSer(list, o => { if (o.type === 'image') imgs.push(o); });
+    for (const o of imgs) {
+      const u = o.src; if (!blobReg.has(u)) continue;
+      let nm = hashCache.get(u);
+      if (!nm) { const b = blobReg.get(u); nm = (await blobHash(b)) + '.' + extOf(b.type); hashCache.set(u, nm); }
+      if (!storedAssets.has(nm)) { await idb.set('A:' + nm, blobReg.get(u)); storedAssets.add(nm); }
+      o.src = 'kvimg:' + nm;
+    }
+  }
+}
+async function assetsToUrls(lists) {
+  const urlOf = {};
+  for (const list of lists) {
+    const imgs = []; walkSer(list, o => { if (o.type === 'image' && String(o.src).startsWith('kvimg:')) imgs.push(o); });
+    for (const o of imgs) {
+      const nm = o.src.slice(6);
+      if (!(nm in urlOf)) { let u = PLACEHOLDER; try { const b = await idb.get('A:' + nm); if (b) { u = blobToUrl(b); hashCache.set(u, nm); storedAssets.add(nm); } } catch (e) {} urlOf[nm] = u; }
+      o.src = urlOf[nm];
+    }
+  }
+}
+async function writePart(key, value) {
+  const str = JSON.stringify(value), h = hashStr(str) + ':' + str.length;
+  if (lastPart.get(key) === h) return false;
+  await idb.set(key, value); lastPart.set(key, h); return true;
+}
+/* Grava o projeto em partes; só o que mudou é regravado */
+async function storeSave() {
+  if (storeSaving) { storeAgain = true; return; }
+  storeSaving = true;
+  try {
+    const s = snapshot(), d = s.doc;
+    const tplLists = (d.templates || []).map(t => t.objects || []), presLists = (d.pres || []).map(p => p.objects || []);
+    await imagesToAssets([s.objects, ...tplLists, ...presLists]);
+    /* elementos da apresentação aberta → partes por folha, em coordenadas relativas */
+    const rects = rectsFor(d.sheets), per = {}; d.sheets.forEach(sh => { per[sh.id] = []; });
+    for (const o of s.objects) {
+      const c = serCenter(o); let r = rects.find(q => c.x >= q.x && c.x <= q.x + q.w && c.y >= q.y && c.y <= q.y + q.h);
+      if (!r) { let bd = Infinity; rects.forEach(q => { const dx = Math.max(q.x - c.x, 0, c.x - q.x - q.w), dy = Math.max(q.y - c.y, 0, c.y - q.y - q.h), dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; r = q; } }); }
+      if (!r) continue;
+      per[r.id].push({ ...o, left: (o.left || 0) - r.x, top: (o.top || 0) - r.y, kvSheet: r.id });
+    }
+    const keep = new Set([K('meta')]);
+    for (const sh of d.sheets) { const k = K('sheet', sh.id); keep.add(k); await writePart(k, { id: sh.id, objects: per[sh.id] }); }
+    for (const t of d.templates || []) { const k = K('tpl', t.id); keep.add(k); await writePart(k, { id: t.id, objects: t.objects || [] }); }
+    for (const p of d.pres || []) if (p.sheets || p.objects) { const k = K('pres', p.id); keep.add(k); await writePart(k, { id: p.id, sheets: p.sheets || [], active: p.active, objects: p.objects || [] }); }
+    const meta = JSON.parse(JSON.stringify(d));
+    (meta.templates || []).forEach(t => { t.objects = null; });
+    (meta.pres || []).forEach(p => { p.stored = !!(p.sheets || p.objects); delete p.sheets; delete p.objects; delete p.active; });
+    localSavedAtMem = Date.now();
+    await writePart(K('meta'), { v: STORE_V, doc: meta, sheetOrder: d.sheets.map(x => x.id), savedAt: localSavedAtMem, device: typeof deviceId !== 'undefined' ? deviceId : null });
+    /* remove partes de folhas/modelos/apresentações excluídas */
+    for (const k of [...lastPart.keys()]) if (k.startsWith(K('')) && !keep.has(k)) { await idb.del(k).catch(() => {}); lastPart.delete(k); }
+  } catch (err) { console.warn('Salvamento local falhou:', err); }
+  finally { storeSaving = false; if (storeAgain) { storeAgain = false; storeSave(); } }
+}
+async function storeLoad() {
+  const meta = await idb.get(K('meta')); if (!meta || !meta.doc) return false;
+  const d = meta.doc, rects = rectsFor(d.sheets || []), objects = [];
+  for (const [i, sh] of (d.sheets || []).entries()) {
+    const part = await idb.get(K('sheet', sh.id)); if (!part) continue;
+    lastPart.set(K('sheet', sh.id), hashStr(JSON.stringify(part)) + ':' + JSON.stringify(part).length);
+    (part.objects || []).forEach(o => { objects.push({ ...o, left: (o.left || 0) + rects[i].x, top: (o.top || 0) + rects[i].y }); });
+  }
+  for (const t of d.templates || []) { const part = await idb.get(K('tpl', t.id)); t.objects = part ? part.objects || [] : []; if (part) lastPart.set(K('tpl', t.id), hashStr(JSON.stringify(part)) + ':' + JSON.stringify(part).length); }
+  for (const p of d.pres || []) { if (!p.stored) continue; const part = await idb.get(K('pres', p.id)); if (part) { p.sheets = part.sheets; p.active = part.active; p.objects = part.objects; lastPart.set(K('pres', p.id), hashStr(JSON.stringify(part)) + ':' + JSON.stringify(part).length); } delete p.stored; }
+  lastPart.set(K('meta'), null);
+  const snap = { doc: d, objects };
+  await assetsToUrls([snap.objects, ...(d.templates || []).map(t => t.objects || []), ...(d.pres || []).map(p => p.objects || [])]);
+  await restore(snap);
+  localSavedAtMem = meta.savedAt || 0;
+  return true;
+}
+/* Migração: o salvamento antigo (um bloco único para tudo) vai para o primeiro projeto aberto nesta versão */
+async function migrateLegacy() {
+  const done = await idb.get('legacy-migrated').catch(() => null); if (done) return false;
+  const a = await idb.get('autosave').catch(() => null);
+  await idb.set('legacy-migrated', { to: projectKey, at: Date.now() }).catch(() => {});
+  if (!a || !a.s) return false;
+  const map = {}; Object.entries(a.blobs || {}).forEach(([u, b]) => { map[u] = blobToUrl(b); });
+  walkAll(a.s, o => { if (o.type === 'image') o.src = map[o.src] || PLACEHOLDER; });
+  await restore(a.s);
+  await storeSave();
+  console.log('[store] salvamento antigo migrado para', projectKey);
+  return true;
+}
+async function localSavedAt() { if (localSavedAtMem) return localSavedAtMem; try { const m = await idb.get(K('meta')); return (m && m.savedAt) || 0; } catch (e) { return 0; } }
+/* Abertura: identifica o projeto do Giraffe e carrega os dados dele */
+async function storeOpen() {
+  status('Identificando o projeto…');
+  const p = await detectProject(); projectKey = p.key; projectLabel = p.label;
+  const lbl = $('#store-proj'); if (lbl) lbl.textContent = projectLabel;
+  if (await storeLoad()) return 'loaded';
+  if (await migrateLegacy()) return 'migrated';
+  return 'new';
+}
 
 /* ---------------- Biblioteca de modelos: exportar, importar e modelos da empresa ----------------
    Arquivo .kvmodelos.json = { app, kind:'templates', templates:[...], images:{src:dataURL} }.
@@ -5835,11 +5964,11 @@ buildPaletteMine();
 ensurePres();
 syncDocUI(); rebuildChrome(); renderSheetList(); refreshPanel(); renderLinks(); renderLayers();
 (async () => {
-  const restored = await restoreAutosave();
+  const opened = await storeOpen(), restored = opened !== 'new';
   ensurePres(); renderPresList();
   resetHistory(); syncGvAuto();
   await loadCompanyLibrary(); resetHistory();
-  if (restored) { fitPage(); toast('Projeto restaurado do salvamento automático.'); }
+  if (restored) { fitPage(); toast(opened === 'migrated' ? `Seu trabalho anterior foi vinculado a ${projectLabel}.` : `Projeto restaurado (${projectLabel}).`); }
   await checkStoredDir();
   await checkSaveDir();
   try {
