@@ -322,6 +322,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .pal-sep{width:1px;min-width:1px;height:28px;background:var(--md-sys-color-outline-variant);margin:10px 6px}
 #sym-north-grid{grid-template-columns:repeat(4,1fr)}
 .sym-pop{width:380px}
+#sync-push.has-changes{color:var(--md-sys-color-primary);box-shadow:inset 0 -3px 0 var(--md-sys-color-primary)}
 @media (max-width:760px){.dock-resizer{display:none}.cg{padding:0 6px}.cg-label{display:none}}
 </style>
 </head>
@@ -342,6 +343,9 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn" id="cmd-new" aria-label="Novo projeto" title="Novo projeto"><span data-icon="filePlus"></span></button>
     <button class="icon-btn" id="cmd-open" aria-label="Abrir projeto (.json)" title="Abrir projeto (Ctrl+O)"><span data-icon="folderOpen"></span></button>
     <button class="icon-btn" id="cmd-save" aria-label="Salvar projeto (.json)" title="Salvar projeto (Ctrl+S)"><span data-icon="save"></span></button>
+    <span class="vsep" aria-hidden="true"></span>
+    <button class="icon-btn" id="sync-pull" aria-label="Receber alterações da equipe" title="Receber alterações (do projeto no Giraffe)" disabled><span data-icon="cloudDown"></span></button>
+    <button class="icon-btn" id="sync-push" aria-label="Enviar alterações para a equipe" title="Enviar alterações (para o projeto no Giraffe)" disabled><span data-icon="cloudUp"></span></button>
     <span class="vsep" aria-hidden="true"></span>
     <button class="icon-btn" id="cmd-undo" aria-label="Desfazer" title="Desfazer (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
     <button class="icon-btn" id="cmd-redo" aria-label="Refazer" title="Refazer (Ctrl+Y)" disabled><span data-icon="redo"></span></button>
@@ -950,6 +954,17 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         </div>
       </section>
       <section class="section">
+        <h2>Equipe · projeto no Giraffe</h2>
+        <p class="hint" id="sync-info">—</p>
+        <label class="check"><input type="checkbox" id="sync-auto" checked> Sincronizar automaticamente (envia após alterações, no máx. 1×/min; confere novidades a cada minuto)</label>
+        <div class="btn-grid">
+          <button class="btn" id="sync-pull2">Receber alterações</button>
+          <button class="btn primary" id="sync-push2">Enviar alterações</button>
+        </div>
+        <p class="info" id="sync-state" aria-live="polite"></p>
+        <p class="info">As alterações de várias pessoas são juntadas por folha. Se a mesma folha for alterada por duas pessoas, o app pergunta qual manter — ou mantém as duas.</p>
+      </section>
+      <section class="section">
         <h2>Salvamento automático em pasta</h2>
         <p class="hint">Escolha uma pasta do <strong>Google Drive para computador</strong>: o projeto é gravado nela automaticamente a cada alteração e sincroniza com os outros computadores. No outro computador, escolha a mesma pasta para abrir o projeto.</p>
         <p class="hint" id="sv-folder"><span class="badge">Desligado</span></p>
@@ -984,9 +999,10 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 <footer class="statusbar">
   <div class="palette" id="palette" role="group" aria-label="Paleta: clique aplica preenchimento, Shift+clique aplica traço"></div>
   <div class="status-cell status-msg" id="st-msg" aria-live="polite">Pronto</div>
+  <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V29 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V31 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1025,7 +1041,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V29 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V31 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1129,6 +1145,8 @@ const ICONS = {
   flipV:'<path d="M3 12h18"/><path d="M7 8l5-5 5 5z"/><path d="M7 16l5 5 5-5z"/>',
   belowTpl:'<rect x="3" y="3" width="13" height="13" stroke-dasharray="3 2"/><rect x="8" y="8" width="13" height="13"/>',
   pipette:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>',
+  cloudUp:'<path d="M12 13v8"/><path d="m8 17 4-4 4 4"/><path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>',
+  cloudDown:'<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>',
   groupSm:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -3044,6 +3062,7 @@ function scheduleAutosave() { clearTimeout(autosaveTimer); autosaveTimer = setTi
 /* salvamento local agora vai para a camada de armazenamento por projeto (storeSave) */
 async function autosave() {
   await storeSave();
+  if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
   if (typeof scheduleFolderSave === 'function') scheduleFolderSave();
 }
 async function restoreAutosave() {
@@ -4567,6 +4586,310 @@ async function storeOpen() {
   return 'new';
 }
 
+/* ================= Sincronização da equipe pelos anexos do projeto no Giraffe =================
+   kv-pranchas-sync.json  → estado completo em partes (resto, ordem, apresentações, folhas, modelos)
+   kv-img-<hash>.<ext>.json → imagens em base64 (enviadas uma vez)
+   Junção por folha em 3 vias (base = última versão sincronizada): folhas diferentes juntam sozinhas;
+   a mesma folha alterada por dois lados vira conflito, resolvido por quem sincroniza. */
+const SYNC_FILE = 'kv-pranchas-sync.json', IMG_PREFIX = 'kv-img-';
+let syncOk = false, syncState = { base: {}, remoteUpdated: null, remoteAt: 0, lastPush: 0 }, syncBusy = false, syncAuto = true;
+let syncPushTimer = 0, syncPollTimer = 0, syncAtts = [], syncUser = null;
+const partHash = p => p === undefined ? null : (() => { const s = JSON.stringify(p); return hashStr(s) + ':' + s.length; })();
+function splitBySheet(sheets, objsAbs) {
+  const rects = rectsFor(sheets), per = {}; sheets.forEach(sh => { per[sh.id] = []; });
+  for (const o of objsAbs || []) {
+    const c = serCenter(o); let r = rects.find(q => c.x >= q.x && c.x <= q.x + q.w && c.y >= q.y && c.y <= q.y + q.h);
+    if (!r) { let bd = Infinity; rects.forEach(q => { const dx = Math.max(q.x - c.x, 0, c.x - q.x - q.w), dy = Math.max(q.y - c.y, 0, c.y - q.y - q.h), dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; r = q; } }); }
+    if (r) per[r.id].push({ ...o, left: (o.left || 0) - r.x, top: (o.top || 0) - r.y, kvSheet: r.id });
+  }
+  return per;
+}
+async function buildSyncParts() {
+  const s = snapshot(), d = s.doc;
+  await imagesToAssets([s.objects, ...(d.templates || []).map(t => t.objects || []), ...(d.pres || []).map(p => p.objects || [])]);
+  return snapToParts(s);
+}
+/* Converte um estado (snapshot) em partes: resto, ordens, apresentações, folhas e modelos */
+function snapToParts(s) {
+  const d = s.doc, parts = {};
+  const rest = { ...d }; ['sheets', 'active', 'templates', 'activeTpl', 'pres', 'presActive', 'libSeeded'].forEach(k => delete rest[k]); parts.rest = rest;
+  parts.tplorder = (d.templates || []).map(t => t.id);
+  (d.templates || []).forEach(t => { const { objects, ...meta } = t; parts['tpl:' + t.id] = { meta, objects: objects || [] }; });
+  const presList = d.pres && d.pres.length ? d.pres : [{ id: 'p0', name: 'Apresentação 1' }], act = d.presActive || presList[0].id;
+  parts.presorder = presList.map(p => p.id);
+  for (const p of presList) {
+    const live = p.id === act, sheets = live ? d.sheets : (p.sheets || []), per = splitBySheet(sheets, live ? s.objects : p.objects);
+    parts['pres:' + p.id] = { name: p.name, sheetOrder: sheets.map(x => x.id) };
+    sheets.forEach(sh => { parts['sheet:' + p.id + ':' + sh.id] = { meta: sh, objects: per[sh.id] }; });
+  }
+  return parts;
+}
+/* Histórico por folha: ao receber alterações, cada passo do histórico passa a conter as partes recebidas.
+   Assim o Ctrl+Z desfaz só o que a própria pessoa fez — nunca o trabalho recebido dos outros. */
+function urlizeParts(parts) {
+  const rev = new Map(); for (const [u, n] of hashCache) if (blobReg.has(u) && !rev.has(n)) rev.set(n, u);
+  const out = JSON.parse(JSON.stringify(parts));
+  Object.values(out).forEach(p => walkSer((p && p.objects) || [], o => { if (o.type === 'image' && String(o.src).startsWith('kvimg:')) { const u = rev.get(o.src.slice(6)); if (u) o.src = u; } }));
+  return out;
+}
+function rebaseHistory(changedKeys, R) {
+  if (!changedKeys.length) return;
+  hist.stack = hist.stack.map(str => {
+    try {
+      const s = JSON.parse(str), P = snapToParts(s);
+      for (const k of changedKeys) {
+        if (k === 'presorder' || k === 'tplorder') { P[k] = mergeOrder(P[k] || [], R[k] || []); continue; }
+        if (k.startsWith('pres:')) { const r = R[k]; if (!r) { delete P[k]; continue; } P[k] = P[k] ? { name: r.name, sheetOrder: mergeOrder(P[k].sheetOrder || [], r.sheetOrder || []) } : JSON.parse(JSON.stringify(r)); continue; }
+        if (R[k] === undefined) delete P[k]; else P[k] = JSON.parse(JSON.stringify(R[k]));
+      }
+      P.presorder = mergeOrder(P.presorder || [], R.presorder || []).filter(id => P['pres:' + id]);
+      P.presorder.forEach(pid => { const pm = P['pres:' + pid]; pm.sheetOrder = (pm.sheetOrder || []).filter(sid => P['sheet:' + pid + ':' + sid]); });
+      P.tplorder = (P.tplorder || []).filter(id => P['tpl:' + id]);
+      return JSON.stringify(partsToSnap(P, s.doc));
+    } catch (e) { return str; }
+  });
+}
+function partsToSnap(parts, localDoc) {
+  const d = JSON.parse(JSON.stringify(localDoc));
+  Object.assign(d, JSON.parse(JSON.stringify(parts.rest || {})));
+  d.templates = (parts.tplorder || []).filter(id => parts['tpl:' + id]).map(id => ({ ...parts['tpl:' + id].meta, objects: JSON.parse(JSON.stringify(parts['tpl:' + id].objects || [])) }));
+  if (!d.templates.find(t => t.id === d.activeTpl)) d.activeTpl = d.templates[0] ? d.templates[0].id : null;
+  const order = (parts.presorder || []).filter(id => parts['pres:' + id]);
+  const act = order.includes(localDoc.presActive) ? localDoc.presActive : order[0];
+  let objects = [];
+  d.pres = order.map(pid => {
+    const pm = parts['pres:' + pid], shParts = (pm.sheetOrder || []).map(sid => parts['sheet:' + pid + ':' + sid]).filter(Boolean);
+    const sheets = shParts.map(x => JSON.parse(JSON.stringify(x.meta))), rects = rectsFor(sheets), abs = [];
+    shParts.forEach((x, i) => (x.objects || []).forEach(o => abs.push({ ...JSON.parse(JSON.stringify(o)), left: (o.left || 0) + rects[i].x, top: (o.top || 0) + rects[i].y })));
+    if (pid === act) { d.sheets = sheets.length ? sheets : [newSheet()]; d.active = d.sheets.find(x => x.id === localDoc.active) ? localDoc.active : d.sheets[0].id; objects = abs; return { id: pid, name: pm.name, updated: Date.now() }; }
+    return { id: pid, name: pm.name, updated: Date.now(), sheets, active: sheets[0] ? sheets[0].id : null, objects: abs };
+  });
+  d.presActive = act;
+  return { doc: d, objects };
+}
+function mergeOrder(a, b) {
+  const out = [...b];
+  a.forEach((id, i) => { if (out.includes(id)) return; const prev = a.slice(0, i).reverse().find(x => out.includes(x)); out.splice(prev ? out.indexOf(prev) + 1 : 0, 0, id); });
+  return out;
+}
+function mergeParts(local, remote, base) {
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote), ...Object.keys(base)]), result = {}, conflicts = [];
+  for (const k of keys) {
+    const lh = partHash(local[k]), rh = partHash(remote[k]), bh = base[k] ?? null;
+    if (lh === rh) { if (local[k] !== undefined) result[k] = local[k]; continue; }
+    if (rh === bh) { if (local[k] !== undefined) result[k] = local[k]; continue; }      // só a daqui mudou
+    if (lh === bh) { if (remote[k] !== undefined) result[k] = remote[k]; continue; }    // só a remota mudou
+    if (k === 'presorder' || k === 'tplorder') { result[k] = mergeOrder(local[k] || [], remote[k] || []); continue; }
+    if (k === 'rest') { result[k] = { ...(remote[k] || {}), ...(local[k] || {}) }; continue; }
+    if (k.startsWith('pres:')) { const L = local[k], R = remote[k]; if (!L || !R) { result[k] = L || R; continue; } result[k] = { name: L.name, sheetOrder: mergeOrder(L.sheetOrder || [], R.sheetOrder || []) }; continue; }
+    conflicts.push(k);
+  }
+  /* ordens só com itens existentes */
+  if (result.presorder) result.presorder = result.presorder.filter(id => result['pres:' + id]);
+  if (result.tplorder) result.tplorder = result.tplorder.filter(id => result['tpl:' + id]);
+  return { result, conflicts };
+}
+function askChoice(msg, options) { return new Promise(res => askBar(msg, options.map(o => ({ label: o.label, primary: o.primary, fn: () => res(o.value) })))); }
+function partName(k, parts) {
+  if (k.startsWith('sheet:')) { const [, pid, sid] = k.split(':'), p = parts[k], pm = parts['pres:' + pid], i = pm ? (pm.sheetOrder || []).indexOf(sid) : -1; return (p && p.meta && p.meta.name) || `Folha ${i >= 0 ? i + 1 : ''}`.trim(); }
+  if (k.startsWith('tpl:')) { const p = parts[k], i = (parts.tplorder || []).indexOf(k.slice(4)); return (p && p.meta && p.meta.name) || `Modelo ${i >= 0 ? i + 1 : ''}`.trim(); }
+  return k;
+}
+function partLabel(k, parts) {
+  if (k.startsWith('sheet:')) { const pm = parts['pres:' + k.split(':')[1]]; return `a folha “${partName(k, parts)}”${pm ? ` (${pm.name})` : ''}`; }
+  if (k.startsWith('tpl:')) return `o modelo “${partName(k, parts)}”`;
+  return k;
+}
+async function resolveConflicts(conflicts, local, remote, result, who) {
+  for (const k of conflicts) {
+    const L = local[k], R = remote[k], lab = partLabel(k, L ? local : remote);
+    let v;
+    if (!L || !R) v = await askChoice(`Conflito: ${lab} foi ${L ? 'excluída por ' + who + ' e alterada aqui' : 'alterada por ' + who + ' e excluída aqui'}. O que fazer?`, [{ label: 'Manter a folha', value: 'keep', primary: true }, { label: 'Excluir', value: 'drop' }]);
+    else v = await askChoice(`Conflito: ${lab} foi alterada aqui e por ${who} ao mesmo tempo. Qual versão manter?`, [{ label: 'Manter as duas', value: 'both', primary: true }, { label: 'Usar a minha', value: 'mine' }, { label: `Usar a de ${who}`, value: 'theirs' }]);
+    if (v === 'keep') result[k] = L || R;
+    else if (v === 'drop') delete result[k];
+    else if (v === 'mine') result[k] = L;
+    else if (v === 'theirs') result[k] = R;
+    else {  // manter as duas: a minha no lugar + a outra como cópia logo depois
+      result[k] = L;
+      const copy = JSON.parse(JSON.stringify(R)), nid = uid();
+      copy.meta = { ...copy.meta, id: nid, name: `${partName(k, remote)} (versão de ${who})` };
+      if (!(L.meta && L.meta.name)) result[k] = { ...L, meta: { ...L.meta, name: partName(k, local) } };   // fixa o nome da original para a numeração não mudar
+      if (k.startsWith('sheet:')) {
+        const [, pid, sid] = k.split(':'); (copy.objects || []).forEach(o => { o.kvSheet = nid; });
+        result['sheet:' + pid + ':' + nid] = copy;
+        const pm = result['pres:' + pid]; if (pm) result['pres:' + pid] = { ...pm, sheetOrder: [...(pm.sheetOrder || []), nid] };   // cópia no fim, sem renumerar as outras
+      } else { result['tpl:' + nid] = copy; result.tplorder = [...(result.tplorder || []), nid]; }
+    }
+  }
+}
+
+/* ---- Giraffe: anexos ---- */
+function projNum() { const m = /^giraffe:(\d+)$/.exec(projectKey); return m ? m[1] : null; }
+async function refreshAtts() {
+  const { rpc } = await loadSdk();
+  const raw = await rpc.invoke('fetchProjectDetails', [projNum()]);
+  syncAtts = Array.isArray(raw && raw.attachments) ? raw.attachments : [];
+  return syncAtts;
+}
+const attByName = n => syncAtts.filter(a => a && a.name === n).sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))[0] || null;
+async function fetchAtt(a, asJson) {
+  const { rpc } = await loadSdk();
+  for (let k = 0; k < 2; k++) {
+    const t = await rpc.invoke('getTempUrl', [a.url]); const u = typeof t === 'string' ? t : t && (t.url || t.tempUrl || t.signedUrl);
+    if (!u) throw new Error('getTempUrl vazio');
+    const r = await fetch(u); if (r.ok) return asJson ? r.json() : r.arrayBuffer();
+    if (r.status !== 404) throw new Error('HTTP ' + r.status); await wait(1500);
+  }
+  throw new Error('anexo indisponível');
+}
+async function uploadAtt(name, data, existing) {
+  const { rpc } = await loadSdk();
+  const buffer = new TextEncoder().encode(JSON.stringify(data));
+  const payload = { buffer, contentType: 'application/json', name, ...(existing ? { attachmentId: existing.id } : {}) };
+  return rpc.invoke('uploadProjectAttachment', [payload]);
+}
+const b64 = buf => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+function assetNames(parts) { const n = new Set(); Object.values(parts).forEach(p => walkSer((p && p.objects) || [], o => { if (o.type === 'image' && String(o.src).startsWith('kvimg:')) n.add(o.src.slice(6)); })); return n; }
+async function pullAssets(parts) {
+  for (const nm of assetNames(parts)) {
+    if (storedAssets.has(nm)) continue;
+    if (await idb.get('A:' + nm).catch(() => null)) { storedAssets.add(nm); continue; }
+    const a = attByName(IMG_PREFIX + nm + '.json'); if (!a) continue;
+    try { const p = await fetchAtt(a, true); await idb.set('A:' + nm, new Blob([unb64(p.base64)], { type: p.mime || 'application/octet-stream' })); storedAssets.add(nm); } catch (e) { console.warn('imagem', nm, e); }
+  }
+}
+async function pushAssets(parts) {
+  const have = new Set(syncAtts.map(a => a.name));
+  for (const nm of assetNames(parts)) {
+    const an = IMG_PREFIX + nm + '.json'; if (have.has(an)) continue;
+    const blob = await idb.get('A:' + nm).catch(() => null); if (!blob) continue;
+    await uploadAtt(an, { mime: blob.type, base64: b64(await blob.arrayBuffer()) }); have.add(an);
+  }
+}
+async function saveSyncState() { try { await idb.set('S:' + projectKey, syncState); } catch (e) {} }
+function whoOf(m) { if (!m) return 'outra pessoa'; if (m.device === deviceId) return 'você (outra sessão)'; return m.byName || m.by || 'outra pessoa'; }
+async function currentUser() {
+  if (syncUser) return syncUser;
+  try { const { state } = await loadSdk(); for (const k of ['user', 'me', 'currentUser', 'profile']) { const u = state.get(k); if (u && (u.email || u.name)) { syncUser = { email: u.email || '', name: u.name || u.email || '' }; return syncUser; } } } catch (e) {}
+  syncUser = { email: '', name: '' }; return syncUser;
+}
+function setSyncStatus(msg, kind) {
+  const c = $('#st-sync'); c.hidden = !msg; c.textContent = msg || ''; c.classList.toggle('warn', kind === 'warn');
+  const s = $('#sync-state'); if (s) s.textContent = msg || '';
+}
+async function localChangesCount() { try { const L = await buildSyncParts(); const keys = new Set([...Object.keys(L), ...Object.keys(syncState.base)]); let n = 0; keys.forEach(k => { if (k === 'rest') return; if (partHash(L[k]) !== (syncState.base[k] ?? null)) n++; }); return n; } catch (e) { return 0; } }
+async function refreshSyncBadge() {
+  if (!syncOk) return;
+  const n = await localChangesCount();
+  const t = syncState.lastSync ? new Date(syncState.lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+  setSyncStatus(n ? `☁ ${n} alteração(ões) não enviada(s)` : `☁ Sincronizado ${t}`, n ? 'warn' : '');
+  $('#sync-push').classList.toggle('has-changes', n > 0);
+}
+/* Receber: baixa a versão do projeto e junta com a daqui */
+async function syncPull(opts = {}) {
+  if (!syncOk || syncBusy) return false;
+  if (!opts.force && (cropState || editingPoly || drawState || (canvas.getActiveObject() && canvas.getActiveObject().isEditing) || canvas._currentTransform)) return false;
+  syncBusy = true;
+  try {
+    await refreshAtts();
+    const a = attByName(SYNC_FILE);
+    if (!a) { if (opts.manual) toast('Ainda não há nada salvo no projeto do Giraffe. Use “Enviar alterações”.'); return false; }
+    if (!opts.manual && a.updated_at && a.updated_at === syncState.remoteUpdated) return false;
+    setSyncStatus('☁ Recebendo alterações…');
+    const m = await fetchAtt(a, true);
+    if (!m || m.app !== 'kv-pranchas' || !m.parts) throw new Error('arquivo de sincronização inválido');
+    const R = m.parts, L = await buildSyncParts();
+    const empty = userObjects().length === 0 && Object.keys(syncState.base).length === 0;
+    let result, conflicts = [];
+    if (empty) result = R;
+    else ({ result, conflicts } = mergeParts(L, R, syncState.base));
+    if (conflicts.length) {
+      if (opts.silent) { setSyncStatus(`☁ ${conflicts.length} conflito(s) com a versão de ${whoOf(m)} — clique em Receber`, 'warn'); syncState.pendingConflict = true; return false; }
+      await resolveConflicts(conflicts, L, R, result, whoOf(m));
+    }
+    const changed = Object.keys({ ...L, ...result }).some(k => partHash(L[k]) !== partHash(result[k]));
+    if (changed) {
+      await pullAssets(result);
+      const snap = partsToSnap(result, doc);
+      await assetsToUrls([snap.objects, ...(snap.doc.templates || []).map(t => t.objects || []), ...(snap.doc.pres || []).map(p => p.objects || [])]);
+      const vpt = canvas.viewportTransform.slice();
+      const changedKeys = [...new Set([...Object.keys(L), ...Object.keys(result)])].filter(k => partHash(L[k]) !== partHash(result[k]));
+      await restore(snap); canvas.setViewportTransform(vpt);
+      rebaseHistory(changedKeys, urlizeParts(result));
+      hist.stack[hist.idx] = JSON.stringify(snapshot()); updateUndoUI();
+      await storeSave();
+    }
+    syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
+    syncState.remoteUpdated = a.updated_at || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false;
+    await saveSyncState();
+    if (changed) toast(`Alterações de ${whoOf(m)} recebidas${conflicts.length ? ` (${conflicts.length} conflito(s) resolvido(s))` : ''}.`);
+    else if (opts.manual) toast('Você já está com a versão mais recente do projeto.');
+    return true;
+  } catch (e) { setSyncStatus('☁ Falha ao receber: ' + e.message, 'warn'); if (opts.manual) toast('Não foi possível receber as alterações: ' + e.message, true); return false; }
+  finally { syncBusy = false; refreshSyncBadge(); }
+}
+/* Enviar: recebe antes (para não sobrescrever ninguém), depois grava a versão juntada */
+async function syncPush(opts = {}) {
+  if (!syncOk) { if (opts.manual) toast('A sincronização funciona com o app aberto dentro de um projeto do Giraffe.', true); return false; }
+  if (syncBusy) return false;
+  for (let tries = 0; tries < 3; tries++) {
+    await syncPull({ force: true, manual: false, silent: false });
+    if (syncState.pendingConflict) return false;
+    syncBusy = true;
+    try {
+      setSyncStatus('☁ Enviando alterações…');
+      await refreshAtts();
+      const cur = attByName(SYNC_FILE);
+      if (cur && syncState.remoteUpdated && cur.updated_at && cur.updated_at !== syncState.remoteUpdated) { syncBusy = false; continue; }  // alguém salvou nesse meio-tempo: recebe de novo
+      const parts = await buildSyncParts();
+      if (cur && Object.keys(parts).every(k => partHash(parts[k]) === (syncState.base[k] ?? null)) && Object.keys(syncState.base).every(k => k in parts)) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); return true; }
+      await pushAssets(parts);
+      const u = await currentUser();
+      const m = { app: 'kv-pranchas', kind: 'sync', v: 1, savedAt: Date.now(), device: deviceId, by: u.email, byName: u.name, parts };
+      await uploadAtt(SYNC_FILE, m, cur);
+      await refreshAtts();
+      const now = attByName(SYNC_FILE);
+      syncState.base = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, partHash(v)]));
+      syncState.remoteUpdated = now ? now.updated_at || null : null; syncState.remoteAt = m.savedAt; syncState.lastPush = Date.now(); syncState.lastSync = Date.now();
+      await saveSyncState();
+      if (opts.manual) toast('Alterações enviadas para o projeto no Giraffe.');
+      return true;
+    } catch (e) { setSyncStatus('☁ Falha ao enviar: ' + e.message, 'warn'); if (opts.manual) toast('Não foi possível enviar: ' + e.message, true); return false; }
+    finally { syncBusy = false; refreshSyncBadge(); }
+  }
+  toast('O projeto está sendo alterado por outra pessoa neste momento. Tente enviar de novo em instantes.', true);
+  return false;
+}
+function scheduleSyncPush() {
+  if (!syncOk || !syncAuto) return;
+  clearTimeout(syncPushTimer);
+  const wait_ = Math.max(5000, 60000 - (Date.now() - (syncState.lastPush || 0)));
+  syncPushTimer = setTimeout(() => syncPush({}), wait_);
+  refreshSyncBadge();
+}
+async function syncInit(opened) {
+  syncOk = inIframe && !!projNum();
+  $('#sync-push').disabled = $('#sync-pull').disabled = !syncOk;
+  const info = $('#sync-info');
+  if (!syncOk) { info.textContent = 'Disponível com o app aberto dentro de um projeto do Giraffe.'; return; }
+  try { syncState = Object.assign({ base: {}, remoteUpdated: null, remoteAt: 0, lastPush: 0 }, await idb.get('S:' + projectKey) || {}); } catch (e) {}
+  try { syncAuto = localStorage.getItem('kv-pranchas-syncauto') !== '0'; } catch (e) {}
+  $('#sync-auto').checked = syncAuto;
+  info.textContent = `Projeto do Giraffe ${projNum()}: o trabalho fica nos anexos do projeto e aparece para quem abrir o app nele.`;
+  await syncPull({ force: true, silent: false });
+  clearInterval(syncPollTimer);
+  syncPollTimer = setInterval(() => { if (syncAuto && !document.hidden) syncPull({ silent: true }); }, 60000);
+  refreshSyncBadge();
+}
+$('#sync-push').onclick = () => syncPush({ manual: true });
+$('#sync-pull').onclick = () => syncPull({ manual: true, force: true });
+$('#sync-push2').onclick = () => syncPush({ manual: true });
+$('#sync-pull2').onclick = () => syncPull({ manual: true, force: true });
+$('#sync-auto').addEventListener('change', e => { syncAuto = e.target.checked; try { localStorage.setItem('kv-pranchas-syncauto', syncAuto ? '1' : '0'); } catch (err) {} if (syncAuto) scheduleSyncPush(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && syncOk && syncAuto) syncPush({}); });
+
 /* ---------------- Biblioteca de modelos: exportar, importar e modelos da empresa ----------------
    Arquivo .kvmodelos.json = { app, kind:'templates', templates:[...], images:{src:dataURL} }.
    Modelos da empresa: publicar um arquivo "modelos-kv.json" na mesma pasta do index.html (GitHub Pages).
@@ -5965,6 +6288,7 @@ ensurePres();
 syncDocUI(); rebuildChrome(); renderSheetList(); refreshPanel(); renderLinks(); renderLayers();
 (async () => {
   const opened = await storeOpen(), restored = opened !== 'new';
+  syncInit(opened).catch(e => console.warn('sync', e));
   ensurePres(); renderPresList();
   resetHistory(); syncGvAuto();
   await loadCompanyLibrary(); resetHistory();
