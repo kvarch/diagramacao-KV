@@ -759,7 +759,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         <h2 id="h-sheet-fmt">Formato da folha ativa</h2>
         <div class="field"><label for="sh-preset">Tamanho</label>
           <select id="sh-preset">
-            <option value="A4">A4 — 210 × 297 mm</option><option value="A3">A3 — 297 × 420 mm</option><option value="A2">A2 — 420 × 594 mm</option>
+            <option value="A4">A4 — 210 × 297 mm</option><option value="A3">A3 — 297 × 420 mm</option><option value="A3X">A3 estendido — 297 × 528 mm</option><option value="A2">A2 — 420 × 594 mm</option>
             <option value="A1">A1 — 594 × 841 mm</option><option value="A0">A0 — 841 × 1189 mm</option>
             <option value="WIDE">Widescreen 16:9 — 338,7 × 190,5 mm</option><option value="CUSTOM">Personalizado</option>
           </select>
@@ -983,6 +983,14 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         <p class="info">A pasta recebe <code>nome.kvp.json</code>, a subpasta <code>nome_imagens</code> (cada imagem uma única vez) e <code>nome_versoes</code> (cópia por hora, mantém as 12 últimas). Se o arquivo for alterado por outro computador, o app pergunta antes de sobrescrever.</p>
       </section>
       <section class="section">
+        <h2>Versões de segurança</h2>
+        <p class="hint">Guardadas neste navegador, por projeto, a cada 10 minutos de trabalho (as 20 mais recentes). Use para recuperar algo que sumiu.</p>
+        <ul class="list" id="ver-list"></ul>
+        <h3>Dados guardados neste navegador</h3>
+        <p class="hint">Cada projeto do Giraffe (e o salvamento antigo) aparece aqui com a quantidade de folhas, imagens e vistas. Se algo sumiu, procure o conjunto que tem o conteúdo e use “Abrir estes dados neste projeto”.</p>
+        <ul class="list" id="ds-list"></ul>
+      </section>
+      <section class="section">
         <h2>Projeto (arquivo avulso)</h2>
         <p class="hint">Dados deste app: <strong id="store-proj">—</strong>. Cada projeto do Giraffe guarda suas próprias folhas, modelos e apresentações.</p>
         <p class="hint">O projeto também é salvo automaticamente neste navegador. Para enviar a alguém ou guardar uma cópia única com tudo dentro, salve o arquivo .json.</p>
@@ -1002,7 +1010,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V31 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V33 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1041,7 +1049,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V31 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V33 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1147,6 +1155,7 @@ const ICONS = {
   pipette:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>',
   cloudUp:'<path d="M12 13v8"/><path d="m8 17 4-4 4 4"/><path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>',
   cloudDown:'<path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>',
+  history:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
   groupSm:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -1192,20 +1201,21 @@ const idb = {
   },
   async get(k) { const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
   async set(k, v) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); },
+  async keys() { const db = await this.open(); return new Promise(res => { const r = db.transaction('kv').objectStore('kv').getAllKeys(); r.onsuccess = () => res(r.result || []); r.onerror = () => res([]); }); },
   async del(k) { const db = await this.open(); return new Promise(res => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 };
 
 /* ---------------- Documento (multi-folha) ---------------- */
-const PRESETS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189], WIDE: [190.5, 338.67] };
-const PRESET_LABEL = { A4: 'A4', A3: 'A3', A2: 'A2', A1: 'A1', A0: 'A0', WIDE: '16:9', CUSTOM: 'Pers.' };
+const PRESETS = { A4: [210, 297], A3: [297, 420], A3X: [297, 528], A2: [420, 594], A1: [594, 841], A0: [841, 1189], WIDE: [190.5, 338.67] };
+const PRESET_LABEL = { A4: 'A4', A3: 'A3', A3X: 'A3 est.', A2: 'A2', A1: 'A1', A0: 'A0', WIDE: '16:9', CUSTOM: 'Pers.' };
 const today = () => new Date().toLocaleDateString('pt-BR');
 function newSheet(base) {
   const b = base || {};
   return {
     id: uid(), name: '', hidden: false, locked: false, template: b.template || null, tplFit: b.tplFit || 'fit', preset: b.preset || 'A3', orient: b.orient || 'landscape', w: b.w || 420, h: b.h || 297,
-    frame: Object.assign({ show: true, l: 25, t: 10, r: 10, b: 10 }, b.frame ? JSON.parse(JSON.stringify(b.frame)) : {}),
+    frame: Object.assign({ show: false, l: 25, t: 10, r: 10, b: 10 }, b.frame ? JSON.parse(JSON.stringify(b.frame)) : {}),
     safe: Object.assign({ show: false, l: 10, t: 10, r: 10, b: 10 }, b.safe ? JSON.parse(JSON.stringify(b.safe)) : {}),
-    stamp: Object.assign({ show: true, titulo: 'Título da prancha', escala: 1000, rev: 'R00', prancha: '' }, b.stamp ? { show: b.stamp.show, escala: b.stamp.escala, rev: b.stamp.rev } : {})
+    stamp: Object.assign({ show: false, titulo: 'Título da prancha', escala: 1000, rev: 'R00', prancha: '' }, b.stamp ? { show: b.stamp.show, escala: b.stamp.escala, rev: b.stamp.rev } : {})
   };
 }
 function defaultDoc() {
@@ -1320,6 +1330,8 @@ function styleFor(kind) {
 /* ---------------- Fabric ---------------- */
 try { fabric.filterBackend = new fabric.Canvas2dFilterBackend(); } catch (e) {}
 fabric.perfLimitSizeTotal = 8 * 1024 * 1024; fabric.maxCacheSideLimit = 8192;
+/* Precisão ao salvar: o padrão do Fabric arredonda para 2 casas (escala 0,0537 → 0,05), o que fazia imagens mudarem de tamanho ao desfazer, salvar ou reabrir */
+fabric.Object.NUM_FRACTION_DIGITS = 10;
 Object.assign(fabric.Object.prototype, {
   transparentCorners: false, cornerStyle: 'rect', cornerSize: 9, touchCornerSize: 28, borderColor: BRAND,
   cornerColor: BRAND, cornerStrokeColor: '#ffffff', borderScaleFactor: 1.2, padding: 0
@@ -3062,6 +3074,7 @@ function scheduleAutosave() { clearTimeout(autosaveTimer); autosaveTimer = setTi
 /* salvamento local agora vai para a camada de armazenamento por projeto (storeSave) */
 async function autosave() {
   await storeSave();
+  if (typeof maybeBackup === 'function') maybeBackup(false);
   if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
   if (typeof scheduleFolderSave === 'function') scheduleFolderSave();
 }
@@ -4476,8 +4489,19 @@ function pickProjectId(p) {
 async function detectProject() {
   if (inIframe) {
     try {
-      const { state } = await loadSdk();
-      for (let k = 0; k < 25; k++) { const id = pickProjectId(state.get('project')); if (id) return { key: 'giraffe:' + id, label: 'Giraffe · projeto ' + id }; await wait(120); }
+      const { state, rpc } = await loadSdk();
+      const found = id => ({ key: 'giraffe:' + id, label: 'Giraffe · projeto ' + id });
+      for (let k = 0; k < 40; k++) {
+        for (const key of ['project', 'projectId', 'selectedProject', 'projectDetails', 'currentProject']) { let v = null; try { v = state.get(key); } catch (e) {} const id = typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v)) ? String(v) : pickProjectId(v); if (id) { gvLog(`Projeto identificado (${key}): ${id}`); return found(id); } }
+        if (k === 3 || k === 20) {
+          /* sem o estado: pergunta ao Giraffe pelos detalhes do projeto aberto, ou lê o projeto das vistas salvas */
+          try { const d = await rpc.invoke('fetchProjectDetails', []); const id = pickProjectId(d) || pickProjectId(d && d.project); if (id) { gvLog('Projeto identificado (fetchProjectDetails): ' + id); return found(id); } } catch (e) {}
+          try { const r = await rpc.invoke('fetchVistas', []); const v = Array.isArray(r) ? r[0] : (r && (r.vistas || r.views || r.data || [])[0]); const id = v && (typeof v.project === 'number' || /^\d+$/.test(String(v.project))) ? String(v.project) : pickProjectId(v && v.project); if (id) { gvLog('Projeto identificado (vistas): ' + id); return found(id); } } catch (e) {}
+        }
+        await wait(250);
+      }
+      try { gvLog('Projeto não identificado. Chaves do estado: ' + JSON.stringify(Object.keys(state.getAll ? state.getAll() : {}))); } catch (e) {}
+      console.warn('[store] projeto do Giraffe não identificado');
     } catch (e) {}
     try { const m = /\/project\/(\d+)/.exec(document.referrer) || /[?&#]project(?:Id)?=(\d+)/.exec(location.search + location.hash); if (m) return { key: 'giraffe:' + m[1], label: 'Giraffe · projeto ' + m[1] }; } catch (e) {}
   }
@@ -4545,6 +4569,46 @@ async function storeSave() {
   } catch (err) { console.warn('Salvamento local falhou:', err); }
   finally { storeSaving = false; if (storeAgain) { storeAgain = false; storeSave(); } }
 }
+/* Lê um conjunto de dados (de qualquer projeto guardado neste navegador) como snapshot */
+async function readDataset(pk) {
+  const KK = (...a) => ['P', pk, ...a].join(':');
+  const meta = await idb.get(KK('meta')); if (!meta || !meta.doc) return null;
+  const d = JSON.parse(JSON.stringify(meta.doc)), rects = rectsFor(d.sheets || []), objects = [];
+  for (const [i, sh] of (d.sheets || []).entries()) { const part = await idb.get(KK('sheet', sh.id)); (part && part.objects || []).forEach(o => objects.push({ ...o, left: (o.left || 0) + rects[i].x, top: (o.top || 0) + rects[i].y })); }
+  for (const t of d.templates || []) { const part = await idb.get(KK('tpl', t.id)); t.objects = part ? part.objects || [] : []; }
+  for (const p of d.pres || []) { if (!p.stored) continue; const part = await idb.get(KK('pres', p.id)); if (part) { p.sheets = part.sheets; p.active = part.active; p.objects = part.objects; } delete p.stored; }
+  return { snap: { doc: d, objects }, savedAt: meta.savedAt || 0 };
+}
+function describeSnap(s) {
+  let imgs = 0, views = 0, n = 0;
+  const count = list => walkSer(list || [], o => { n++; if (o.type === 'image') { imgs++; if (o.kvLink && o.kvLink.kind === 'giraffe') views++; } });
+  count(s.objects); (s.doc.pres || []).forEach(p => count(p.objects));
+  return { sheets: (s.doc.sheets || []).length + (s.doc.pres || []).reduce((a, p) => a + ((p.sheets || []).length), 0), n, imgs, views };
+}
+async function renderDatasets() {
+  const ul = $('#ds-list'); if (!ul) return; ul.innerHTML = '';
+  const keys = await idb.keys(), sets = [...new Set(keys.filter(k => /^P:.+:meta$/.test(k)).map(k => k.slice(2, -5)))];
+  const rows = [];
+  for (const pk of sets) { try { const r = await readDataset(pk); if (r) rows.push({ pk, label: pk === 'local' ? 'Local (fora do Giraffe)' : pk.replace('giraffe:', 'Giraffe · projeto '), at: r.savedAt, info: describeSnap(r.snap), load: () => r.snap }); } catch (e) {} }
+  const leg = await idb.get('autosave').catch(() => null);
+  if (leg && leg.s) rows.push({ pk: 'legacy', label: 'Salvamento antigo (V28 ou anterior)', at: leg.t || 0, info: describeSnap(leg.s), legacy: leg });
+  if (!rows.length) { ul.innerHTML = '<li class="empty">Nenhum outro conjunto de dados neste navegador.</li>'; return; }
+  rows.sort((a, b) => b.at - a.at).forEach(r => {
+    const cur = r.pk === projectKey, li = document.createElement('li');
+    li.innerHTML = `<span class="name">${svgIcon('folderOpen')}<span>${escapeHtml(r.label)}${cur ? ' · atual' : ''}</span><small>${r.at ? new Date(r.at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''} · ${r.info.sheets} fl. · ${r.info.imgs} img. · ${r.info.views} vistas</small></span>
+      ${cur ? '' : `<button class="icon-btn" aria-label="Abrir estes dados neste projeto" title="Abrir estes dados neste projeto">${svgIcon('undo')}</button>`}`;
+    const b = li.querySelector('button');
+    if (b) b.onclick = () => askBar(`Abrir os dados de “${r.label}” (${r.info.sheets} folha(s), ${r.info.views} vista(s) do Giraffe) neste projeto? O estado atual vira uma versão de segurança antes.`, [
+      { label: 'Abrir aqui', primary: true, fn: async () => {
+        await maybeBackup(true);
+        let snap;
+        if (r.legacy) { snap = JSON.parse(JSON.stringify(r.legacy.s)); const map = {}; Object.entries(r.legacy.blobs || {}).forEach(([u, bl]) => { map[u] = blobToUrl(bl); }); walkAll(snap, o => { if (o.type === 'image') o.src = map[o.src] || PLACEHOLDER; }); }
+        else { snap = JSON.parse(JSON.stringify(r.load())); await assetsToUrls([snap.objects, ...(snap.doc.templates || []).map(t => t.objects || []), ...(snap.doc.pres || []).map(p => p.objects || [])]); }
+        await restore(snap); resetHistory(); fitPage(); await storeSave(); renderDatasets(); toast(`Dados de “${r.label}” abertos neste projeto.`);
+      } }, { label: 'Cancelar' }]);
+    ul.appendChild(li);
+  });
+}
 async function storeLoad() {
   const meta = await idb.get(K('meta')); if (!meta || !meta.doc) return false;
   const d = meta.doc, rects = rectsFor(d.sheets || []), objects = [];
@@ -4576,11 +4640,49 @@ async function migrateLegacy() {
   return true;
 }
 async function localSavedAt() { if (localSavedAtMem) return localSavedAtMem; try { const m = await idb.get(K('meta')); return (m && m.savedAt) || 0; } catch (e) { return 0; } }
+/* Versões de segurança neste navegador: uma a cada 10 min de trabalho, mantém as 20 mais recentes por projeto */
+let lastBackupAt = 0;
+async function maybeBackup(force) {
+  if (!force && Date.now() - lastBackupAt < 10 * 60e3) return;
+  lastBackupAt = Date.now();
+  try {
+    const s = snapshot(); await imagesToAssets([s.objects, ...(s.doc.templates || []).map(t => t.objects || []), ...(s.doc.pres || []).map(p => p.objects || [])]);
+    const list = (await idb.get(K('versions'))) || [];
+    const n = userObjects().length, id = Date.now();
+    await idb.set(K('ver', id), s);
+    list.unshift({ id, at: id, sheets: s.doc.sheets.length, objs: n });
+    for (const v of list.splice(20)) await idb.del(K('ver', v.id)).catch(() => {});
+    await idb.set(K('versions'), list);
+    renderVersions();
+  } catch (e) { console.warn('backup', e); }
+}
+async function renderVersions() {
+  const ul = $('#ver-list'); if (!ul) return;
+  const list = (await idb.get(K('versions')).catch(() => null)) || []; ul.innerHTML = '';
+  if (!list.length) { ul.innerHTML = '<li class="empty">Nenhuma versão ainda (a primeira é criada após 10 min de trabalho).</li>'; return; }
+  list.forEach(v => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="name">${svgIcon('history')}<span>${new Date(v.at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><small>${v.sheets} folha(s) · ${v.objs} elem.</small></span>
+      <button class="icon-btn" aria-label="Restaurar esta versão" title="Restaurar esta versão">${svgIcon('undo')}</button>`;
+    li.querySelector('button').onclick = () => askBar(`Restaurar a versão de ${new Date(v.at).toLocaleString('pt-BR')}? O estado atual vira uma nova versão de segurança antes.`, [
+      { label: 'Restaurar', primary: true, fn: async () => {
+        await maybeBackup(true);
+        const s = await idb.get(K('ver', v.id)); if (!s) { toast('Versão não encontrada.', true); return; }
+        await assetsToUrls([s.objects, ...(s.doc.templates || []).map(t => t.objects || []), ...(s.doc.pres || []).map(p => p.objects || [])]);
+        await restore(s); resetHistory(); fitPage(); scheduleAutosave(); toast('Versão restaurada.');
+      } }, { label: 'Cancelar' }]);
+    ul.appendChild(li);
+  });
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { clearTimeout(autosaveTimer); storeSave(); } });
+window.addEventListener('pagehide', () => { clearTimeout(autosaveTimer); storeSave(); });
 /* Abertura: identifica o projeto do Giraffe e carrega os dados dele */
 async function storeOpen() {
   status('Identificando o projeto…');
   const p = await detectProject(); projectKey = p.key; projectLabel = p.label;
   const lbl = $('#store-proj'); if (lbl) lbl.textContent = projectLabel;
+  if (inIframe && projectKey === 'local') toast('Não foi possível identificar o projeto do Giraffe. Os dados abertos são os locais; recarregue o painel para tentar de novo.', true);
+  setTimeout(() => { renderVersions(); renderDatasets(); }, 500);
   if (await storeLoad()) return 'loaded';
   if (await migrateLegacy()) return 'migrated';
   return 'new';
@@ -5916,9 +6018,20 @@ $('#sh-apply-all').onclick = () => {
   relayout(() => P().forEach(s => { s.preset = a.preset; s.orient = a.orient; s.w = a.w; s.h = a.h; }));
   syncDocUI(); renderSheetList(); commit(); toast('Formato aplicado a todas as folhas.');
 };
-$('#sh-tpl').addEventListener('change', e => { activeSheet().template = e.target.value || null; syncDocUI(); renderSheetList(); canvas.requestRenderAll(); commit(); });
+/* Aplicar modelo: a folha assume o tamanho, a orientação e a margem de segurança do modelo */
+function applyTplFormat(s, t) {
+  if (!t) return;
+  s.preset = t.preset || 'CUSTOM'; s.orient = t.orient || (t.w >= t.h ? 'landscape' : 'portrait'); s.w = t.w; s.h = t.h;
+  s.safe = JSON.parse(JSON.stringify(t.safe || { show: false, l: 10, t: 10, r: 10, b: 10 }));
+}
+$('#sh-tpl').addEventListener('change', e => {
+  const id = e.target.value || null, t = tplById(id);
+  relayout(() => { const s = activeSheet(); s.template = id; applyTplFormat(s, t); });
+  syncDocUI(); renderSheetList(); invalidateSnap(); canvas.requestRenderAll(); commit(); fitPage();
+  if (t) toast(`Modelo aplicado: a folha passou a ${fmt(t.w, 0)} × ${fmt(t.h, 0)} mm, com a margem de segurança do modelo.`);
+});
 $('#sh-tpl-fit').addEventListener('change', e => { activeSheet().tplFit = e.target.value; canvas.requestRenderAll(); commit(); });
-$('#sh-tpl-all').onclick = () => { const a = activeSheet(); doc.sheets.forEach(s => { s.template = a.template; s.tplFit = a.tplFit; }); canvas.requestRenderAll(); renderSheetList(); commit(); toast(a.template ? 'Modelo aplicado a todas as folhas.' : 'Modelo removido de todas as folhas.'); };
+$('#sh-tpl-all').onclick = () => { const a = activeSheet(), t = tplById(a.template); relayout(() => doc.sheets.forEach(s => { s.template = a.template; s.tplFit = a.tplFit; applyTplFormat(s, t); })); invalidateSnap(); canvas.requestRenderAll(); renderSheetList(); syncDocUI(); commit(); toast(a.template ? 'Modelo aplicado a todas as folhas.' : 'Modelo removido de todas as folhas.'); };
 $('#sh-tpl-edit').onclick = () => setMode('tpl', activeSheet().template);
 $('#mode-sheets').onclick = () => setMode('sheets');
 $('#mode-tpl').onclick = () => setMode('tpl');
