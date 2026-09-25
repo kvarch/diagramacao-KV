@@ -1010,7 +1010,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V34 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V35 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1049,7 +1049,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V34 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V35 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -4886,11 +4886,36 @@ async function fetchAtt(a, asJson) {
   }
   throw new Error('anexo indisponível');
 }
-async function uploadAtt(name, data, existing) {
+/* O Giraffe aceita anexos de até 10 MB: arquivos maiores são divididos em partes de ~8 MB (sem perda de qualidade).
+   O anexo principal vira um índice { chunked, n, stamp } e as partes ficam em <nome>.part1, .part2… */
+const MAX_ATT_CHARS = 8 * 1024 * 1024;
+async function uploadRaw(name, text) {
   const { rpc } = await loadSdk();
-  const buffer = new TextEncoder().encode(JSON.stringify(data));
-  const payload = { buffer, contentType: 'application/json', name, ...(existing ? { attachmentId: existing.id } : {}) };
-  return rpc.invoke('uploadProjectAttachment', [payload]);
+  const ex = attByName(name), buffer = new TextEncoder().encode(text);
+  try { return await rpc.invoke('uploadProjectAttachment', [{ buffer, contentType: 'application/json', name, ...(ex ? { attachmentId: ex.id } : {}) }]); }
+  catch (e) { throw new Error(`${name} (${(buffer.length / 1048576).toFixed(1)} MB): ${e.message}`); }
+}
+async function uploadAtt(name, data) {
+  const text = JSON.stringify(data);
+  if (text.length <= MAX_ATT_CHARS) return uploadRaw(name, text);
+  const n = Math.ceil(text.length / MAX_ATT_CHARS), stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  for (let i = 0; i < n; i++) {
+    setSyncStatus(`☁ Enviando ${name} (parte ${i + 1} de ${n})…`);
+    await uploadRaw(`${name}.part${i + 1}`, JSON.stringify({ stamp, i: i + 1, n, data: text.slice(i * MAX_ATT_CHARS, (i + 1) * MAX_ATT_CHARS) }));
+  }
+  return uploadRaw(name, JSON.stringify({ chunked: true, n, stamp }));
+}
+async function fetchJsonAtt(a) {
+  const head = await fetchAtt(a, true);
+  if (!head || !head.chunked) return head;
+  let text = '';
+  for (let i = 1; i <= head.n; i++) {
+    const pa = attByName(`${a.name}.part${i}`); if (!pa) throw new Error(`parte ${i} de ${a.name} não encontrada`);
+    const part = await fetchAtt(pa, true);
+    if (!part || part.stamp !== head.stamp) throw new Error('arquivo sendo atualizado por outra pessoa; tente de novo em instantes');
+    text += part.data;
+  }
+  return JSON.parse(text);
 }
 const b64 = buf => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
 const unb64 = s => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
@@ -4900,13 +4925,14 @@ async function pullAssets(parts) {
     if (storedAssets.has(nm)) continue;
     if (await idb.get('A:' + nm).catch(() => null)) { storedAssets.add(nm); continue; }
     const a = attByName(IMG_PREFIX + nm + '.json'); if (!a) continue;
-    try { const p = await fetchAtt(a, true); await idb.set('A:' + nm, new Blob([unb64(p.base64)], { type: p.mime || 'application/octet-stream' })); storedAssets.add(nm); } catch (e) { console.warn('imagem', nm, e); }
+    try { const p = await fetchJsonAtt(a); await idb.set('A:' + nm, new Blob([unb64(p.base64)], { type: p.mime || 'application/octet-stream' })); storedAssets.add(nm); } catch (e) { console.warn('imagem', nm, e); }
   }
 }
 async function pushAssets(parts) {
   const have = new Set(syncAtts.map(a => a.name));
-  for (const nm of assetNames(parts)) {
-    const an = IMG_PREFIX + nm + '.json'; if (have.has(an)) continue;
+  const imgs = [...assetNames(parts)].filter(nm => !have.has(IMG_PREFIX + nm + '.json'));
+  for (const [k, nm] of imgs.entries()) {
+    const an = IMG_PREFIX + nm + '.json'; setSyncStatus(`☁ Enviando imagens (${k + 1} de ${imgs.length})…`);
     const blob = await idb.get('A:' + nm).catch(() => null); if (!blob) continue;
     await uploadAtt(an, { mime: blob.type, base64: b64(await blob.arrayBuffer()) }); have.add(an);
   }
@@ -4941,7 +4967,7 @@ async function syncPull(opts = {}) {
     if (!a) { if (opts.manual) toast('Ainda não há nada salvo no projeto do Giraffe. Use “Enviar alterações”.'); return false; }
     if (!opts.manual && a.updated_at && a.updated_at === syncState.remoteUpdated) return false;
     setSyncStatus('☁ Recebendo alterações…');
-    const m = await fetchAtt(a, true);
+    const m = await fetchJsonAtt(a);
     if (!m || m.app !== 'kv-pranchas' || !m.parts) throw new Error('arquivo de sincronização inválido');
     const R = m.parts, L = await buildSyncParts();
     const empty = userObjects().length === 0 && Object.keys(syncState.base).length === 0;
@@ -4991,7 +5017,7 @@ async function syncPush(opts = {}) {
       await pushAssets(parts);
       const u = await currentUser();
       const m = { app: 'kv-pranchas', kind: 'sync', v: 1, savedAt: Date.now(), device: deviceId, by: u.email, byName: u.name, parts };
-      await uploadAtt(SYNC_FILE, m, cur);
+      await uploadAtt(SYNC_FILE, m);
       await refreshAtts();
       const now = attByName(SYNC_FILE);
       syncState.base = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, partHash(v)]));
