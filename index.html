@@ -312,9 +312,18 @@ code{font-size:11.5px}
 .color-pop canvas{display:block;width:216px;cursor:crosshair;touch-action:none;border:1px solid var(--md-sys-color-outline-variant)}
 #cp-sv{height:118px}
 #cp-hue{height:12px;margin-top:6px;cursor:ew-resize}
-.cp-row{display:grid;grid-template-columns:30px 1fr 30px;gap:6px;margin:8px 0 2px;align-items:center}
+.cp-row{display:grid;grid-template-columns:30px 1fr 22px 30px;gap:5px;margin:8px 0 2px;align-items:start}
+.cp-fmt{display:grid;gap:3px}
+.cp-fmt[data-fmt=hex]{grid-template-columns:1fr}
+.cp-fmt[data-fmt=rgb],.cp-fmt[data-fmt=hsl]{grid-template-columns:repeat(3,1fr)}
+.cp-fmt[hidden]{display:none}
+.cp-fmt input{min-width:0;min-height:30px;height:30px;padding:0 4px;font-size:12px;text-align:center;font-variant-numeric:tabular-nums}
+.cp-fmt input[type=number]{-moz-appearance:textfield}
+.cp-fmt input::-webkit-outer-spin-button,.cp-fmt input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.cp-fmt small{text-align:center;font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--md-sys-color-on-surface-variant)}
+.cp-fmtbtn{height:30px;width:22px;font-size:13px}
 .cp-prev{width:30px;height:30px;border:1px solid var(--md-sys-color-outline-variant)}
-.cp-row input{min-height:30px;height:30px;padding:0 8px;font-size:12.5px;font-variant-numeric:tabular-nums}
+
 .cp-h{display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--md-sys-color-on-surface-variant)}
 .cp-grid8{display:grid;grid-template-columns:repeat(8,24px);gap:3px}
 .cp-sw{width:24px;height:24px;padding:0;border:1px solid var(--md-sys-color-outline-variant);cursor:pointer}
@@ -1057,7 +1066,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V41 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V42 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1075,7 +1084,14 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 <div class="color-pop" id="color-pop" role="dialog" aria-label="Escolher cor" hidden>
   <canvas id="cp-sv" width="216" height="118" aria-label="Saturação e brilho"></canvas>
   <canvas id="cp-hue" width="216" height="12" aria-label="Matiz"></canvas>
-  <div class="cp-row"><span class="cp-prev" id="cp-prev"></span><label class="sr-only" for="cp-hex">Código da cor</label><input type="text" id="cp-hex" maxlength="7" spellcheck="false"><button class="cp-add cp-drop" id="cp-drop" aria-label="Conta-gotas: pegar uma cor da tela" title="Conta-gotas (clique em qualquer lugar)"><span data-icon="pipette"></span></button></div>
+  <div class="cp-row"><span class="cp-prev" id="cp-prev"></span>
+    <div class="cp-vals" id="cp-vals">
+      <div class="cp-fmt" data-fmt="hex"><label class="sr-only" for="cp-hex">Código hexadecimal</label><input type="text" id="cp-hex" maxlength="7" spellcheck="false"><small>HEX</small></div>
+      <div class="cp-fmt" data-fmt="rgb" hidden><input type="number" id="cp-r" min="0" max="255" aria-label="Vermelho (0–255)"><input type="number" id="cp-g" min="0" max="255" aria-label="Verde (0–255)"><input type="number" id="cp-b" min="0" max="255" aria-label="Azul (0–255)"><small>R</small><small>G</small><small>B</small></div>
+      <div class="cp-fmt" data-fmt="hsl" hidden><input type="number" id="cp-hh" min="0" max="360" aria-label="Matiz (0–360°)"><input type="number" id="cp-ss" min="0" max="100" aria-label="Saturação (%)"><input type="number" id="cp-ll" min="0" max="100" aria-label="Luminosidade (%)"><small>H</small><small>S</small><small>L</small></div>
+    </div>
+    <button class="cp-add cp-fmtbtn" id="cp-fmt" aria-label="Trocar formato: HEX, RGB ou HSL" title="Trocar formato (HEX / RGB / HSL)">⇅</button>
+    <button class="cp-add cp-drop" id="cp-drop" aria-label="Conta-gotas: pegar uma cor da tela" title="Conta-gotas (clique em qualquer lugar)"><span data-icon="pipette"></span></button></div>
   <p class="cp-h">Cores padrão</p>
   <div class="cp-grid8" id="cp-std"></div>
   <p class="cp-h">Personalizadas <button class="cp-add" id="cp-add" aria-label="Adicionar a cor atual às personalizadas" title="Adicionar a cor atual">+</button></p>
@@ -1108,7 +1124,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V41 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V42 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1405,6 +1421,8 @@ try { fabric.filterBackend = new fabric.Canvas2dFilterBackend(); } catch (e) {}
 fabric.perfLimitSizeTotal = 8 * 1024 * 1024; fabric.maxCacheSideLimit = 8192;
 /* Precisão ao salvar: o padrão do Fabric arredonda para 2 casas (escala 0,0537 → 0,05), o que fazia imagens mudarem de tamanho ao desfazer, salvar ou reabrir */
 fabric.Object.NUM_FRACTION_DIGITS = 10;
+/* Filtros de imagem na placa de vídeo também para imagens grandes (o padrão só acelerava até 2048 px) */
+try { const gl = document.createElement('canvas').getContext('webgl'); if (gl) fabric.textureSize = Math.min(8192, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048); } catch (e) {}
 Object.assign(fabric.Object.prototype, {
   transparentCorners: false, cornerStyle: 'rect', cornerSize: 9, touchCornerSize: 28, borderColor: BRAND,
   cornerColor: BRAND, cornerStrokeColor: '#ffffff', borderScaleFactor: 1.2, padding: 0
@@ -2666,12 +2684,14 @@ let dragGuard = null;
 canvas.on('before:transform', e => {
   const tr = e.transform, t = tr && tr.target;
   if (!t || t.kvEditing) { dragGuard = null; return; }
-  dragGuard = { t, x: tr.ex, y: tr.ey, ok: false, s: { left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle, skewX: t.skewX, skewY: t.skewY } };
+  dragGuard = { t, x: tr.ex, y: tr.ey, t0: performance.now(), ok: false, s: { left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle, skewX: t.skewX, skewY: t.skewY } };
 });
 function guardDrag(opt) {
   const g = dragGuard; if (!g || g.ok || opt.target !== g.t) return false;
   const p = opt.e ? canvas.getPointer(opt.e) : null;
-  if (p && Math.hypot(p.x - g.x, p.y - g.y) * canvas.getZoom() >= 4) { g.ok = true; return false; }
+  /* só começa a mover depois de 6 px — ou 12 px nos primeiros 200 ms, quando ainda é um clique */
+  const dist = p ? Math.hypot(p.x - g.x, p.y - g.y) * canvas.getZoom() : 0, need = performance.now() - g.t0 < 200 ? 12 : 6;
+  if (p && dist >= need) { g.ok = true; return false; }
   g.t.set(g.s); g.t.setCoords(); snapLines = []; return true;
 }
 canvas.on('mouse:up', () => { dragGuard = null; });
@@ -5375,7 +5395,7 @@ function hexToHsv(hex) {
   let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
   return { h: (h * 60 + 360) % 360, s: mx ? d / mx : 0, v: mx };
 }
-function drawCp() {
+function drawCp(forceFields) {
   const sv = $('#cp-sv'), x = sv.getContext('2d'), W = sv.width, H = sv.height;
   x.fillStyle = hsvToHex(cp.h, 1, 1); x.fillRect(0, 0, W, H);
   let g = x.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
@@ -5386,7 +5406,7 @@ function drawCp() {
   [0, 60, 120, 180, 240, 300, 360].forEach(d => hg.addColorStop(d / 360, hsvToHex(d, 1, 1)));
   y.fillStyle = hg; y.fillRect(0, 0, hu.width, hu.height);
   const hx = cp.h / 360 * hu.width; y.fillStyle = '#fff'; y.strokeStyle = '#000'; y.lineWidth = 1; y.fillRect(hx - 2, 0, 4, hu.height); y.strokeRect(hx - 2.5, 0.5, 5, hu.height - 1);
-  const hex = hsvToHex(cp.h, cp.s, cp.v); $('#cp-prev').style.background = hex; if (document.activeElement !== $('#cp-hex')) $('#cp-hex').value = hex;
+  const hex = hsvToHex(cp.h, cp.s, cp.v); $('#cp-prev').style.background = hex; syncFmtFields(hex, forceFields);
 }
 function emitColor(hex, final) {
   if (!colorTarget) return;
@@ -5394,7 +5414,24 @@ function emitColor(hex, final) {
   colorTarget.dispatchEvent(new Event('input', { bubbles: true }));
   if (final) colorTarget.dispatchEvent(new Event('change', { bubbles: true }));
 }
-function pickHex(hex) { Object.assign(cp, hexToHsv(hex)); $('#cp-hex').value = hex.toLowerCase(); drawCp(); emitColor(hex, true); }
+function pickHex(hex) { Object.assign(cp, hexToHsv(hex)); drawCp(true); emitColor(hex, true); }
+/* Formatos do código da cor: HEX, RGB e HSL (botão ⇅ alterna) */
+let cpFmt = 'hex'; try { cpFmt = localStorage.getItem('kv-pranchas-cpfmt') || 'hex'; } catch (e) {}
+const hexToRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const rgbToHex = (r, g, b) => '#' + [r, g, b].map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+function rgbToHsl(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn; let h = 0, s = 0; if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; } return [Math.round(h), Math.round(s * 100), Math.round(l * 100)]; }
+function hslToHex(h, s, l) { s = clamp(s, 0, 100) / 100; l = clamp(l, 0, 100) / 100; const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return rgbToHex(f(0) * 255, f(8) * 255, f(4) * 255); }
+function syncFmtFields(hex, force) {
+  const ae = document.activeElement, own = ae && ae.closest && ae.closest('#cp-vals');
+  if (own && !force) return;
+  $('#cp-hex').value = hex; const [r, g, b] = hexToRgb(hex); setVal('#cp-r', r); setVal('#cp-g', g); setVal('#cp-b', b);
+  const [H, S, Lg] = rgbToHsl(r, g, b); setVal('#cp-hh', H); setVal('#cp-ss', S); setVal('#cp-ll', Lg);
+}
+function showFmt() { $$('#cp-vals .cp-fmt').forEach(el => { el.hidden = el.dataset.fmt !== cpFmt; }); $('#cp-fmt').title = `Formato: ${cpFmt.toUpperCase()} — clique para trocar`; }
+$('#cp-fmt').onclick = () => { cpFmt = cpFmt === 'hex' ? 'rgb' : cpFmt === 'rgb' ? 'hsl' : 'hex'; try { localStorage.setItem('kv-pranchas-cpfmt', cpFmt); } catch (e) {} showFmt(); syncFmtFields(hsvToHex(cp.h, cp.s, cp.v), true); };
+['#cp-r', '#cp-g', '#cp-b'].forEach(id => $(id).addEventListener('change', () => pickHex(rgbToHex(+$('#cp-r').value || 0, +$('#cp-g').value || 0, +$('#cp-b').value || 0))));
+['#cp-hh', '#cp-ss', '#cp-ll'].forEach(id => $(id).addEventListener('change', () => pickHex(hslToHex(((+$('#cp-hh').value || 0) % 360 + 360) % 360, +$('#cp-ss').value || 0, +$('#cp-ll').value || 0))));
+showFmt();
 function renderSwatches() {
   const std = $('#cp-std'); std.innerHTML = '';
   STD_COLORS.forEach(([h, l]) => { const b = document.createElement('button'); b.className = 'cp-sw'; b.title = `${l} ${h}`; b.setAttribute('aria-label', `${l} ${h}`); b.style.background = h; b.onclick = () => pickHex(h); std.appendChild(b); });
@@ -5412,12 +5449,13 @@ function openColorPop(inp) {
   const r = inp.getBoundingClientRect(), W = pop.offsetWidth, H = pop.offsetHeight;
   pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8)) + 'px';
   pop.style.top = (r.bottom + 6 + H > window.innerHeight ? Math.max(8, r.top - H - 6) : r.bottom + 6) + 'px';
-  $('#cp-hex').focus(); $('#cp-hex').select();
+  showFmt(); syncFmtFields(hsvToHex(cp.h, cp.s, cp.v), true);
+  const fi = $(`#cp-vals .cp-fmt[data-fmt=${cpFmt}] input`); if (fi) { fi.focus(); fi.select && fi.select(); }
 }
 const closeColorPop = () => { $('#color-pop').hidden = true; colorTarget = null; };
 function dragOn(el, fn) {
   el.addEventListener('pointerdown', e => {
-    e.preventDefault(); if (document.activeElement === $('#cp-hex')) $('#cp-hex').blur(); el.setPointerCapture(e.pointerId); fn(e, false);
+    e.preventDefault(); { const ae = document.activeElement; if (ae && ae.closest && ae.closest('#cp-vals')) ae.blur(); } el.setPointerCapture(e.pointerId); fn(e, false);
     const mv = ev => fn(ev, false), up = ev => { fn(ev, true); el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); };
     el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up);
   });
@@ -5456,7 +5494,7 @@ document.addEventListener('click', e => {
   if (!inp) return; e.preventDefault(); openColorPop(inp);
 }, true);
 document.addEventListener('pointerdown', e => { const pop = $('#color-pop'); if (eyedrop) return; if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('input[type=color]'))) closeColorPop(); });
-$('#color-pop').addEventListener('keydown', e => { if (e.key === 'Escape' && eyedrop) { stopEyedrop(); status('Pronto'); e.stopPropagation(); return; } if (e.key === 'Escape') { const t = colorTarget; closeColorPop(); t && t.focus(); } if (e.key === 'Enter' && e.target.id === 'cp-hex') { e.target.dispatchEvent(new Event('change')); } e.stopPropagation(); });
+$('#color-pop').addEventListener('keydown', e => { if (e.key === 'Escape' && eyedrop) { stopEyedrop(); status('Pronto'); e.stopPropagation(); return; } if (e.key === 'Escape') { const t = colorTarget; closeColorPop(); t && t.focus(); } if (e.key === 'Enter' && e.target.closest && e.target.closest('#cp-vals')) { e.target.dispatchEvent(new Event('change')); } e.stopPropagation(); });
 /* “Minhas cores” também na paleta da barra inferior */
 function buildPaletteMine() {
   const p = $('#palette'); p.querySelectorAll('.swatch.mine, .pal-sep').forEach(x => x.remove());
@@ -5836,8 +5874,19 @@ function applyImageFilters(src) {
 }
 $('#c-gray').onclick = () => applyImageFilters('bar');
 $('#im-gray').addEventListener('change', () => applyImageFilters('panel'));
+/* Brilho e contraste ao vivo: aplica enquanto arrasta (um quadro por vez) e grava no histórico ao soltar */
+let filterRaf = 0;
+function liveFilters() {
+  if (filterRaf) return;
+  filterRaf = requestAnimationFrame(() => {
+    filterRaf = 0;
+    const imgs = targets().filter(x => x.type === 'image'); if (!imgs.length) return;
+    const o = { gray: $('#im-gray').checked, contrast: +$('#im-contrast').value, bright: +$('#im-bright').value };
+    imgs.forEach(im => setImageFilters(im, o)); canvas.requestRenderAll();
+  });
+}
 ['contrast', 'bright'].forEach(k => {
-  $('#im-' + k).addEventListener('input', e => { $('#im-' + k + '-out').value = e.target.value; });
+  $('#im-' + k).addEventListener('input', e => { $('#im-' + k + '-out').value = e.target.value; liveFilters(); });
   $('#im-' + k).addEventListener('change', () => applyImageFilters('panel'));
 });
 const activeImage = () => { const a = canvas.getActiveObject(); return a && a.type === 'image' ? a : null; };
