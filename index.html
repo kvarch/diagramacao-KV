@@ -1056,7 +1056,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V39 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V40 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1107,7 +1107,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V39 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V40 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1426,21 +1426,21 @@ fabric.Kvarrow = fabric.util.createClass(fabric.Line, {
     return { p, ang, L };
   },
   _head(type, x, y, ang, L) {
-    const cos = Math.cos(ang), sin = Math.sin(ang), out = { cut: 0, polys: [], lines: [], dots: [] };
+    const cos = Math.cos(ang), sin = Math.sin(ang), out = { cut: 0, polys: [], lines: [], dots: [], paths: [] };
+    /* seta aberta: as duas hastes são um único traço com canto em quina (sem falha na ponta); recua para a quina cair na extremidade */
+    const openHead = (len, halfW) => { const sw = this.strokeWidth || 1, off = (sw / 2) / Math.sin(Math.atan2(halfW, len)), tx = x - cos * off, ty = y - sin * off, bx = tx - cos * len, by = ty - sin * len, nx = -sin * halfW, ny = cos * halfW; out.paths.push([[bx + nx, by + ny], [tx, ty], [bx - nx, by - ny]]); out.cut = off; };
     if (type === 'triangle') {
       const W = L * 0.42, bx = x - cos * L, by = y - sin * L, nx = -sin * W, ny = cos * W;
       out.polys.push([[x, y], [bx + nx, by + ny], [bx - nx, by - ny]]); out.cut = L;
     } else if (type === 'open') {
-      const W = L * 0.45, bx = x - cos * L, by = y - sin * L, nx = -sin * W, ny = cos * W;
-      out.lines.push([bx + nx, by + ny, x, y], [x, y, bx - nx, by - ny]);
+      openHead(L, L * 0.45);
     } else if (type === 'dot') {
       out.dots.push([x, y, L * 0.28]);
     } else if (type === 'tri45') {
       const W = L * 0.9, bx = x - cos * L * 0.9, by = y - sin * L * 0.9, nx = -sin * W, ny = cos * W;
       out.polys.push([[x, y], [bx + nx, by + ny], [bx - nx, by - ny]]); out.cut = L * 0.9;
     } else if (type === 'open45') {
-      const D = L * 0.75, bx = x - cos * D, by = y - sin * D, nx = -sin * D, ny = cos * D;
-      out.lines.push([bx + nx, by + ny, x, y], [x, y, bx - nx, by - ny]);
+      openHead(L * 0.75, L * 0.75);
     } else if (type === 'bar') {
       const h = L * 0.5, nx = -sin * h, ny = cos * h;
       out.lines.push([x - nx, y - ny, x + nx, y + ny]);
@@ -1460,14 +1460,7 @@ fabric.Kvarrow = fabric.util.createClass(fabric.Line, {
     ctx.moveTo(p.x1 + cos * s.cut, p.y1 + sin * s.cut); ctx.lineTo(p.x2 - cos * e.cut, p.y2 - sin * e.cut);
     this._renderStroke(ctx);
     if (!this.stroke) return;
-    const k = this.strokeUniform ? 2 / (Math.abs(this.scaleX) + Math.abs(this.scaleY)) : 1;
-    ctx.save(); ctx.setLineDash([]); ctx.fillStyle = this.stroke; ctx.strokeStyle = this.stroke; ctx.lineWidth = this.strokeWidth * k; ctx.lineCap = 'butt';
-    [s, e].forEach(h => {
-      h.polys.forEach(pl => { ctx.beginPath(); ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.closePath(); ctx.fill(); });
-      h.lines.forEach(l => { ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
-      h.dots.forEach(d => { ctx.beginPath(); ctx.arc(d[0], d[1], d[2], 0, Math.PI * 2); ctx.fill(); });
-    });
-    ctx.restore();
+    drawHeads(this, ctx, [s, e]);
   },
   toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
   _toSVG() {
@@ -1477,14 +1470,8 @@ fabric.Kvarrow = fabric.util.createClass(fabric.Line, {
   toSVG(reviver) {
     const base = this.callSuper('toSVG', reviver);
     if (!this.stroke) return base;
-    const c = new fabric.Color(this.stroke), col = c.toRgb(), a = c.getAlpha(), tr = this.getSvgTransform(), { s, e } = this._heads();
-    let out = '';
-    [s, e].forEach(h => {
-      h.polys.forEach(pl => { out += `<polygon ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${this.opacity}"/>\n`; });
-      h.lines.forEach(l => { out += `<line ${tr} x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" style="stroke:${col};stroke-opacity:${a};stroke-width:${this.strokeWidth};opacity:${this.opacity}"/>\n`; });
-      h.dots.forEach(d => { out += `<circle ${tr} cx="${d[0]}" cy="${d[1]}" r="${d[2]}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${this.opacity}"/>\n`; });
-    });
-    return base + out;
+    const { s, e } = this._heads();
+    return base + headsSVG(this, [s, e]);
   }
 });
 fabric.Kvarrow.fromObject = function (o, cb) {
@@ -1503,6 +1490,7 @@ function drawHeads(obj, ctx, heads) {
     h.polys.forEach(pl => { ctx.beginPath(); ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.closePath(); ctx.fill(); });
     h.lines.forEach(l => { ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
     h.dots.forEach(d => { ctx.beginPath(); ctx.arc(d[0], d[1], d[2], 0, Math.PI * 2); ctx.fill(); });
+    (h.paths || []).forEach(pl => { ctx.beginPath(); ctx.miterLimit = 10; ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.stroke(); });
   });
   ctx.restore();
 }
@@ -1514,6 +1502,7 @@ function headsSVG(obj, heads) {
     h.polys.forEach(pl => { out += `<polygon ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
     h.lines.forEach(l => { out += `<line ${tr} x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" style="stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};opacity:${obj.opacity}"/>\n`; });
     h.dots.forEach(d => { out += `<circle ${tr} cx="${d[0]}" cy="${d[1]}" r="${d[2]}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
+    (h.paths || []).forEach(pl => { out += `<polyline ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:none;stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};stroke-linejoin:miter;stroke-miterlimit:10;opacity:${obj.opacity}"/>\n`; });
   });
   return out;
 }
