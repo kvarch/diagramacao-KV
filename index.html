@@ -428,6 +428,9 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <input type="number" id="c-width" min="0" step="0.05" title="Espessura (mm)"><span class="unit">mm</span>
     <label class="sr-only" for="c-dash">Tipo de traço</label>
     <select id="c-dash" title="Tipo de traço"></select>
+    <span class="unit dash-k" title="Comprimento dos traços">▬×</span><label class="sr-only" for="c-dk">Comprimento dos traços (multiplicador)</label><input type="number" id="c-dk" class="dash-k" min="0.1" max="20" step="0.25" value="1" title="Comprimento dos traços (× o padrão)">
+    <span class="unit dash-k" title="Espaço entre traços">␣×</span><label class="sr-only" for="c-gk">Espaço entre traços (multiplicador)</label><input type="number" id="c-gk" class="dash-k" min="0.1" max="20" step="0.25" value="1" title="Espaço entre traços (× o padrão)">
+    <button class="icon-btn dash-k" id="c-dk-reset" aria-label="Voltar traço e espaço ao padrão" title="Voltar ao padrão (1×)"><span data-icon="undo"></span></button>
   </div>
   <div class="cg" id="cg-arrow" hidden>
     <span class="cg-label">Pontas</span>
@@ -1053,7 +1056,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V38 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V39 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1104,7 +1107,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V38 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V39 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1120,7 +1123,7 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
@@ -1351,7 +1354,7 @@ function innerArea(s) {
 }
 
 /* Estilo padrão (editado na barra contextual quando nada está selecionado) */
-const defStyle = { stroke: 'rgba(0,0,0,1)', fill: 'rgba(0,172,205,0.35)', strokeMm: 0.35, dash: 'solid', opacity: 1, headMm: 4, arrowStart: 'none', arrowEnd: 'triangle', lineStart: 'none', lineEnd: 'none' };
+const defStyle = { stroke: 'rgba(0,0,0,1)', fill: 'rgba(0,172,205,0.35)', strokeMm: 0.35, dash: 'solid', dashK: 1, gapK: 1, opacity: 1, headMm: 4, arrowStart: 'none', arrowEnd: 'triangle', lineStart: 'none', lineEnd: 'none' };
 const defText = { boxFill: '', boxStroke: '', boxStrokeWidth: 0, boxDash: 'solid', boxPad: 0, padding: 0, paraSpace: 0, fontFamily: 'Hind', fontSize: 14, fill: 'rgba(0,0,0,1)', fontWeight: 'normal', fontStyle: 'normal', underline: false, textAlign: 'left', lineHeight: 1.16, charSpacing: 0 };
 /* Tipos de linha (múltiplos da espessura; 0 = ponto) */
 const DASHES = [
@@ -1370,19 +1373,28 @@ const DASHES = [
   ['center', 'Linha de centro', '──── ─ ────', [16, 4, 4, 4]],
   ['phantom', 'Fantasma', '──── ─ ─ ────', [16, 3, 3, 3, 3, 3]],
   ['border', 'Divisa (traço-traço-ponto)', '── ── · ──', [8, 3, 8, 3, 0, 3]],
-  ['dashdash', 'Traço duplo', '── ─ ── ─', [10, 3, 4, 3]]
+  ['dashdash', 'Traço duplo', '── ─ ── ─', [10, 3, 4, 3]],
+  ['xlongdash', 'Tracejado extralongo', '────  ────', [24, 6]],
+  ['finedash', 'Tracejado fino', '┄┄┄┄┄┄┄┄', [2, 2]],
+  ['wideGapDash', 'Traço curto espaçado', '-   -   -   -', [3, 8]],
+  ['dashdotwide', 'Traço-ponto espaçado', '──  ·  ──  ·', [10, 5, 0, 5]],
+  ['dashdot3', 'Traço-três pontos', '── · · · ──', [10, 3, 0, 3, 0, 3, 0, 3]],
+  ['longshort2', 'Longo-curto-curto', '──── ─ ─ ────', [20, 4, 5, 4, 5, 4]],
+  ['dotdash', 'Ponto-traço-ponto', '· ── · ── ·', [0, 3, 8, 3]],
+  ['railroad', 'Tracejado duplo espaçado', '══  ══  ══', [12, 4, 12, 10]]
 ];
 const DASH_BY = Object.fromEntries(DASHES.map(d => [d[0], d]));
-function dashArr(name, sw) {
-  const w = Math.max(sw, 0.6), d = DASH_BY[name];
-  return d && d[3] ? d[3].map(v => v === 0 ? 0.001 : v * w) : null;
+/* dk = multiplicador do comprimento dos traços; gk = multiplicador dos espaços (posições ímpares do padrão) */
+function dashArr(name, sw, dk, gk) {
+  const w = Math.max(sw, 0.6), d = DASH_BY[name], a = dk > 0 ? dk : 1, g = gk > 0 ? gk : 1;
+  return d && d[3] ? d[3].map((v, i) => v === 0 ? 0.001 : v * w * (i % 2 ? g : a)) : null;
 }
 const capFor = name => (DASH_BY[name] && DASH_BY[name][3] && DASH_BY[name][3].includes(0)) ? 'round' : 'butt';
 function styleFor(kind) {
   const sw = mm2pt(defStyle.strokeMm);
   return {
     stroke: defStyle.stroke || null, strokeWidth: sw, fill: kind === 'open' ? '' : defStyle.fill, opacity: defStyle.opacity,
-    strokeDashArray: dashArr(defStyle.dash, sw), kvDash: defStyle.dash, strokeUniform: true,
+    strokeDashArray: dashArr(defStyle.dash, sw, defStyle.dashK, defStyle.gapK), kvDash: defStyle.dash, kvDashK: defStyle.dashK || 1, kvGapK: defStyle.gapK || 1, strokeUniform: true,
     strokeLineCap: capFor(defStyle.dash), strokeLineJoin: 'miter', strokeMiterLimit: 8
   };
 }
@@ -2691,7 +2703,7 @@ canvas.on('mouse:dblclick', opt => {
 canvas.on('path:created', e => {
   const p = e.path; if (!p) return;
   const sh = sheetOf(p), n = userObjects().filter(o => sheetOf(o).id === sh.id && (o.kvName || '').startsWith('Traço livre ')).length + 1;
-  p.set({ fill: '', strokeUniform: true, opacity: defStyle.opacity, kvDash: defStyle.dash, strokeDashArray: dashArr(defStyle.dash, p.strokeWidth), strokeLineCap: 'round', strokeLineJoin: 'round', kvId: uid(), kvName: `Traço livre ${n}` });
+  p.set({ fill: '', strokeUniform: true, opacity: defStyle.opacity, kvDash: defStyle.dash, kvDashK: defStyle.dashK || 1, kvGapK: defStyle.gapK || 1, strokeDashArray: dashArr(defStyle.dash, p.strokeWidth, defStyle.dashK, defStyle.gapK), strokeLineCap: 'round', strokeLineJoin: 'round', kvId: uid(), kvName: `Traço livre ${n}` });
   raiseChrome(); applyObjState(p); canvas.requestRenderAll(); commit(); scheduleLayers();
 });
 canvas.on('mouse:out', () => { cursorScreen = null; hoverSnap = null; if (!drawState) canvas.clearContext(canvas.contextTop); scheduleRulers(); });
@@ -5539,15 +5551,16 @@ function refreshCtx() {
   $('#lb-fill').textContent = (ctx.text && !t.some(o => !noFill(o) && !isText(o) && !isDim(o))) ? (t.some(isDim) || (!t.length && tool === 'dim') ? 'Texto' : 'Cor') : 'Preench.';
   const src = first ? {
     stroke: colorParts(first.stroke), fill: colorParts(isText(first) || !noFill(first) ? first.fill : (t.find(o => !noFill(o)) || {}).fill),
-    strokeMm: pt2mm(first.strokeWidth || 0), dash: first.kvDash || 'solid', opacity: first.opacity ?? 1,
+    strokeMm: pt2mm(first.strokeWidth || 0), dash: first.kvDash || 'solid', dk: first.kvDashK || 1, gk: first.kvGapK || 1, opacity: first.opacity ?? 1,
     headMm: pt2mm((t.find(hasHeads) || {}).headSize || mm2pt(defStyle.headMm)),
     aStart: (t.find(hasHeads) || {}).arrowStart || 'none', aEnd: (t.find(hasHeads) || {}).arrowEnd || 'none'
   } : {
-    stroke: colorParts(defStyle.stroke), fill: colorParts(tool === 'text' ? defText.fill : defStyle.fill), strokeMm: defStyle.strokeMm, dash: defStyle.dash,
+    stroke: colorParts(defStyle.stroke), fill: colorParts(tool === 'text' ? defText.fill : defStyle.fill), strokeMm: defStyle.strokeMm, dash: defStyle.dash, dk: defStyle.dashK || 1, gk: defStyle.gapK || 1,
     opacity: defStyle.opacity, headMm: defStyle.headMm, aStart: ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineStart : defStyle.arrowStart, aEnd: ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineEnd : defStyle.arrowEnd
   };
   setVal('#c-stroke', src.stroke.hex); setPressed($('#c-stroke-none'), src.stroke.none);
   setVal('#c-width', Math.round(src.strokeMm * 100) / 100); setVal('#c-dash', src.dash);
+  setVal('#c-dk', src.dk); setVal('#c-gk', src.gk); $$('.dash-k').forEach(el => { el.hidden = !src.dash || src.dash === 'solid'; });
   setVal('#c-fill', src.fill.hex); setPressed($('#c-fill-none'), src.fill.none); setVal('#c-fill-a', Math.round(src.fill.a * 100));
   setVal('#c-op', Math.round(src.opacity * 100)); setVal('#c-op-n', Math.round(src.opacity * 100));
   setVal('#c-head', Math.round(src.headMm * 10) / 10); setVal('#c-start', src.aStart); setVal('#c-end', src.aEnd);
@@ -5632,7 +5645,7 @@ function applyGeom(key) {
 function applyStyle(key) {
   const sHex = $('#c-stroke').value, sNone = $('#c-stroke-none').getAttribute('aria-pressed') === 'true';
   const fHex = $('#c-fill').value, fNone = $('#c-fill-none').getAttribute('aria-pressed') === 'true', fA = clamp(+$('#c-fill-a').value || 0, 0, 100) / 100;
-  const wMm = Math.max(0, parseFloat($('#c-width').value) || 0), dash = $('#c-dash').value;
+  const wMm = Math.max(0, parseFloat($('#c-width').value) || 0), dash = $('#c-dash').value, dk = clamp(parseFloat($('#c-dk').value) || 1, 0.1, 20), gk = clamp(parseFloat($('#c-gk').value) || 1, 0.1, 20);
   const op = clamp(+$('#c-op-n').value || 0, 0, 100) / 100, head = Math.max(0.5, parseFloat($('#c-head').value) || 4);
   const aS = $('#c-start').value, aE = $('#c-end').value;
   const es = editSel();
@@ -5651,6 +5664,7 @@ function applyStyle(key) {
     if (key === 'fill') { if (tool === 'text') defText.fill = rgba(fHex, fA || 1); else defStyle.fill = fNone ? '' : rgba(fHex, fA); }
     if (key === 'width') defStyle.strokeMm = wMm;
     if (key === 'dash') defStyle.dash = dash;
+    if (key === 'dashk') { defStyle.dashK = dk; defStyle.gapK = gk; }
     if (key === 'opacity') defStyle.opacity = op;
     if (key === 'head') defStyle.headMm = head;
     if (key === 'arrow') { if (['line', 'polyline', 'curve'].includes(tool)) { defStyle.lineStart = aS; defStyle.lineEnd = aE; } else { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; } }
@@ -5660,8 +5674,9 @@ function applyStyle(key) {
     if (o.kvRole) return;
     if (key === 'stroke' && !isText(o)) { const a0 = colorParts(o.stroke); o.set('stroke', sNone ? null : rgba(sHex, a0.none ? 1 : a0.a)); }
     if (key === 'fill' && !noFill(o)) { o.set('fill', fNone ? '' : rgba(fHex, fA)); if (isText(o) && o.removeStyle) { o.removeStyle('fill'); o.initDimensions && o.initDimensions(); } }
-    if (key === 'width' && !isText(o) && o.type !== 'image') { const sw = mm2pt(wMm); o.set({ strokeWidth: sw, strokeDashArray: dashArr(o.kvDash, sw) }); }
-    if (key === 'dash' && !isText(o) && o.type !== 'image') { o.kvDash = dash; o.set({ strokeDashArray: dashArr(dash, o.strokeWidth), strokeLineCap: capFor(dash) }); }
+    if (key === 'width' && !isText(o) && o.type !== 'image') { const sw = mm2pt(wMm); o.set({ strokeWidth: sw, strokeDashArray: dashArr(o.kvDash, sw, o.kvDashK, o.kvGapK) }); }
+    if (key === 'dash' && !isText(o) && o.type !== 'image') { o.kvDash = dash; o.set({ strokeDashArray: dashArr(dash, o.strokeWidth, o.kvDashK, o.kvGapK), strokeLineCap: capFor(dash) }); }
+    if (key === 'dashk' && !isText(o) && o.type !== 'image') { o.kvDashK = dk; o.kvGapK = gk; o.set({ strokeDashArray: dashArr(o.kvDash, o.strokeWidth, dk, gk) }); }
     if (key === 'opacity') o.set('opacity', op);
     if (key === 'head' && hasHeads(o)) o.set('headSize', mm2pt(head));
     if (key === 'arrow' && hasHeads(o)) { o.set({ arrowStart: aS, arrowEnd: aE }); o.kvName = o.kvName && /^(Linha|Seta)\b/.test(o.kvName) ? o.kvName.replace(/^(Linha|Seta)/, aS === 'none' && aE === 'none' ? 'Linha' : 'Seta') : o.kvName; }
@@ -5720,7 +5735,9 @@ $('#c-dash').innerHTML = DASHES.map(d => `<option value="${d[0]}">${d[2]}  ${d[1
 onChange('#c-stroke', () => { setPressed($('#c-stroke-none'), false); applyStyle('stroke'); }, 'input');
 $('#c-stroke-none').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyStyle('stroke'); };
 onChange('#c-width', () => applyStyle('width'), 'input');
-onChange('#c-dash', () => applyStyle('dash'));
+onChange('#c-dash', () => { applyStyle('dash'); $$('.dash-k').forEach(el => { el.hidden = $('#c-dash').value === 'solid'; }); });
+onChange('#c-dk', () => applyStyle('dashk'), 'input'); onChange('#c-gk', () => applyStyle('dashk'), 'input');
+$('#c-dk-reset').onclick = () => { setVal('#c-dk', 1); setVal('#c-gk', 1); applyStyle('dashk'); };
 onChange('#c-fill', () => { setPressed($('#c-fill-none'), false); if (+$('#c-fill-a').value === 0) $('#c-fill-a').value = 100; applyStyle('fill'); }, 'input');
 $('#c-fill-none').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyStyle('fill'); };
 onChange('#c-fill-a', () => { setPressed($('#c-fill-none'), false); applyStyle('fill'); }, 'input');
