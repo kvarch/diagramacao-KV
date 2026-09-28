@@ -448,6 +448,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     </select>
     <label class="sr-only" for="c-head">Tamanho da ponta em milímetros</label>
     <input type="number" id="c-head" min="0.5" step="0.5" title="Tamanho da ponta (mm)"><span class="unit">mm</span>
+    <label class="sr-only" for="c-hang">Ângulo da ponta em graus</label><input type="number" id="c-hang" min="5" max="80" step="1" title="Ângulo da ponta (°) — entre a linha e cada lado da seta; vazio = padrão do tipo"><span class="unit">°</span>
   </div>
   <div class="cg" id="cg-fill">
     <span class="cg-label" id="lb-fill">Preench.</span>
@@ -1056,7 +1057,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V40 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V41 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1107,7 +1108,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V40 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V41 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1123,7 +1124,7 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
@@ -1354,7 +1355,7 @@ function innerArea(s) {
 }
 
 /* Estilo padrão (editado na barra contextual quando nada está selecionado) */
-const defStyle = { stroke: 'rgba(0,0,0,1)', fill: 'rgba(0,172,205,0.35)', strokeMm: 0.35, dash: 'solid', dashK: 1, gapK: 1, opacity: 1, headMm: 4, arrowStart: 'none', arrowEnd: 'triangle', lineStart: 'none', lineEnd: 'none' };
+const defStyle = { stroke: 'rgba(0,0,0,1)', fill: 'rgba(0,172,205,0.35)', strokeMm: 0.35, dash: 'solid', dashK: 1, gapK: 1, headAngle: null, opacity: 1, headMm: 4, arrowStart: 'none', arrowEnd: 'triangle', lineStart: 'none', lineEnd: 'none' };
 const defText = { boxFill: '', boxStroke: '', boxStrokeWidth: 0, boxDash: 'solid', boxPad: 0, padding: 0, paraSpace: 0, fontFamily: 'Hind', fontSize: 14, fill: 'rgba(0,0,0,1)', fontWeight: 'normal', fontStyle: 'normal', underline: false, textAlign: 'left', lineHeight: 1.16, charSpacing: 0 };
 /* Tipos de linha (múltiplos da espessura; 0 = ponto) */
 const DASHES = [
@@ -1429,18 +1430,19 @@ fabric.Kvarrow = fabric.util.createClass(fabric.Line, {
     const cos = Math.cos(ang), sin = Math.sin(ang), out = { cut: 0, polys: [], lines: [], dots: [], paths: [] };
     /* seta aberta: as duas hastes são um único traço com canto em quina (sem falha na ponta); recua para a quina cair na extremidade */
     const openHead = (len, halfW) => { const sw = this.strokeWidth || 1, off = (sw / 2) / Math.sin(Math.atan2(halfW, len)), tx = x - cos * off, ty = y - sin * off, bx = tx - cos * len, by = ty - sin * len, nx = -sin * halfW, ny = cos * halfW; out.paths.push([[bx + nx, by + ny], [tx, ty], [bx - nx, by - ny]]); out.cut = off; };
+    const ha = this.headAngle > 0 ? Math.tan(clamp(this.headAngle, 5, 80) * Math.PI / 180) : null;   // ângulo definido pelo usuário (tangente)
     if (type === 'triangle') {
-      const W = L * 0.42, bx = x - cos * L, by = y - sin * L, nx = -sin * W, ny = cos * W;
+      const W = ha ? L * ha : L * 0.42, bx = x - cos * L, by = y - sin * L, nx = -sin * W, ny = cos * W;
       out.polys.push([[x, y], [bx + nx, by + ny], [bx - nx, by - ny]]); out.cut = L;
     } else if (type === 'open') {
-      openHead(L, L * 0.45);
+      openHead(L, ha ? L * ha : L * 0.45);
     } else if (type === 'dot') {
       out.dots.push([x, y, L * 0.28]);
     } else if (type === 'tri45') {
-      const W = L * 0.9, bx = x - cos * L * 0.9, by = y - sin * L * 0.9, nx = -sin * W, ny = cos * W;
+      const W = ha ? L * 0.9 * ha : L * 0.9, bx = x - cos * L * 0.9, by = y - sin * L * 0.9, nx = -sin * W, ny = cos * W;
       out.polys.push([[x, y], [bx + nx, by + ny], [bx - nx, by - ny]]); out.cut = L * 0.9;
     } else if (type === 'open45') {
-      openHead(L * 0.75, L * 0.75);
+      openHead(L * 0.75, ha ? L * 0.75 * ha : L * 0.75);
     } else if (type === 'bar') {
       const h = L * 0.5, nx = -sin * h, ny = cos * h;
       out.lines.push([x - nx, y - ny, x + nx, y + ny]);
@@ -1462,7 +1464,7 @@ fabric.Kvarrow = fabric.util.createClass(fabric.Line, {
     if (!this.stroke) return;
     drawHeads(this, ctx, [s, e]);
   },
-  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, headAngle: this.headAngle || null, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
   _toSVG() {
     const { p, ang, s, e } = this._heads(), cos = Math.cos(ang), sin = Math.sin(ang);
     return ['<line ', 'COMMON_PARTS', 'x1="', p.x1 + cos * s.cut, '" y1="', p.y1 + sin * s.cut, '" x2="', p.x2 - cos * e.cut, '" y2="', p.y2 - sin * e.cut, '" />\n'];
@@ -1535,7 +1537,7 @@ fabric.Kvpolyline = fabric.util.createClass(fabric.Polyline, {
     this._renderPaintInOrder(ctx);
     drawHeads(this, ctx, [s, e]);
   },
-  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, headAngle: this.headAngle || null, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
   toSVG(reviver) { const { s, e } = this._polyHeads(); return this.callSuper('toSVG', reviver) + headsSVG(this, [s, e]); }
 });
 fabric.Kvpolyline.fromObject = function (o, cb) { return fabric.Object._fromObject('Kvpolyline', o, cb, 'points'); };
@@ -2521,13 +2523,13 @@ function finishDraw() {
   switch (s.type) {
     case 'line':
       if (tiny(s.start, s.cur)) return;
-      obj = new fabric.Kvarrow([s.start.x, s.start.y, s.cur.x, s.cur.y], { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: defStyle.lineStart, arrowEnd: defStyle.lineEnd }); name = (defStyle.lineStart !== 'none' || defStyle.lineEnd !== 'none') ? 'Seta' : 'Linha'; break;
+      obj = new fabric.Kvarrow([s.start.x, s.start.y, s.cur.x, s.cur.y], { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), headAngle: defStyle.headAngle, arrowStart: defStyle.lineStart, arrowEnd: defStyle.lineEnd }); name = (defStyle.lineStart !== 'none' || defStyle.lineEnd !== 'none') ? 'Seta' : 'Linha'; break;
     case 'dim':
       if (tiny(s.start, s.cur)) return;
       obj = makeDim(s.start, s.cur); name = 'Cota'; break;
     case 'arrow':
       if (tiny(s.start, s.cur)) return;
-      obj = new fabric.Kvarrow([s.start.x, s.start.y, s.cur.x, s.cur.y], { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: defStyle.arrowStart, arrowEnd: defStyle.arrowEnd === 'none' ? 'triangle' : defStyle.arrowEnd }); name = 'Seta'; break;
+      obj = new fabric.Kvarrow([s.start.x, s.start.y, s.cur.x, s.cur.y], { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), headAngle: defStyle.headAngle, arrowStart: defStyle.arrowStart, arrowEnd: defStyle.arrowEnd === 'none' ? 'triangle' : defStyle.arrowEnd }); name = 'Seta'; break;
     case 'rect': {
       const r = rectFrom(s.start, s.cur, s.e); if (r.w * z < 3 || r.h * z < 3) return;
       obj = new fabric.Rect({ left: r.x - sw / 2, top: r.y - sw / 2, width: r.w, height: r.h, ...styleFor('closed') }); name = 'Retângulo'; break;
@@ -2543,11 +2545,11 @@ function finishDraw() {
     }
     case 'polyline': {
       const pts = dedupe(s.pts); if (pts.length < 2) return;
-      obj = new fabric.Kvpolyline(pts, { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), arrowStart: defStyle.lineStart, arrowEnd: defStyle.lineEnd }); name = 'Polilinha'; break;
+      obj = new fabric.Kvpolyline(pts, { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), headAngle: defStyle.headAngle, arrowStart: defStyle.lineStart, arrowEnd: defStyle.lineEnd }); name = 'Polilinha'; break;
     }
     case 'curve': {
       const pts = dedupe(s.pts); if (pts.length < 2) return;
-      obj = new fabric.Kvcurve(pts, { ...styleFor(s.closed ? 'closed' : 'open'), closed: !!s.closed, headSize: mm2pt(defStyle.headMm), arrowStart: s.closed ? 'none' : defStyle.lineStart, arrowEnd: s.closed ? 'none' : defStyle.lineEnd }); name = 'Curva'; break;
+      obj = new fabric.Kvcurve(pts, { ...styleFor(s.closed ? 'closed' : 'open'), closed: !!s.closed, headSize: mm2pt(defStyle.headMm), headAngle: defStyle.headAngle, arrowStart: s.closed ? 'none' : defStyle.lineStart, arrowEnd: s.closed ? 'none' : defStyle.lineEnd }); name = 'Curva'; break;
     }
     case 'polygon': {
       const pts = dedupe(s.pts); if (pts.length < 3) return;
@@ -5553,6 +5555,7 @@ function refreshCtx() {
   setVal('#c-fill', src.fill.hex); setPressed($('#c-fill-none'), src.fill.none); setVal('#c-fill-a', Math.round(src.fill.a * 100));
   setVal('#c-op', Math.round(src.opacity * 100)); setVal('#c-op-n', Math.round(src.opacity * 100));
   setVal('#c-head', Math.round(src.headMm * 10) / 10); setVal('#c-start', src.aStart); setVal('#c-end', src.aEnd);
+  { const ho = first ? t.find(hasHeads) : null, hv = ho ? ho.headAngle : defStyle.headAngle, typ = src.aEnd !== 'none' ? src.aEnd : src.aStart; setVal('#c-hang', hv > 0 ? hv : ''); $('#c-hang').placeholder = /45/.test(typ) ? '45' : (typ === 'triangle' || typ === 'open') ? '24' : '—'; }
   let x = t.find(o => isText(o) || isDim(o)) || (tool === 'text' ? defText : !t.length && tool === 'dim' ? defDim : null);
   const es = editSel();
   if (es) { const st = es.getSelectionStyles(es.selectionStart, es.selectionStart + 1, true)[0] || {}; x = { ...es, ...st, textAlign: es.textAlign, lineHeight: es.lineHeight, paraSpace: es.paraSpace }; setVal('#c-fill', colorParts(x.fill).hex); $('#ctx-info').textContent = 'Texto selecionado'; }
@@ -5635,7 +5638,7 @@ function applyStyle(key) {
   const sHex = $('#c-stroke').value, sNone = $('#c-stroke-none').getAttribute('aria-pressed') === 'true';
   const fHex = $('#c-fill').value, fNone = $('#c-fill-none').getAttribute('aria-pressed') === 'true', fA = clamp(+$('#c-fill-a').value || 0, 0, 100) / 100;
   const wMm = Math.max(0, parseFloat($('#c-width').value) || 0), dash = $('#c-dash').value, dk = clamp(parseFloat($('#c-dk').value) || 1, 0.1, 20), gk = clamp(parseFloat($('#c-gk').value) || 1, 0.1, 20);
-  const op = clamp(+$('#c-op-n').value || 0, 0, 100) / 100, head = Math.max(0.5, parseFloat($('#c-head').value) || 4);
+  const op = clamp(+$('#c-op-n').value || 0, 0, 100) / 100, head = Math.max(0.5, parseFloat($('#c-head').value) || 4), hAng = parseFloat($('#c-hang').value) > 0 ? clamp(parseFloat($('#c-hang').value), 5, 80) : null;
   const aS = $('#c-start').value, aE = $('#c-end').value;
   const es = editSel();
   if (es && key === 'fill') { es.setSelectionStyles({ fill: fNone ? 'rgba(0,0,0,1)' : rgba(fHex, fA || 1) }); es.dirty = true; canvas.requestRenderAll(); commit(); return; }
@@ -5656,6 +5659,7 @@ function applyStyle(key) {
     if (key === 'dashk') { defStyle.dashK = dk; defStyle.gapK = gk; }
     if (key === 'opacity') defStyle.opacity = op;
     if (key === 'head') defStyle.headMm = head;
+    if (key === 'hangle') defStyle.headAngle = hAng;
     if (key === 'arrow') { if (['line', 'polyline', 'curve'].includes(tool)) { defStyle.lineStart = aS; defStyle.lineEnd = aE; } else { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; } }
     return;
   }
@@ -5668,6 +5672,7 @@ function applyStyle(key) {
     if (key === 'dashk' && !isText(o) && o.type !== 'image') { o.kvDashK = dk; o.kvGapK = gk; o.set({ strokeDashArray: dashArr(o.kvDash, o.strokeWidth, dk, gk) }); }
     if (key === 'opacity') o.set('opacity', op);
     if (key === 'head' && hasHeads(o)) o.set('headSize', mm2pt(head));
+    if (key === 'hangle' && hasHeads(o)) { o.set('headAngle', hAng); o.dirty = true; }
     if (key === 'arrow' && hasHeads(o)) { o.set({ arrowStart: aS, arrowEnd: aE }); o.kvName = o.kvName && /^(Linha|Seta)\b/.test(o.kvName) ? o.kvName.replace(/^(Linha|Seta)/, aS === 'none' && aE === 'none' ? 'Linha' : 'Seta') : o.kvName; }
     o.dirty = true; if (o.group) o.group.dirty = true; o.setCoords();
   });
@@ -5733,6 +5738,7 @@ onChange('#c-fill-a', () => { setPressed($('#c-fill-none'), false); applyStyle('
 onChange('#c-op', () => { $('#c-op-n').value = $('#c-op').value; applyStyle('opacity'); }, 'input');
 onChange('#c-op-n', () => { $('#c-op').value = $('#c-op-n').value; applyStyle('opacity'); }, 'input');
 onChange('#c-head', () => applyStyle('head'), 'input');
+onChange('#c-hang', () => applyStyle('hangle'), 'input');
 onChange('#c-start', () => applyStyle('arrow')); onChange('#c-end', () => applyStyle('arrow'));
 
 function applyText(props) {
