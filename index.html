@@ -1067,7 +1067,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V43 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V44 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1125,7 +1125,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V43 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V44 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -6517,33 +6517,29 @@ async function exportPDF(list, dpi, name) {
      Pipeline: SVG por folha → svg2pdf.js inclui no jsPDF → salvar. */
   if (!window.jspdf) throw new Error('jsPDF não carregado');
   const { jsPDF } = window.jspdf;
-  /* svg2pdf.js: carregado sob demanda, 130 kB, único uso vetorial */
-  if (!window.svg2pdf) {
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/svg2pdf.js/2.2.3/svg2pdf.umd.min.js';
-      s.onload = res; s.onerror = () => rej(new Error('svg2pdf não pôde ser carregado — verifique a conexão e tente novamente'));
-      document.head.appendChild(s);
-    });
-  }
+  /* svg2pdf.js: carregado sob demanda; se não carregar, exporta como antes (imagem) */
+  let s2p;
+  try { s2p = await loadSvg2pdf(); }
+  catch (e) { toast('Não foi possível carregar o gerador de PDF vetorial; exportando em modo imagem.', true); return exportPDFRaster(list, dpi, name); }
   const lossless = $('#ex-comp').value === 'png', imgQ = lossless ? 1.0 : 0.92;
-  let pdf = null;
+  let pdf = null, fonts = null;
+  try { setProgress(0, 'Carregando fontes…'); fonts = await loadHindFonts(); } catch (e) { toast('Fonte Hind não carregou; os textos do PDF usarão Helvetica.', true); }
   const total = list.length;
   await withExport(async () => {
     for (let idx = 0; idx < list.length; idx++) {
       const sh = list[idx];
       setProgress(idx / total, `Gerando página ${idx + 1} de ${total}…`); await tick();
       const r = sheetRect(sh.id), orient = r.w >= r.h ? 'landscape' : 'portrait';
-      if (!pdf) pdf = new jsPDF({ orientation: orient, unit: 'pt', format: [r.w, r.h], compress: true });
+      if (!pdf) { pdf = new jsPDF({ orientation: orient, unit: 'pt', format: [r.w, r.h], compress: true }); registerFonts(pdf, fonts); }
       else pdf.addPage([r.w, r.h], orient);
       /* Gerar SVG da folha via exportSVG, capturar como texto */
       const svgText = await sheetToSvgText(sh, r);
       /* Substituir imagens inline por versão em alta resolução (dpi) */
-      const patchedSvg = await upscaleImagesInSvg(svgText, dpi, imgQ, r);
+      const patchedSvg = mapSvgFonts(await upscaleImagesInSvg(svgText, dpi, imgQ, r), !!fonts);
       /* Incluir SVG no jsPDF via svg2pdf */
       const parser = new DOMParser(), svgDoc = parser.parseFromString(patchedSvg, 'image/svg+xml');
       const svgEl = svgDoc.documentElement;
-      await window.svg2pdf(svgEl, pdf, { x: 0, y: 0, width: r.w, height: r.h });
+      await s2p(svgEl, pdf, { x: 0, y: 0, width: r.w, height: r.h });
     }
   });
   pdf.setProperties({ title: doc.project.projeto || name, creator: 'KV Pranchas · Königsberger Vannucchi' });
@@ -6551,9 +6547,88 @@ async function exportPDF(list, dpi, name) {
   download(pdf.output('blob'), name + '.pdf');
 }
 /* Captura o SVG de uma folha: usa o mesmo pipeline do exportSVG mas só para uma folha */
+/* Fontes no PDF vetorial: Hind é embutida (arquivos TTF oficiais do Google Fonts); as demais usam as fontes-padrão do PDF */
+const HIND_BASE = ['https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/hind/', 'https://raw.githubusercontent.com/google/fonts/main/ofl/hind/'];
+const HIND_FILES = { normal: 'Hind-Regular.ttf', bold: 'Hind-SemiBold.ttf' };
+let hindCache = null;
+async function loadHindFonts() {
+  if (hindCache) return hindCache;
+  const out = {};
+  for (const [style, file] of Object.entries(HIND_FILES)) {
+    for (const base of HIND_BASE) {
+      try { const r = await fetch(base + file); if (!r.ok) continue; const buf = new Uint8Array(await r.arrayBuffer()); let s = ''; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000)); out[style] = { file, b64: btoa(s) }; break; } catch (e) {}
+    }
+  }
+  if (!out.normal) throw new Error('fonte Hind indisponível');
+  hindCache = out; return out;
+}
+function registerFonts(pdf, fonts) {
+  if (!fonts) return;
+  for (const [style, f] of Object.entries(fonts)) { pdf.addFileToVFS(f.file, f.b64); pdf.addFont(f.file, 'Hind', style); }
+  if (!fonts.bold) pdf.addFont(fonts.normal.file, 'Hind', 'bold');
+}
+/* Troca nomes de fonte do SVG pelas fontes disponíveis no PDF */
+function mapSvgFonts(svg, hasHind) {
+  const map = f => { const n = f.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
+    if (n === 'hind' || n === 'hedley new') return hasHind ? 'Hind' : 'helvetica';
+    if (/times|georgia|serif$/.test(n) && !/sans/.test(n)) return 'times';
+    if (/courier|mono/.test(n)) return 'courier';
+    return 'helvetica'; };
+  /* Hind não tem itálico: no PDF sai reta (em vez de trocar de fonte) */
+  if (hasHind) svg = svg.replace(/(<text[^>]*font-family="(?:Hind|Hedley New)"[^>]*?)font-style="italic"/g, '$1font-style="normal"');
+  return svg.replace(/font-family="([^"]+)"/g, (m, f) => `font-family="${map(f)}"`).replace(/font-family:\s*([^;"]+)/g, (m, f) => `font-family: ${map(f)}`)
+            .replace(/font-weight="(\d+)"/g, (m, w) => `font-weight="${+w >= 600 ? 'bold' : 'normal'}"`).replace(/font-weight:\s*(\d+)/g, (m, w) => `font-weight: ${+w >= 600 ? 'bold' : 'normal'}`);
+}
+const SVG2PDF_URLS = ['https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js', 'https://unpkg.com/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js'];
+async function loadSvg2pdf() {
+  const get = () => window.svg2pdf && (typeof window.svg2pdf === 'function' ? window.svg2pdf : window.svg2pdf.svg2pdf);
+  if (get()) return get();
+  for (const u of SVG2PDF_URLS) {
+    try { await new Promise((res, rej) => { const el = document.createElement('script'); el.src = u; el.onload = res; el.onerror = rej; document.head.appendChild(el); }); if (get()) return get(); } catch (e) {}
+  }
+  throw new Error('svg2pdf indisponível');
+}
+async function exportPDFRaster(list, dpi, name) {
+  const m = dpi / 72, TILE = 2048, tw = TILE / m, lossless = $('#ex-comp').value === 'png';
+  const { jsPDF } = window.jspdf;
+  let pdf = null, pageN = 0;
+  const totalTiles = list.reduce((s, sh) => { const r = sheetRect(sh.id); return s + Math.ceil(r.w / tw - 1e-9) * Math.ceil(r.h / tw - 1e-9); }, 0);
+  let n = 0;
+  await withExport(async () => {
+    for (const sh of list) {
+      const r = sheetRect(sh.id), orient = r.w >= r.h ? 'landscape' : 'portrait';
+      if (!pdf) pdf = new jsPDF({ orientation: orient, unit: 'pt', format: [r.w, r.h], compress: true }); else pdf.addPage([r.w, r.h], orient);
+      pageN++;
+      const cols = Math.ceil(r.w / tw - 1e-9), rows = Math.ceil(r.h / tw - 1e-9);
+      for (let yi = 0; yi < rows; yi++) for (let xi = 0; xi < cols; xi++) {
+        const lx = xi * tw, ly = yi * tw, ww = Math.min(tw, r.w - lx), hh = Math.min(tw, r.h - ly);
+        const el = renderRegion(m, r.x + lx, r.y + ly, ww, hh);
+        pdf.addImage(lossless ? el.toDataURL('image/png') : el.toDataURL('image/jpeg', 0.92), lossless ? 'PNG' : 'JPEG', lx, ly, el.width / m, el.height / m, undefined, lossless ? 'FAST' : 'NONE');
+        el.width = el.height = 0; n++;
+        setProgress(n / totalTiles, `Folha ${sheetIndex(sh.id) + 1}: bloco ${n} de ${totalTiles}…`); await tick();
+      }
+    }
+  });
+  pdf.setProperties({ title: doc.project.projeto || name, creator: 'KV Pranchas · Königsberger Vannucchi' });
+  setProgress(1, 'Gerando PDF…'); await tick();
+  download(pdf.output('blob'), name + '.pdf');
+}
+/* SVG de uma folha na mesma ordem da tela: elementos “abaixo do modelo” → modelo de fundo → elementos → moldura e selo */
 async function sheetToSvgText(sh, r) {
-  /* toSVG is synchronous in Fabric; call directly inside withExport context which is already active */
-  return canvas.toSVG({ viewBox: { x: r.x, y: r.y, width: r.w, height: r.h }, width: r.w, height: r.h });
+  const i = sheetIndex(sh.id);
+  const inR = o => { const b = o.getBoundingRect(true, true); return b.left < r.x + r.w && b.left + b.width > r.x && b.top < r.y + r.h && b.top + b.height > r.y; };
+  const vis = o => o.visible !== false && !o.kvHidden;
+  const users = canvas.getObjects().filter(o => !o.kvRole && vis(o) && sheetOf(o).id === sh.id);
+  const below = mode === 'sheets' && hasTpl(sh) ? users.filter(o => o.kvBelow) : [];
+  const chrome = canvas.getObjects().filter(o => o.kvRole && vis(o) && inR(o));
+  let body = below.map(o => o.toSVG()).join('\n');
+  if (mode === 'sheets' && sh.template) {
+    const g = tplGroupFor(sh, i);
+    if (g) { const T = tplTransform(sh, r); body += `<g transform="translate(${T.tx} ${T.ty}) scale(${T.sx} ${T.sy})">${g.toSVG()}</g>`; }
+  }
+  const order = canvas.getObjects();
+  body += order.filter(o => (users.includes(o) && !below.includes(o)) || chrome.includes(o)).map(o => o.toSVG()).join('\n');
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="${r.w}" height="${r.h}" viewBox="${r.x} ${r.y} ${r.w} ${r.h}"><defs><clipPath id="kvpg"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/></clipPath></defs><g clip-path="url(#kvpg)">${body}</g></svg>`;
 }
 /* Aumenta a resolução das imagens rasterizadas embutidas no SVG para a DPI escolhida.
    Imagens vetoriais (SVG inline) ficam intactas; apenas PNGs/JPEGs são reamostrados. */
