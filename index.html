@@ -994,6 +994,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
           </div>
           <div class="field" id="ex-comp-wrap"><label for="ex-comp">Compressão</label>
             <select id="ex-comp"><option value="jpeg">JPEG alta</option><option value="png">Sem perdas</option></select>
+          <p class="info" id="ex-pdf-note" hidden>PDF: textos e formas saem como vetores (nítidos em qualquer zoom). Imagens raster seguem os DPI escolhidos. Requer conexão de internet na primeira exportação.</p>
           </div>
         </div>
         <label class="check" id="ex-transp-wrap" hidden><input type="checkbox" id="ex-transp"> Fundo transparente</label>
@@ -1066,7 +1067,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V42 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V43 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1124,7 +1125,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V42 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V43 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -6511,29 +6512,72 @@ function renderRegion(m, left, top, w, h) {
   finally { canvas.viewportTransform = saved; canvas.calcViewportBoundaries(); }
 }
 async function exportPDF(list, dpi, name) {
-  const m = dpi / 72, TILE = 2048, tw = TILE / m, lossless = $('#ex-comp').value === 'png';
+  /* Exportação vetorial: textos e formas saem como vetores no PDF (nítidos em qualquer zoom).
+     Imagens raster embutidas seguem a resolução escolhida (DPI).
+     Pipeline: SVG por folha → svg2pdf.js inclui no jsPDF → salvar. */
+  if (!window.jspdf) throw new Error('jsPDF não carregado');
   const { jsPDF } = window.jspdf;
-  let pdf = null, pageN = 0;
-  const totalTiles = list.reduce((s, sh) => { const r = sheetRect(sh.id); return s + Math.ceil(r.w / tw - 1e-9) * Math.ceil(r.h / tw - 1e-9); }, 0);
-  let n = 0;
+  /* svg2pdf.js: carregado sob demanda, 130 kB, único uso vetorial */
+  if (!window.svg2pdf) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/svg2pdf.js/2.2.3/svg2pdf.umd.min.js';
+      s.onload = res; s.onerror = () => rej(new Error('svg2pdf não pôde ser carregado — verifique a conexão e tente novamente'));
+      document.head.appendChild(s);
+    });
+  }
+  const lossless = $('#ex-comp').value === 'png', imgQ = lossless ? 1.0 : 0.92;
+  let pdf = null;
+  const total = list.length;
   await withExport(async () => {
-    for (const sh of list) {
+    for (let idx = 0; idx < list.length; idx++) {
+      const sh = list[idx];
+      setProgress(idx / total, `Gerando página ${idx + 1} de ${total}…`); await tick();
       const r = sheetRect(sh.id), orient = r.w >= r.h ? 'landscape' : 'portrait';
-      if (!pdf) pdf = new jsPDF({ orientation: orient, unit: 'pt', format: [r.w, r.h], compress: true }); else pdf.addPage([r.w, r.h], orient);
-      pageN++;
-      const cols = Math.ceil(r.w / tw - 1e-9), rows = Math.ceil(r.h / tw - 1e-9);
-      for (let yi = 0; yi < rows; yi++) for (let xi = 0; xi < cols; xi++) {
-        const lx = xi * tw, ly = yi * tw, ww = Math.min(tw, r.w - lx), hh = Math.min(tw, r.h - ly);
-        const el = renderRegion(m, r.x + lx, r.y + ly, ww, hh);
-        pdf.addImage(lossless ? el.toDataURL('image/png') : el.toDataURL('image/jpeg', 0.92), lossless ? 'PNG' : 'JPEG', lx, ly, el.width / m, el.height / m, undefined, lossless ? 'FAST' : 'NONE');
-        el.width = el.height = 0; n++;
-        setProgress(n / totalTiles, `Folha ${sheetIndex(sh.id) + 1}: bloco ${n} de ${totalTiles}…`); await tick();
-      }
+      if (!pdf) pdf = new jsPDF({ orientation: orient, unit: 'pt', format: [r.w, r.h], compress: true });
+      else pdf.addPage([r.w, r.h], orient);
+      /* Gerar SVG da folha via exportSVG, capturar como texto */
+      const svgText = await sheetToSvgText(sh, r);
+      /* Substituir imagens inline por versão em alta resolução (dpi) */
+      const patchedSvg = await upscaleImagesInSvg(svgText, dpi, imgQ, r);
+      /* Incluir SVG no jsPDF via svg2pdf */
+      const parser = new DOMParser(), svgDoc = parser.parseFromString(patchedSvg, 'image/svg+xml');
+      const svgEl = svgDoc.documentElement;
+      await window.svg2pdf(svgEl, pdf, { x: 0, y: 0, width: r.w, height: r.h });
     }
   });
   pdf.setProperties({ title: doc.project.projeto || name, creator: 'KV Pranchas · Königsberger Vannucchi' });
   setProgress(1, 'Gerando PDF…'); await tick();
   download(pdf.output('blob'), name + '.pdf');
+}
+/* Captura o SVG de uma folha: usa o mesmo pipeline do exportSVG mas só para uma folha */
+async function sheetToSvgText(sh, r) {
+  /* toSVG is synchronous in Fabric; call directly inside withExport context which is already active */
+  return canvas.toSVG({ viewBox: { x: r.x, y: r.y, width: r.w, height: r.h }, width: r.w, height: r.h });
+}
+/* Aumenta a resolução das imagens rasterizadas embutidas no SVG para a DPI escolhida.
+   Imagens vetoriais (SVG inline) ficam intactas; apenas PNGs/JPEGs são reamostrados. */
+async function upscaleImagesInSvg(svgText, dpi, q, r) {
+  const scale = dpi / 72, parser = new DOMParser(), doc2 = parser.parseFromString(svgText, 'image/svg+xml');
+  const imgs = doc2.querySelectorAll('image');
+  for (const img of imgs) {
+    const href = img.getAttribute('href') || img.getAttribute('xlink:href') || '';
+    if (!href.startsWith('data:image/') || href.includes('data:image/svg')) continue;
+    const w = parseFloat(img.getAttribute('width') || '0'), h = parseFloat(img.getAttribute('height') || '0');
+    if (!w || !h) continue;
+    const pw = Math.round(w * scale), ph = Math.round(h * scale);
+    if (pw <= 0 || ph <= 0) continue;
+    const im = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = href; });
+    if (!im) continue;
+    /* só reamostrar se a imagem fonte tiver resolução menor que a pedida */
+    if (im.naturalWidth >= pw && im.naturalHeight >= ph) continue;
+    const c = document.createElement('canvas'); c.width = pw; c.height = ph;
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, pw, ph);
+    const mime = href.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png';
+    img.setAttribute('href', c.toDataURL(mime, q)); img.removeAttribute('xlink:href');
+    c.width = c.height = 0;
+  }
+  return new XMLSerializer().serializeToString(doc2);
 }
 const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(buf) { let c = 0xffffffff; for (let i = 0; i < buf.length; i++) c = CRC_T[(c ^ buf[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
