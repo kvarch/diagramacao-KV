@@ -338,7 +338,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .pal-sep{width:1px;min-width:1px;height:28px;background:var(--md-sys-color-outline-variant);margin:10px 6px}
 #sym-north-grid{grid-template-columns:repeat(4,1fr)}
 .sym-pop{width:380px}
-#sync-push.has-changes{color:var(--md-sys-color-primary);box-shadow:inset 0 -3px 0 var(--md-sys-color-primary)}
+#sync-pull.has-changes,#sync-push.has-changes{color:var(--md-sys-color-primary);box-shadow:inset 0 -3px 0 var(--md-sys-color-primary)}
 .pdf-dlg{position:fixed;inset:0;z-index:140;display:grid;place-items:center;background:rgba(0,0,0,.35)}
 .pdf-dlg[hidden]{display:none}
 .pdf-box{width:min(760px,94vw);max-height:90vh;display:flex;flex-direction:column;gap:10px;padding:16px 20px;background:var(--md-sys-color-surface-container-lowest);border:1px solid var(--md-sys-color-outline)}
@@ -993,8 +993,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
             <select id="ex-dpi"><option value="150">150 DPI</option><option value="200">200 DPI</option><option value="300" selected>300 DPI</option><option value="400">400 DPI</option></select>
           </div>
           <div class="field" id="ex-comp-wrap"><label for="ex-comp">Compressão</label>
-            <select id="ex-comp"><option value="jpeg">JPEG alta</option><option value="png">Sem perdas</option></select>
-          <p class="info" id="ex-pdf-note" hidden>PDF: textos e formas saem como vetores (nítidos em qualquer zoom). Imagens raster seguem os DPI escolhidos. Requer conexão de internet na primeira exportação.</p>
+            <select id="ex-comp"><option value="jpeg">Otimizado (JPEG, arquivo menor)</option><option value="png">Sem perdas (PNG, arquivo grande)</option></select>
+          <p class="info" id="ex-pdf-note" hidden>PDF: textos e formas saem como vetores (nítidos em qualquer zoom). As imagens são ajustadas ao tamanho em que aparecem na folha, na resolução escolhida — 300 DPI “Otimizado” é o recomendado para impressão.</p>
           </div>
         </div>
         <label class="check" id="ex-transp-wrap" hidden><input type="checkbox" id="ex-transp"> Fundo transparente</label>
@@ -1067,7 +1067,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V44 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V46 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1125,7 +1125,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V44 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V46 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -4969,8 +4969,12 @@ async function storeOpen() {
    kv-img-<hash>.<ext>.json → imagens em base64 (enviadas uma vez)
    Junção por folha em 3 vias (base = última versão sincronizada): folhas diferentes juntam sozinhas;
    a mesma folha alterada por dois lados vira conflito, resolvido por quem sincroniza. */
-const SYNC_FILE = 'kv-pranchas-sync.json', IMG_PREFIX = 'kv-img-';
-let syncOk = false, syncState = { base: {}, remoteUpdated: null, remoteAt: 0, lastPush: 0 }, syncBusy = false, syncAuto = true;
+const SYNC_FILE = 'kv-pranchas-sync.json', IMG_PREFIX = 'kv-img-', HEAD_FILE = 'kv-pranchas-head.json';
+/* Controle de versão: cada envio grava um identificador único (rev) no projeto e num arquivo pequeno de cabeçalho.
+   A detecção de novidades usa esse rev — não a data do anexo, que o Giraffe nem sempre atualiza ao regravar. */
+async function readHead() { const a = attByName(HEAD_FILE); if (!a) return null; try { return await fetchAtt(a, true); } catch (e) { return null; } }
+const newRev = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+let syncOk = false, syncState = { base: {}, remoteRev: null, remoteAt: 0, lastPush: 0 }, syncBusy = false, syncAuto = true;
 let syncPushTimer = 0, syncPollTimer = 0, syncAtts = [], syncUser = null;
 const partHash = p => p === undefined ? null : (() => { const s = JSON.stringify(p); return hashStr(s) + ':' + s.length; })();
 function splitBySheet(sheets, objsAbs) {
@@ -5200,17 +5204,25 @@ async function syncPull(opts = {}) {
     await refreshAtts();
     const a = attByName(SYNC_FILE);
     if (!a) { if (opts.manual) toast('Ainda não há nada salvo no projeto do Giraffe. Use “Enviar alterações”.'); return false; }
-    if (!opts.manual && a.updated_at && a.updated_at === syncState.remoteUpdated) return false;
+    const head = await readHead();
+    if (!opts.manual && head && head.rev && head.rev === syncState.remoteRev) return false;   // nada novo
     setSyncStatus('☁ Recebendo alterações…');
     const m = await fetchJsonAtt(a);
     if (!m || m.app !== 'kv-pranchas' || !m.parts) throw new Error('arquivo de sincronização inválido');
+    if (head && head.rev && m.rev && head.rev !== m.rev) { if (opts.manual) toast('O projeto está sendo salvo por outra pessoa neste instante. Tente receber de novo em alguns segundos.'); return false; }
+    if (!head && !opts.manual && m.savedAt && m.savedAt === syncState.remoteAt && Object.keys(syncState.base).length) return false;   // formato antigo, sem cabeçalho
     const R = m.parts, L = await buildSyncParts();
     const empty = userObjects().length === 0 && Object.keys(syncState.base).length === 0;
     let result, conflicts = [];
     if (empty) result = R;
     else ({ result, conflicts } = mergeParts(L, R, syncState.base));
     if (conflicts.length) {
-      if (opts.silent) { setSyncStatus(`☁ ${conflicts.length} conflito(s) com a versão de ${whoOf(m)} — clique em Receber`, 'warn'); syncState.pendingConflict = true; return false; }
+      if (opts.silent) {
+        setSyncStatus(`☁ ${conflicts.length} conflito(s) com a versão de ${whoOf(m)} — clique em Receber`, 'warn'); syncState.pendingConflict = true;
+        $('#sync-pull').classList.add('has-changes');
+        if (syncState.notifiedRev !== m.rev) { syncState.notifiedRev = m.rev; toast(`${whoOf(m)} alterou ${conflicts.length === 1 ? 'uma folha' : conflicts.length + ' folhas'} em que você também está trabalhando. Clique em “Receber alterações” (☁↓) para escolher o que manter.`, true); }
+        return false;
+      }
       await resolveConflicts(conflicts, L, R, result, whoOf(m));
     }
     const changed = Object.keys({ ...L, ...result }).some(k => partHash(L[k]) !== partHash(result[k]));
@@ -5226,7 +5238,7 @@ async function syncPull(opts = {}) {
       await storeSave();
     }
     syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
-    syncState.remoteUpdated = a.updated_at || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false;
+    syncState.remoteRev = m.rev || (head && head.rev) || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
     await saveSyncState();
     if (changed) toast(`Alterações de ${whoOf(m)} recebidas${conflicts.length ? ` (${conflicts.length} conflito(s) resolvido(s))` : ''}.`);
     else if (opts.manual) toast('Você já está com a versão mais recente do projeto.');
@@ -5245,18 +5257,21 @@ async function syncPush(opts = {}) {
     try {
       setSyncStatus('☁ Enviando alterações…');
       await refreshAtts();
-      const cur = attByName(SYNC_FILE);
-      if (cur && syncState.remoteUpdated && cur.updated_at && cur.updated_at !== syncState.remoteUpdated) { syncBusy = false; continue; }  // alguém salvou nesse meio-tempo: recebe de novo
+      const cur = attByName(SYNC_FILE), head = await readHead();
+      if (head && head.rev && head.rev !== syncState.remoteRev) { syncBusy = false; continue; }   // alguém enviou nesse meio-tempo: recebe de novo antes
+      if (!head && cur) { try { const m0 = await fetchJsonAtt(cur); if ((m0.savedAt || 0) !== (syncState.remoteAt || 0)) { syncBusy = false; continue; } } catch (e) {} }
       const parts = await buildSyncParts();
       if (cur && Object.keys(parts).every(k => partHash(parts[k]) === (syncState.base[k] ?? null)) && Object.keys(syncState.base).every(k => k in parts)) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); return true; }
       await pushAssets(parts);
       const u = await currentUser();
-      const m = { app: 'kv-pranchas', kind: 'sync', v: 1, savedAt: Date.now(), device: deviceId, by: u.email, byName: u.name, parts };
+      const rev = newRev(), m = { app: 'kv-pranchas', kind: 'sync', v: 2, rev, savedAt: Date.now(), device: deviceId, by: u.email, byName: u.name, parts };
+      /* última conferência antes de gravar */
+      { const h2 = await readHead(); if (h2 && h2.rev && h2.rev !== syncState.remoteRev) { syncBusy = false; continue; } }
       await uploadAtt(SYNC_FILE, m);
+      await uploadRaw(HEAD_FILE, JSON.stringify({ rev, savedAt: m.savedAt, device: deviceId, by: u.email, byName: u.name }));
       await refreshAtts();
-      const now = attByName(SYNC_FILE);
       syncState.base = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, partHash(v)]));
-      syncState.remoteUpdated = now ? now.updated_at || null : null; syncState.remoteAt = m.savedAt; syncState.lastPush = Date.now(); syncState.lastSync = Date.now();
+      syncState.remoteRev = rev; syncState.remoteAt = m.savedAt; syncState.lastPush = Date.now(); syncState.lastSync = Date.now();
       await saveSyncState();
       if (opts.manual) toast('Alterações enviadas para o projeto no Giraffe.');
       return true;
@@ -5278,7 +5293,7 @@ async function syncInit(opened) {
   $('#sync-push').disabled = $('#sync-pull').disabled = !syncOk;
   const info = $('#sync-info');
   if (!syncOk) { info.textContent = 'Disponível com o app aberto dentro de um projeto do Giraffe.'; return; }
-  try { syncState = Object.assign({ base: {}, remoteUpdated: null, remoteAt: 0, lastPush: 0 }, await idb.get('S:' + projectKey) || {}); } catch (e) {}
+  try { syncState = Object.assign({ base: {}, remoteRev: null, remoteAt: 0, lastPush: 0 }, await idb.get('S:' + projectKey) || {}); } catch (e) {}
   try { syncAuto = localStorage.getItem('kv-pranchas-syncauto') !== '0'; } catch (e) {}
   $('#sync-auto').checked = syncAuto;
   info.textContent = `Projeto do Giraffe ${projNum()}: o trabalho fica nos anexos do projeto e aparece para quem abrir o app nele.`;
@@ -6522,7 +6537,7 @@ async function exportPDF(list, dpi, name) {
   try { s2p = await loadSvg2pdf(); }
   catch (e) { toast('Não foi possível carregar o gerador de PDF vetorial; exportando em modo imagem.', true); return exportPDFRaster(list, dpi, name); }
   const lossless = $('#ex-comp').value === 'png', imgQ = lossless ? 1.0 : 0.92;
-  let pdf = null, fonts = null;
+  let pdf = null, fonts = null; const rasterFallback = [];
   try { setProgress(0, 'Carregando fontes…'); fonts = await loadHindFonts(); } catch (e) { toast('Fonte Hind não carregou; os textos do PDF usarão Helvetica.', true); }
   const total = list.length;
   await withExport(async () => {
@@ -6532,19 +6547,85 @@ async function exportPDF(list, dpi, name) {
       const r = sheetRect(sh.id), orient = r.w >= r.h ? 'landscape' : 'portrait';
       if (!pdf) { pdf = new jsPDF({ orientation: orient, unit: 'pt', format: [r.w, r.h], compress: true }); registerFonts(pdf, fonts); }
       else pdf.addPage([r.w, r.h], orient);
-      /* Gerar SVG da folha via exportSVG, capturar como texto */
-      const svgText = await sheetToSvgText(sh, r);
-      /* Substituir imagens inline por versão em alta resolução (dpi) */
-      const patchedSvg = mapSvgFonts(await upscaleImagesInSvg(svgText, dpi, imgQ, r), !!fonts);
-      /* Incluir SVG no jsPDF via svg2pdf */
-      const parser = new DOMParser(), svgDoc = parser.parseFromString(patchedSvg, 'image/svg+xml');
-      const svgEl = svgDoc.documentElement;
-      await s2p(svgEl, pdf, { x: 0, y: 0, width: r.w, height: r.h });
+      /* Imagens: reamostradas para o tamanho em que aparecem na folha, na resolução escolhida (reduz muito o arquivo) */
+      const restoreImgs = await prepareSheetImages(sh, r, dpi, lossless);
+      try {
+        const svgText = await sheetToSvgText(sh, r);
+        const svgEl = new DOMParser().parseFromString(mapSvgFonts(svgText, !!fonts), 'image/svg+xml').documentElement;
+        await withSafeDataUrlMatch(() => s2p(svgEl, pdf, { x: 0, y: 0, width: r.w, height: r.h }));
+      } catch (err) {
+        /* folha que o gerador vetorial não conseguiu montar: entra como imagem, sem interromper as outras */
+        console.warn('[pdf] folha em modo imagem:', sheetLabel(sh, sheetIndex(sh.id)), err);
+        rasterFallback.push(sheetLabel(sh, sheetIndex(sh.id)));
+        await rasterSheetInto(pdf, sh, r, dpi, lossless);
+      } finally { restoreImgs(); }
     }
   });
   pdf.setProperties({ title: doc.project.projeto || name, creator: 'KV Pranchas · Königsberger Vannucchi' });
   setProgress(1, 'Gerando PDF…'); await tick();
-  download(pdf.output('blob'), name + '.pdf');
+  const blob = pdf.output('blob');
+  download(blob, name + '.pdf');
+  if (rasterFallback.length) toast(`PDF gerado (${(blob.size / 1048576).toFixed(1)} MB). ${rasterFallback.length} folha(s) saíram em modo imagem: ${rasterFallback.slice(0, 4).join(', ')}${rasterFallback.length > 4 ? '…' : ''}.`, true);
+  else toast(`PDF vetorial gerado (${(blob.size / 1048576).toFixed(1)} MB).`);
+}
+/* Reamostragem das imagens da folha para o PDF.
+   Cada imagem é redesenhada no tamanho em que aparece no papel × DPI (nunca maior que o original) e gravada em JPEG
+   (ou PNG quando “Sem perdas” ou quando a imagem tem transparência). Devolve a função que desfaz a troca. */
+const _origGetSrc = fabric.Image.prototype.getSrc, _origGetSvgSrc = fabric.Image.prototype.getSvgSrc;
+fabric.Image.prototype.getSrc = function (f) { return this.__kvHref || _origGetSrc.call(this, f); };
+fabric.Image.prototype.getSvgSrc = function (f) { return this.__kvHref || _origGetSvgSrc.call(this, f); };
+function hasAlpha(el) {
+  try { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.drawImage(el, 0, 0, 48, 48); const d = x.getImageData(0, 0, 48, 48).data; for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true; } catch (e) {}
+  return false;
+}
+async function prepareSheetImages(sh, r, dpi, lossless) {
+  const list = [], k = dpi / 72;
+  const walk = (o, extra) => { if (o.type === 'image' && o.visible !== false) list.push([o, extra]); if (o._objects) o._objects.forEach(c => walk(c, extra)); };
+  canvas.getObjects().filter(o => !o.kvRole && sheetOf(o).id === sh.id).forEach(o => walk(o, 1));
+  if (mode === 'sheets' && sh.template) { const g = tplGroupFor(sh, sheetIndex(sh.id)); if (g) { const T = tplTransform(sh, r); walk(g, Math.max(T.sx, T.sy)); } }
+  const touched = [];
+  for (const [o, extra] of list) {
+    const el = o._element || o.getElement(); if (!el || o.kvMissing) continue;
+    const nw = el.naturalWidth || el.width, nh = el.naturalHeight || el.height; if (!nw || !nh) continue;
+    const q = fabric.util.qrDecompose(o.calcTransformMatrix()), dw = o.width * Math.abs(q.scaleX) * extra, dh = o.height * Math.abs(q.scaleY) * extra;
+    let tw = Math.min(nw, Math.ceil(dw * k)), th = Math.min(nh, Math.ceil(dh * k));
+    const mp = tw * th; if (mp > 60e6) { const f = Math.sqrt(60e6 / mp); tw = Math.floor(tw * f); th = Math.floor(th * f); }
+    if (tw < 1 || th < 1) continue;
+    /* desenha a imagem inteira (com filtros) no tamanho-alvo; o recorte da folha continua sendo feito pelo SVG */
+    const sx = tw / nw, sy = th / nh, c = document.createElement('canvas'); c.width = Math.max(1, Math.round(o.width * sx)); c.height = Math.max(1, Math.round(o.height * sy));
+    const x = c.getContext('2d'), png = lossless || hasAlpha(el);
+    if (!png) { x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); }
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(el, (o.cropX || 0), (o.cropY || 0), o.width, o.height, 0, 0, c.width, c.height);
+    o.__kvHref = png ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85);
+    c.width = c.height = 0; touched.push(o);
+    await tick();
+  }
+  return () => touched.forEach(o => { delete o.__kvHref; });
+}
+/* O svg2pdf lê imagens embutidas com uma expressão regular que estoura a pilha em imagens grandes
+   (“Maximum call stack size exceeded”). Durante a geração, endereços data: longos são lidos sem regex. */
+async function withSafeDataUrlMatch(fn) {
+  const orig = String.prototype.match;
+  String.prototype.match = function (re) {
+    if (re instanceof RegExp && this.length > 20000 && re.source.indexOf('base64') >= 0 && this.startsWith('data:')) {
+      const s = String(this), c = s.indexOf(','), head = s.slice(5, c), parts = head.split(';');
+      const arr = [s, head, parts[0], undefined, parts.includes('base64') ? 'base64' : undefined, s.slice(c + 1)]; arr.index = 0; arr.input = s; return arr;
+    }
+    return orig.call(this, re);
+  };
+  try { return await fn(); } finally { String.prototype.match = orig; }
+}
+/* Folha em modo imagem (reserva): blocos rasterizados na resolução escolhida */
+async function rasterSheetInto(pdf, sh, r, dpi, lossless) {
+  const m = dpi / 72, TILE = 2048, tw = TILE / m;
+  const cols = Math.ceil(r.w / tw - 1e-9), rows = Math.ceil(r.h / tw - 1e-9);
+  for (let yi = 0; yi < rows; yi++) for (let xi = 0; xi < cols; xi++) {
+    const lx = xi * tw, ly = yi * tw, ww = Math.min(tw, r.w - lx), hh = Math.min(tw, r.h - ly);
+    const el = renderRegion(m, r.x + lx, r.y + ly, ww, hh);
+    pdf.addImage(lossless ? el.toDataURL('image/png') : el.toDataURL('image/jpeg', 0.85), lossless ? 'PNG' : 'JPEG', lx, ly, el.width / m, el.height / m, undefined, lossless ? 'FAST' : 'NONE');
+    el.width = el.height = 0; await tick();
+  }
 }
 /* Captura o SVG de uma folha: usa o mesmo pipeline do exportSVG mas só para uma folha */
 /* Fontes no PDF vetorial: Hind é embutida (arquivos TTF oficiais do Google Fonts); as demais usam as fontes-padrão do PDF */
@@ -6729,7 +6810,7 @@ $('#ex-go').addEventListener('click', async () => {
     if (exFormat === 'pdf') await exportPDF(list, dpi, name);
     else if (exFormat === 'svg') await exportSVG(list, name);
     else await exportRaster(list, dpi, name, exFormat);
-    setProgress(1, 'Exportação concluída.'); toast('Arquivo exportado.'); status('Exportado');
+    setProgress(1, 'Exportação concluída.'); if (exFormat !== 'pdf') toast('Arquivo exportado.'); status('Exportado');
   } catch (err) {
     console.error(err); setProgress(0, 'Falha na exportação.');
     toast('Falha na exportação: ' + (err.message || err) + (inIframe ? ' Se o download foi bloqueado pelo painel, abra em nova janela.' : ''), true);
