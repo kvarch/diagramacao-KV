@@ -990,11 +990,13 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         </div>
         <div class="row2" id="ex-raster" style="margin-top:12px">
           <div class="field"><label for="ex-dpi">Resolução</label>
-            <select id="ex-dpi"><option value="150">150 DPI</option><option value="200">200 DPI</option><option value="300" selected>300 DPI</option><option value="400">400 DPI</option></select>
+            <select id="ex-dpi"><option value="150">150 DPI</option><option value="200">200 DPI</option><option value="300" selected>300 DPI</option><option value="400">400 DPI</option><option value="600">600 DPI</option></select>
           </div>
-          <div class="field" id="ex-comp-wrap"><label for="ex-comp">Compressão</label>
+          <div class="field" id="ex-comp-wrap"><label for="ex-pdfmode">Tipo de PDF</label>
+            <select id="ex-pdfmode"><option value="vector" selected>Vetorial — linhas e textos nítidos (recomendado)</option><option value="raster">Imagem — folha inteira como foto (compatibilidade)</option></select>
+            <label for="ex-comp" style="margin-top:8px">Compressão</label>
             <select id="ex-comp"><option value="jpeg">Otimizado (JPEG, arquivo menor)</option><option value="png">Sem perdas (PNG, arquivo grande)</option></select>
-          <p class="info" id="ex-pdf-note" hidden>PDF: textos e formas saem como vetores (nítidos em qualquer zoom). As imagens são ajustadas ao tamanho em que aparecem na folha, na resolução escolhida — 300 DPI “Otimizado” é o recomendado para impressão.</p>
+          <p class="info" id="ex-pdf-note">Recomendado: Vetorial + 300 DPI + Otimizado. Linhas, formas e textos saem como vetores; o DPI vale só para as imagens. Se alguma folha não sair como na tela, use o modo Imagem.</p>
           </div>
         </div>
         <label class="check" id="ex-transp-wrap" hidden><input type="checkbox" id="ex-transp"> Fundo transparente</label>
@@ -1067,7 +1069,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V46 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V48 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1125,7 +1127,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V46 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V48 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1557,6 +1559,8 @@ fabric.Kvpolyline = fabric.util.createClass(fabric.Polyline, {
     drawHeads(this, ctx, [s, e]);
   },
   toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, headAngle: this.headAngle || null, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
+  /* o Fabric usa o nome do tipo como tag SVG (“<kvpolyline>”), que nenhum leitor reconhece: grava como <polyline> */
+  _toSVG() { const m = fabric.Polyline.prototype._toSVG.call(this); m[0] = '<polyline '; return m; },
   toSVG(reviver) { const { s, e } = this._polyHeads(); return this.callSuper('toSVG', reviver) + headsSVG(this, [s, e]); }
 });
 fabric.Kvpolyline.fromObject = function (o, cb) { return fabric.Object._fromObject('Kvpolyline', o, cb, 'points'); };
@@ -6488,7 +6492,7 @@ $('#ex-all').onclick = () => { exSelected = new Set(doc.sheets.map(s => s.id)); 
 $('#ex-active').onclick = () => { exSelected = new Set([doc.active]); renderExportSheets(); };
 $$('#ex-format button').forEach(b => b.addEventListener('click', () => {
   exFormat = b.dataset.fmt; $$('#ex-format button').forEach(x => setPressed(x, x === b));
-  show('#ex-raster', exFormat !== 'svg'); show('#ex-comp-wrap', exFormat === 'pdf'); show('#ex-transp-wrap', exFormat === 'png');
+  show('#ex-raster', exFormat !== 'svg'); show('#ex-comp-wrap', exFormat === 'pdf'); show('#ex-pdf-note', exFormat === 'pdf'); show('#ex-transp-wrap', exFormat === 'png');
   updateExportInfo();
 }));
 $('#ex-dpi').addEventListener('change', updateExportInfo);
@@ -6527,7 +6531,8 @@ function renderRegion(m, left, top, w, h) {
   finally { canvas.viewportTransform = saved; canvas.calcViewportBoundaries(); }
 }
 async function exportPDF(list, dpi, name) {
-  /* Exportação vetorial: textos e formas saem como vetores no PDF (nítidos em qualquer zoom).
+  if ($('#ex-pdfmode').value !== 'vector') return exportPDFRaster(list, dpi, name);
+  /* Exportação vetorial (experimental): textos e formas saem como vetores no PDF (nítidos em qualquer zoom).
      Imagens raster embutidas seguem a resolução escolhida (DPI).
      Pipeline: SVG por folha → svg2pdf.js inclui no jsPDF → salvar. */
   if (!window.jspdf) throw new Error('jsPDF não carregado');
@@ -6548,7 +6553,7 @@ async function exportPDF(list, dpi, name) {
       if (!pdf) { pdf = new jsPDF({ orientation: orient, unit: 'pt', format: [r.w, r.h], compress: true }); registerFonts(pdf, fonts); }
       else pdf.addPage([r.w, r.h], orient);
       /* Imagens: reamostradas para o tamanho em que aparecem na folha, na resolução escolhida (reduz muito o arquivo) */
-      const restoreImgs = await prepareSheetImages(sh, r, dpi, lossless);
+      const restoreImgs = await prepareSheetImages(sh, r, dpi, lossless), restoreStrokes = bakeUniformStrokes(sh);
       try {
         const svgText = await sheetToSvgText(sh, r);
         const svgEl = new DOMParser().parseFromString(mapSvgFonts(svgText, !!fonts), 'image/svg+xml').documentElement;
@@ -6558,7 +6563,7 @@ async function exportPDF(list, dpi, name) {
         console.warn('[pdf] folha em modo imagem:', sheetLabel(sh, sheetIndex(sh.id)), err);
         rasterFallback.push(sheetLabel(sh, sheetIndex(sh.id)));
         await rasterSheetInto(pdf, sh, r, dpi, lossless);
-      } finally { restoreImgs(); }
+      } finally { restoreImgs(); restoreStrokes(); }
     }
   });
   pdf.setProperties({ title: doc.project.projeto || name, creator: 'KV Pranchas · Königsberger Vannucchi' });
@@ -6615,6 +6620,20 @@ async function withSafeDataUrlMatch(fn) {
     return orig.call(this, re);
   };
   try { return await fn(); } finally { String.prototype.match = orig; }
+}
+/* Traço uniforme (não escala com o objeto): o gerador vetorial não entende; converte temporariamente para o equivalente escalado */
+function bakeUniformStrokes(sh) {
+  const saved = [];
+  const walk = (o, gs) => {
+    if (o.strokeUniform && o.strokeWidth) {
+      const q = fabric.util.qrDecompose(o.calcTransformMatrix()), k = (Math.abs(q.scaleX) + Math.abs(q.scaleY)) / 2 || 1;
+      saved.push([o, o.strokeUniform, o.strokeWidth, o.strokeDashArray]);
+      o.strokeUniform = false; o.strokeWidth = o.strokeWidth / k; if (o.strokeDashArray) o.strokeDashArray = o.strokeDashArray.map(v => v / k);
+    }
+    if (o._objects) o._objects.forEach(c => walk(c));
+  };
+  canvas.getObjects().filter(o => !o.kvRole && sheetOf(o).id === sh.id).forEach(o => walk(o));
+  return () => saved.forEach(([o, u, w, d]) => { o.strokeUniform = u; o.strokeWidth = w; o.strokeDashArray = d; });
 }
 /* Folha em modo imagem (reserva): blocos rasterizados na resolução escolhida */
 async function rasterSheetInto(pdf, sh, r, dpi, lossless) {
@@ -6684,7 +6703,7 @@ async function exportPDFRaster(list, dpi, name) {
       for (let yi = 0; yi < rows; yi++) for (let xi = 0; xi < cols; xi++) {
         const lx = xi * tw, ly = yi * tw, ww = Math.min(tw, r.w - lx), hh = Math.min(tw, r.h - ly);
         const el = renderRegion(m, r.x + lx, r.y + ly, ww, hh);
-        pdf.addImage(lossless ? el.toDataURL('image/png') : el.toDataURL('image/jpeg', 0.92), lossless ? 'PNG' : 'JPEG', lx, ly, el.width / m, el.height / m, undefined, lossless ? 'FAST' : 'NONE');
+        pdf.addImage(lossless ? el.toDataURL('image/png') : el.toDataURL('image/jpeg', 0.85), lossless ? 'PNG' : 'JPEG', lx, ly, el.width / m, el.height / m, undefined, lossless ? 'FAST' : 'NONE');
         el.width = el.height = 0; n++;
         setProgress(n / totalTiles, `Folha ${sheetIndex(sh.id) + 1}: bloco ${n} de ${totalTiles}…`); await tick();
       }
@@ -6692,7 +6711,7 @@ async function exportPDFRaster(list, dpi, name) {
   });
   pdf.setProperties({ title: doc.project.projeto || name, creator: 'KV Pranchas · Königsberger Vannucchi' });
   setProgress(1, 'Gerando PDF…'); await tick();
-  download(pdf.output('blob'), name + '.pdf');
+  const blob = pdf.output('blob'); download(blob, name + '.pdf'); toast(`PDF gerado (${(blob.size / 1048576).toFixed(1)} MB).`);
 }
 /* SVG de uma folha na mesma ordem da tela: elementos “abaixo do modelo” → modelo de fundo → elementos → moldura e selo */
 async function sheetToSvgText(sh, r) {
