@@ -1017,6 +1017,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
           <button class="btn primary" id="sync-push2">Enviar alterações</button>
         </div>
         <p class="info" id="sync-state" aria-live="polite"></p>
+        <button class="btn block" id="sync-diag-btn">Diagnóstico da sincronização</button>
+        <pre class="info" id="sync-diag" hidden style="white-space:pre-wrap;font-size:11px;max-height:260px;overflow:auto;user-select:text"></pre>
         <p class="info">As alterações de várias pessoas são juntadas por folha. Se a mesma folha for alterada por duas pessoas, o app pergunta qual manter — ou mantém as duas.</p>
       </section>
       <section class="section">
@@ -1069,7 +1071,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V48 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V50 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1127,7 +1129,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V48 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V50 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2028,9 +2030,19 @@ canvas.on('before:transform', e => {
   moveCache = buildSnapCache(t.type === 'activeSelection' ? t.getObjects() : [t]);
 });
 /* Encaixe ao redimensionar: a borda que está sendo arrastada encaixa em bordas, centros, guias, margens e folhas */
+/* Linha reta vertical/horizontal tem largura (ou altura) 0: esticar nesse eixo gerava escalas absurdas (ex.: 10^20) */
+function fixDegenerateScale(o) {
+  if (!o) return false; let ch = false;
+  if ((o.width || 0) < 0.01 && Math.abs(o.scaleX) > 1000) { o.scaleX = Math.sign(o.scaleX) || 1; ch = true; }
+  if ((o.height || 0) < 0.01 && Math.abs(o.scaleY) > 1000) { o.scaleY = Math.sign(o.scaleY) || 1; ch = true; }
+  if (o._objects) o._objects.forEach(c => { if (fixDegenerateScale(c)) ch = true; });
+  return ch;
+}
 canvas.on('object:scaling', opt => {
   const o = opt.target, e = opt.e, t = opt.transform;
   snapLines = [];
+  if (o && (o.width || 0) < 0.01) o.scaleX = (t && t.original && t.original.scaleX && Math.abs(t.original.scaleX) < 1000) ? t.original.scaleX : 1;
+  if (o && (o.height || 0) < 0.01) o.scaleY = (t && t.original && t.original.scaleY && Math.abs(t.original.scaleY) < 1000) ? t.original.scaleY : 1;
   if (!o || !t || !t.corner || o.kvEditing || (e && e.altKey) || !doc.snapObj) return;
   if (typeof guardDrag === 'function' && guardDrag(opt)) return;
   if (Math.abs(((o.angle % 360) + 360) % 360) > 0.5 && Math.abs(((o.angle % 360) + 360) % 360 - 360) > 0.5) return;   // só sem rotação
@@ -2167,7 +2179,7 @@ function tplGroupFor(s, i) {
   const objs = fillFields(JSON.parse(JSON.stringify(t.objects.filter(o => !o.kvHidden && o.visible !== false))), f);
   fabric.util.enlivenObjects(objs, arr => {
     arr = arr.filter(Boolean);
-    arr.forEach(o => { o.objectCaching = false; });
+    arr.forEach(o => { o.objectCaching = false; fixDegenerateScale(o); });
     const g = arr.length ? new fabric.Group(arr, { objectCaching: false }) : null;
     const e = tplCache.get(s.id);
     if (e && e.building === key) { e.key = key; e.group = g; e.building = null; canvas.requestRenderAll(); }
@@ -2237,6 +2249,7 @@ function enlivenOnto(list) {
       if (objs[i]) console.warn('[restore] imagem sem arquivo, mantida como ausente:', list[i].kvName || list[i].kvId);
     }
     objs.filter(Boolean).forEach(o => {
+      fixDegenerateScale(o); o.setCoords && o.setCoords();
       if (o.visible === false && o.kvHidden === undefined) o.kvHidden = true;
       if (o.type === 'image') { o.objectCaching = false; if (o.getSrc() === PLACEHOLDER) o.kvMissing = true; }
       canvas.add(o);
@@ -5207,7 +5220,7 @@ async function syncPull(opts = {}) {
   try {
     await refreshAtts();
     const a = attByName(SYNC_FILE);
-    if (!a) { if (opts.manual) toast('Ainda não há nada salvo no projeto do Giraffe. Use “Enviar alterações”.'); return false; }
+    if (!a) { if (opts.manual) toast(`Nenhum arquivo da equipe (${SYNC_FILE}) nos anexos do projeto ${projNum()} — o app vê ${syncAtts.length} anexo(s) nele. Use “Diagnóstico da sincronização” (aba Exportar) nos dois computadores e compare.`, true); return false; }
     const head = await readHead();
     if (!opts.manual && head && head.rev && head.rev === syncState.remoteRev) return false;   // nada novo
     setSyncStatus('☁ Recebendo alterações…');
@@ -5306,6 +5319,29 @@ async function syncInit(opened) {
   syncPollTimer = setInterval(() => { if (syncAuto && !document.hidden) syncPull({ silent: true }); }, 60000);
   refreshSyncBadge();
 }
+/* Diagnóstico: o que este computador enxerga nos anexos do projeto */
+async function syncDiagnose() {
+  const out = [], put = t => { out.push(t); $('#sync-diag').textContent = out.join('\n'); };
+  $('#sync-diag').hidden = false;
+  put(`Versão do app: ${(document.body.innerText.match(/Beta - V\d+/) || ['?'])[0]}`);
+  put(`Projeto identificado: ${projectLabel} (chave ${projectKey})`);
+  put(`Sincronização ativa: ${syncOk ? 'sim' : 'não'}${inIframe ? '' : ' — app fora do painel do Giraffe'}`);
+  if (!syncOk) return;
+  try { const u = await currentUser(); put(`Usuário no Giraffe: ${u.name || '—'} ${u.email ? '<' + u.email + '>' : ''}`); } catch (e) {}
+  try {
+    await refreshAtts();
+    put(`Anexos que este computador vê no projeto ${projNum()}: ${syncAtts.length}`);
+    const kv = syncAtts.filter(a => /^kv-/.test(a.name || ''));
+    put(`Anexos do KV Pranchas: ${kv.length}`);
+    kv.slice(0, 30).forEach(a => put(`  • ${a.name}  (id ${a.id}${a.updated_at ? ', ' + a.updated_at : ''})`));
+    const h = await readHead(); put(h ? `Cabeçalho: versão ${h.rev} salva por ${h.byName || h.by || '—'} em ${new Date(h.savedAt).toLocaleString('pt-BR')}` : 'Cabeçalho (kv-pranchas-head.json): não encontrado');
+    const a = attByName(SYNC_FILE);
+    if (a) { try { const m = await fetchJsonAtt(a); put(`Arquivo principal: ok — ${Object.keys(m.parts || {}).length} partes, versão ${m.rev || '—'}`); } catch (e) { put('Arquivo principal: erro ao baixar — ' + e.message); } }
+    else put('Arquivo principal (kv-pranchas-sync.json): não encontrado');
+    put(`Última versão recebida/enviada aqui: ${syncState.remoteRev || '—'}`);
+  } catch (e) { put('Erro ao consultar os anexos: ' + e.message); }
+}
+$('#sync-diag-btn').onclick = syncDiagnose;
 $('#sync-push').onclick = () => syncPush({ manual: true });
 $('#sync-pull').onclick = () => syncPull({ manual: true, force: true });
 $('#sync-push2').onclick = () => syncPush({ manual: true });
@@ -6626,13 +6662,15 @@ function bakeUniformStrokes(sh) {
   const saved = [];
   const walk = (o, gs) => {
     if (o.strokeUniform && o.strokeWidth) {
-      const q = fabric.util.qrDecompose(o.calcTransformMatrix()), k = (Math.abs(q.scaleX) + Math.abs(q.scaleY)) / 2 || 1;
+      fixDegenerateScale(o);
+      const q = fabric.util.qrDecompose(o.calcTransformMatrix()), sxs = [Math.abs(q.scaleX), Math.abs(q.scaleY)].filter(v => v > 1e-6 && v < 1e4), k = sxs.length ? sxs.reduce((a, b) => a + b) / sxs.length : 1;
       saved.push([o, o.strokeUniform, o.strokeWidth, o.strokeDashArray]);
       o.strokeUniform = false; o.strokeWidth = o.strokeWidth / k; if (o.strokeDashArray) o.strokeDashArray = o.strokeDashArray.map(v => v / k);
     }
     if (o._objects) o._objects.forEach(c => walk(c));
   };
   canvas.getObjects().filter(o => !o.kvRole && sheetOf(o).id === sh.id).forEach(o => walk(o));
+  if (mode === 'sheets' && sh.template) { const g = tplGroupFor(sh, sheetIndex(sh.id)); if (g) walk(g); }
   return () => saved.forEach(([o, u, w, d]) => { o.strokeUniform = u; o.strokeWidth = w; o.strokeDashArray = d; });
 }
 /* Folha em modo imagem (reserva): blocos rasterizados na resolução escolhida */
