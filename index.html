@@ -375,6 +375,9 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .ptree .tb:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:-2px}
 .ptree .acts{display:flex;align-items:center;padding-right:2px;opacity:.55}
 .ptree li:hover .acts,.ptree li.active .acts,.ptree li:focus-within .acts{opacity:1}
+.ex-stack{display:grid;grid-template-columns:1fr;gap:10px}
+.ex-stack .field{margin:0}
+.ex-stack select{width:100%}
 @media (max-width:760px){.dock-resizer{display:none}.cg{padding:0 6px}.cg-label{display:none}}
 </style>
 </head>
@@ -872,6 +875,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
           <div class="field"><label for="pj-data">Data</label><input type="text" id="pj-data" data-project="data"></div>
           <div class="field"><label for="pj-resp">Responsável</label><input type="text" id="pj-resp" data-project="resp"></div>
         </div>
+        <div class="field"><label for="pj-rev">Revisão (aplica em todas as folhas)</label><input type="text" id="pj-rev" placeholder="ex.: R01"></div>
       </section>
       <section class="section">
         <h2>Grade e guias</h2>
@@ -988,16 +992,17 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
           <button data-fmt="jpg" aria-pressed="false">JPEG</button>
           <button data-fmt="svg" aria-pressed="false">SVG</button>
         </div>
-        <div class="row2" id="ex-raster" style="margin-top:12px">
+        <div id="ex-raster" class="ex-stack" style="margin-top:12px">
+          <div class="field" id="ex-comp-wrap"><label for="ex-pdfmode">Tipo de PDF</label>
+            <select id="ex-pdfmode"><option value="vector" selected>Vetorial (recomendado)</option><option value="raster">Imagem (compatibilidade)</option></select>
+          </div>
           <div class="field"><label for="ex-dpi">Resolução</label>
             <select id="ex-dpi"><option value="150">150 DPI</option><option value="200">200 DPI</option><option value="300" selected>300 DPI</option><option value="400">400 DPI</option><option value="600">600 DPI</option></select>
           </div>
-          <div class="field" id="ex-comp-wrap"><label for="ex-pdfmode">Tipo de PDF</label>
-            <select id="ex-pdfmode"><option value="vector" selected>Vetorial — linhas e textos nítidos (recomendado)</option><option value="raster">Imagem — folha inteira como foto (compatibilidade)</option></select>
-            <label for="ex-comp" style="margin-top:8px">Compressão</label>
+          <div class="field" id="ex-comp-wrap2"><label for="ex-comp">Compressão</label>
             <select id="ex-comp"><option value="jpeg">Otimizado (JPEG, arquivo menor)</option><option value="png">Sem perdas (PNG, arquivo grande)</option></select>
-          <p class="info" id="ex-pdf-note">Recomendado: Vetorial + 300 DPI + Otimizado. Linhas, formas e textos saem como vetores; o DPI vale só para as imagens. Se alguma folha não sair como na tela, use o modo Imagem.</p>
           </div>
+          <p class="info" id="ex-pdf-note" style="margin:0 0 12px">Recomendado: Vetorial + 300 DPI + Otimizado. Linhas, formas e textos saem como vetores; o DPI vale só para as imagens. Se alguma folha não sair como na tela, use o modo Imagem.</p>
         </div>
         <label class="check" id="ex-transp-wrap" hidden><input type="checkbox" id="ex-transp"> Fundo transparente</label>
         <div class="field"><label for="ex-name">Nome do arquivo</label><input type="text" id="ex-name" value="prancha"></div>
@@ -1072,7 +1077,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V54 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V56 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1130,7 +1135,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V54 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V56 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -6167,7 +6172,14 @@ function ungroupSel() { const a = canvas.getActiveObject(); if (!a || a.type !==
 $('#obj-dup').onclick = duplicate; $('#obj-lock').onclick = toggleLock; $('#obj-del').onclick = deleteSel;
 $('#obj-group').onclick = groupSel; $('#obj-ungroup').onclick = ungroupSel;
 
-canvas.on('selection:created', () => { refreshPanel(); });
+/* A folha ativa acompanha o elemento selecionado: copiar e colar cai na folha em que você está trabalhando */
+function followSelectionSheet() {
+  const a = canvas.getActiveObject(); if (!a || a.kvRole || a.kvTemp) return;
+  const sh = sheetOf(a); if (sh && sh.id !== getActiveId()) setActiveSheet(sh.id);
+}
+canvas.on('selection:created', () => { followSelectionSheet(); refreshPanel(); });
+canvas.on('selection:updated', followSelectionSheet);
+canvas.on('object:modified', followSelectionSheet);
 canvas.on('selection:updated', () => {
   if (cropState && canvas.getActiveObject() !== cropState.poly) { applyCrop(); return; }
   if (editingPoly && canvas.getActiveObject() !== editingPoly) togglePolyEdit(false);
@@ -6498,6 +6510,8 @@ function syncDocUI() {
   $('#stp-show').checked = s.stamp.show;
   $$('[data-sheet-stamp]').forEach(el => setVal('#' + el.id, s.stamp[el.dataset.sheetStamp] ?? ''));
   $$('[data-project]').forEach(el => setVal('#' + el.id, doc.project[el.dataset.project] ?? ''));
+  { const allSheets = doc.sheets.concat(...(doc.pres || []).filter(p => p.id !== doc.presActive).map(p => p.sheets || [])), revs = [...new Set(allSheets.map(x => (x.stamp && x.stamp.rev) || ''))];
+    if (document.activeElement !== $('#pj-rev')) { $('#pj-rev').value = revs.length === 1 ? revs[0] : ''; $('#pj-rev').placeholder = revs.length > 1 ? 'várias (' + revs.filter(Boolean).slice(0, 3).join(', ') + ')' : 'ex.: R01'; } }
   $('#gr-show').checked = doc.grid.show; $('#gr-snap').checked = doc.grid.snap; $('#ob-snap').checked = doc.snapObj; setVal('#gr-size', doc.grid.size);
   setPressed($('#cmd-grid'), doc.grid.show); setPressed($('#cmd-snap-grid'), doc.grid.snap); setPressed($('#cmd-snap-obj'), doc.snapObj);
   updateExportInfo();
@@ -6555,6 +6569,14 @@ $$('[data-sheet-stamp]').forEach(el => el.addEventListener('input', () => {
   rebuildChromeSoon(); commit(); if (k === 'titulo') renderSheetList();
 }));
 $$('[data-project]').forEach(el => el.addEventListener('input', () => { doc.project[el.dataset.project] = el.value; rebuildChromeSoon(); commit(); }));
+/* Revisão geral: grava em todas as folhas, de todas as apresentações */
+$('#pj-rev').addEventListener('input', e => {
+  const v = e.target.value;
+  doc.sheets.forEach(x => { x.stamp = x.stamp || {}; x.stamp.rev = v; });
+  (doc.pres || []).forEach(p => (p.sheets || []).forEach(x => { x.stamp = x.stamp || {}; x.stamp.rev = v; }));
+  if (activeSheet()) setVal('#stp-rev', v);
+  rebuildChromeSoon(); canvas.requestRenderAll(); commit();
+});
 
 /* ---------------- Exportação ---------------- */
 let exFormat = 'pdf', exSelected = null;
@@ -6575,7 +6597,7 @@ $('#ex-all').onclick = () => { exSelected = new Set(doc.sheets.map(s => s.id)); 
 $('#ex-active').onclick = () => { exSelected = new Set([doc.active]); renderExportSheets(); };
 $$('#ex-format button').forEach(b => b.addEventListener('click', () => {
   exFormat = b.dataset.fmt; $$('#ex-format button').forEach(x => setPressed(x, x === b));
-  show('#ex-raster', exFormat !== 'svg'); show('#ex-comp-wrap', exFormat === 'pdf'); show('#ex-pdf-note', exFormat === 'pdf'); show('#ex-transp-wrap', exFormat === 'png');
+  show('#ex-raster', exFormat !== 'svg'); show('#ex-comp-wrap', exFormat === 'pdf'); show('#ex-comp-wrap2', exFormat === 'pdf'); show('#ex-pdf-note', exFormat === 'pdf'); show('#ex-transp-wrap', exFormat === 'png');
   updateExportInfo();
 }));
 $('#ex-dpi').addEventListener('change', updateExportInfo);
