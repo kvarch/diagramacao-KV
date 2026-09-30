@@ -1071,7 +1071,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V50 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V51 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1129,7 +1129,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V50 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V51 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -4992,7 +4992,7 @@ const SYNC_FILE = 'kv-pranchas-sync.json', IMG_PREFIX = 'kv-img-', HEAD_FILE = '
 async function readHead() { const a = attByName(HEAD_FILE); if (!a) return null; try { return await fetchAtt(a, true); } catch (e) { return null; } }
 const newRev = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 let syncOk = false, syncState = { base: {}, remoteRev: null, remoteAt: 0, lastPush: 0 }, syncBusy = false, syncAuto = true;
-let syncPushTimer = 0, syncPollTimer = 0, syncAtts = [], syncUser = null;
+let syncPushTimer = 0, syncPollTimer = 0, syncAtts = [], syncUser = null, syncShownToast = false;
 const partHash = p => p === undefined ? null : (() => { const s = JSON.stringify(p); return hashStr(s) + ':' + s.length; })();
 function splitBySheet(sheets, objsAbs) {
   const rects = rectsFor(sheets), per = {}; sheets.forEach(sh => { per[sh.id] = []; });
@@ -5229,10 +5229,17 @@ async function syncPull(opts = {}) {
     if (head && head.rev && m.rev && head.rev !== m.rev) { if (opts.manual) toast('O projeto está sendo salvo por outra pessoa neste instante. Tente receber de novo em alguns segundos.'); return false; }
     if (!head && !opts.manual && m.savedAt && m.savedAt === syncState.remoteAt && Object.keys(syncState.base).length) return false;   // formato antigo, sem cabeçalho
     const R = m.parts, L = await buildSyncParts();
-    const empty = userObjects().length === 0 && Object.keys(syncState.base).length === 0;
-    let result, conflicts = [];
-    if (empty) result = R;
-    else ({ result, conflicts } = mergeParts(L, R, syncState.base));
+    /* Computador que nunca sincronizou este projeto: a cópia local é antiga (cache) — vale a versão da equipe.
+       A cópia local inteira vira uma versão de segurança, para nada se perder. */
+    const neverSynced = Object.keys(syncState.base).length === 0;
+    let result, conflicts = [], staleNote = '';
+    if (neverSynced) {
+      result = { ...R };
+      if (userObjects().length) {
+        await maybeBackup(true);
+        staleNote = ' A cópia antiga que estava neste computador foi guardada em Exportar › Versões de segurança.';
+      }
+    } else ({ result, conflicts } = mergeParts(L, R, syncState.base));
     if (conflicts.length) {
       if (opts.silent) {
         setSyncStatus(`☁ ${conflicts.length} conflito(s) com a versão de ${whoOf(m)} — clique em Receber`, 'warn'); syncState.pendingConflict = true;
@@ -5257,7 +5264,8 @@ async function syncPull(opts = {}) {
     syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
     syncState.remoteRev = m.rev || (head && head.rev) || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
     await saveSyncState();
-    if (changed) toast(`Alterações de ${whoOf(m)} recebidas${conflicts.length ? ` (${conflicts.length} conflito(s) resolvido(s))` : ''}.`);
+    if (changed) syncShownToast = true;
+    if (changed) toast(neverSynced ? `Versão mais recente da equipe carregada (salva por ${whoOf(m)} em ${new Date(m.savedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}).${staleNote}` : `Alterações de ${whoOf(m)} recebidas${conflicts.length ? ` (${conflicts.length} conflito(s) resolvido(s))` : ''}.`, !!staleNote);
     else if (opts.manual) toast('Você já está com a versão mais recente do projeto.');
     return true;
   } catch (e) { setSyncStatus('☁ Falha ao receber: ' + e.message, 'warn'); if (opts.manual) toast('Não foi possível receber as alterações: ' + e.message, true); return false; }
@@ -7048,11 +7056,14 @@ ensurePres();
 syncDocUI(); rebuildChrome(); renderSheetList(); refreshPanel(); renderLinks(); renderLayers();
 (async () => {
   const opened = await storeOpen(), restored = opened !== 'new';
-  syncInit(opened).catch(e => console.warn('sync', e));
+  /* abre já com a versão mais recente da equipe (espera até 25 s pelo Giraffe) antes de liberar a edição */
+  if (inIframe) { status('Buscando a versão mais recente da equipe…'); await Promise.race([syncInit(opened).catch(e => console.warn('sync', e)), wait(25000)]); status('Pronto'); }
+  else syncInit(opened).catch(e => console.warn('sync', e));
   ensurePres(); renderPresList();
   resetHistory(); syncGvAuto();
   await loadCompanyLibrary(); resetHistory();
-  if (restored) { fitPage(); toast(opened === 'migrated' ? `Seu trabalho anterior foi vinculado a ${projectLabel}.` : `Projeto restaurado (${projectLabel}).`); }
+  if (restored && syncShownToast) fitPage();
+  else if (restored) { fitPage(); toast(opened === 'migrated' ? `Seu trabalho anterior foi vinculado a ${projectLabel}.` : `Projeto restaurado (${projectLabel}).`); }
   await checkStoredDir();
   await checkSaveDir();
   try {
