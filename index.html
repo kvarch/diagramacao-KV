@@ -338,6 +338,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .pal-sep{width:1px;min-width:1px;height:28px;background:var(--md-sys-color-outline-variant);margin:10px 6px}
 #sym-north-grid{grid-template-columns:repeat(4,1fr)}
 .sym-pop{width:380px}
+@keyframes kvpulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+#sync-push.busy svg,#sync-pull.busy svg{animation:kvpulse 1s infinite}
 #sync-pull.has-changes,#sync-push.has-changes{color:var(--md-sys-color-primary);box-shadow:inset 0 -3px 0 var(--md-sys-color-primary)}
 .pdf-dlg{position:fixed;inset:0;z-index:140;display:grid;place-items:center;background:rgba(0,0,0,.35)}
 .pdf-dlg[hidden]{display:none}
@@ -1077,7 +1079,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V56 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V57 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1135,7 +1137,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V56 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V57 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -5220,7 +5222,9 @@ async function refreshSyncBadge() {
 }
 /* Receber: baixa a versão do projeto e junta com a daqui */
 async function syncPull(opts = {}) {
-  if (!syncOk || syncBusy) return false;
+  if (!syncOk) return false;
+  if (syncBusy) { if (opts.manual) toast('Já há um envio ou recebimento em andamento — aguarde alguns segundos.'); return false; }
+  if (opts.manual) toast('Recebendo alterações…');
   if (!opts.force && (cropState || editingPoly || drawState || (canvas.getActiveObject() && canvas.getActiveObject().isEditing) || canvas._currentTransform)) return false;
   syncBusy = true;
   try {
@@ -5283,7 +5287,9 @@ async function syncPull(opts = {}) {
 /* Enviar: recebe antes (para não sobrescrever ninguém), depois grava a versão juntada */
 async function syncPush(opts = {}) {
   if (!syncOk) { if (opts.manual) toast('A sincronização funciona com o app aberto dentro de um projeto do Giraffe.', true); return false; }
-  if (syncBusy) return false;
+  if (syncBusy) { if (opts.manual) { toast('Já há um envio ou recebimento em andamento — o seu clique será atendido em seguida.'); setTimeout(() => syncPush(opts), 2500); } return false; }
+  if (opts.manual) { toast('Enviando alterações…'); $('#sync-push').classList.add('busy'); }
+  try {
   for (let tries = 0; tries < 3; tries++) {
     await syncPull({ force: true, manual: false, silent: false });
     if (syncState.pendingConflict) return false;
@@ -5307,13 +5313,14 @@ async function syncPush(opts = {}) {
       syncState.base = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, partHash(v)]));
       syncState.remoteRev = rev; syncState.remoteAt = m.savedAt; syncState.lastPush = Date.now(); syncState.lastSync = Date.now();
       await saveSyncState();
-      if (opts.manual) toast('Alterações enviadas para o projeto no Giraffe.');
+      if (opts.manual) toast(`Alterações enviadas para o projeto no Giraffe (${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}).`);
       return true;
     } catch (e) { setSyncStatus('☁ Falha ao enviar: ' + e.message, 'warn'); if (opts.manual) toast('Não foi possível enviar: ' + e.message, true); return false; }
     finally { syncBusy = false; refreshSyncBadge(); }
   }
   toast('O projeto está sendo alterado por outra pessoa neste momento. Tente enviar de novo em instantes.', true);
   return false;
+  } finally { $('#sync-push').classList.remove('busy'); }
 }
 function scheduleSyncPush() {
   if (!syncOk || !syncAuto) return;
