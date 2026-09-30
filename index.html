@@ -1072,7 +1072,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V53 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V54 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1130,7 +1130,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V53 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V54 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -5229,7 +5229,7 @@ async function syncPull(opts = {}) {
     if (!m || m.app !== 'kv-pranchas' || !m.parts) throw new Error('arquivo de sincronização inválido');
     if (head && head.rev && m.rev && head.rev !== m.rev) { if (opts.manual) toast('O projeto está sendo salvo por outra pessoa neste instante. Tente receber de novo em alguns segundos.'); return false; }
     if (!head && !opts.manual && m.savedAt && m.savedAt === syncState.remoteAt && Object.keys(syncState.base).length) return false;   // formato antigo, sem cabeçalho
-    const R = m.parts, L = await buildSyncParts();
+    const R = m.parts, L = await buildSyncParts(), localT = await localSavedAt();
     /* Computador que nunca sincronizou este projeto: a cópia local é antiga (cache) — vale a versão da equipe.
        A cópia local inteira vira uma versão de segurança, para nada se perder. */
     const neverSynced = Object.keys(syncState.base).length === 0;
@@ -5268,6 +5268,7 @@ async function syncPull(opts = {}) {
     syncState.remoteRev = m.rev || (head && head.rev) || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
     await saveSyncState();
     if (changed) syncShownToast = true;
+
     if (changed) toast(neverSynced ? `Versão mais recente da equipe carregada (salva por ${whoOf(m)} em ${new Date(m.savedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}).${staleNote}` : `Alterações de ${whoOf(m)} recebidas${conflicts.length ? ` (${conflicts.length} conflito(s) resolvido(s))` : ''}.`, !!staleNote);
     else if (opts.manual) toast('Você já está com a versão mais recente do projeto.');
     return true;
@@ -5325,7 +5326,19 @@ async function syncInit(opened) {
   try { syncAuto = localStorage.getItem('kv-pranchas-syncauto') !== '0'; } catch (e) {}
   $('#sync-auto').checked = syncAuto;
   info.textContent = `Projeto do Giraffe ${projNum()}: o trabalho fica nos anexos do projeto e aparece para quem abrir o app nele.`;
-  await syncPull({ force: true, silent: false });
+  await syncPull({ force: true, silent: false, initial: true });
+  /* Ao abrir: se este computador tem alterações que não estão na versão da equipe, pergunta o que fazer */
+  try {
+    const n = await localChangesCount(), head = syncOk ? await readHead() : null;
+    if (n > 0 && head && head.rev) {
+      const fmtD = t => new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      syncShownToast = true;
+      askBar(`Este computador tem ${n} alteração(ões) que não estão na versão da equipe (última versão da equipe: ${head.byName || head.by || 'salva'} em ${fmtD(head.savedAt)}). O que fazer?`, [
+        { label: 'Carregar a versão da equipe', primary: true, fn: () => syncForceRemote() },
+        { label: 'Enviar as daqui', fn: () => syncPush({ manual: true }) },
+        { label: 'Decidir depois', fn: () => {} }]);
+    }
+  } catch (e) {}
   clearInterval(syncPollTimer);
   syncPollTimer = setInterval(() => { if (syncAuto && !document.hidden) syncPull({ silent: true }); }, 60000);
   refreshSyncBadge();
