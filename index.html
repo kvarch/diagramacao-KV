@@ -503,6 +503,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <label class="sr-only" for="b-dash">Tipo de linha da moldura</label>
     <select id="b-dash" title="Tipo de linha da moldura"></select>
     <span class="vsep" aria-hidden="true"></span>
+    <button class="icon-btn" id="b-circle" aria-pressed="false" aria-label="Caixa circular" title="Caixa circular — o círculo envolve o texto; a margem controla o tamanho"><span data-icon="circle"></span></button>
     <span class="unit" title="Margem interna">⇲</span><label class="sr-only" for="b-pad">Margem interna em milímetros</label>
     <input type="number" id="b-pad" min="0" max="100" step="0.5" title="Margem interna entre texto e moldura (mm)"><span class="unit">mm</span>
   </div>
@@ -1087,7 +1088,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V58 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V59 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1145,7 +1146,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V58 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V59 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1397,7 +1398,7 @@ function innerArea(s) {
 
 /* Estilo padrão (editado na barra contextual quando nada está selecionado) */
 const defStyle = { stroke: 'rgba(0,0,0,1)', fill: 'rgba(0,172,205,0.35)', strokeMm: 0.35, dash: 'solid', dashK: 1, gapK: 1, headAngle: null, opacity: 1, headMm: 4, arrowStart: 'none', arrowEnd: 'triangle', lineStart: 'none', lineEnd: 'none' };
-const defText = { boxFill: '', boxStroke: '', boxStrokeWidth: 0, boxDash: 'solid', boxPad: 0, padding: 0, paraSpace: 0, fontFamily: 'Hind', fontSize: 14, fill: 'rgba(0,0,0,1)', fontWeight: 'normal', fontStyle: 'normal', underline: false, textAlign: 'left', lineHeight: 1.16, charSpacing: 0 };
+const defText = { boxFill: '', boxStroke: '', boxStrokeWidth: 0, boxDash: 'solid', boxPad: 0, boxShape: 'rect', padding: 0, paraSpace: 0, fontFamily: 'Hind', fontSize: 14, fill: 'rgba(0,0,0,1)', fontWeight: 'normal', fontStyle: 'normal', underline: false, textAlign: 'left', lineHeight: 1.16, charSpacing: 0 };
 /* Tipos de linha (múltiplos da espessura; 0 = ponto) */
 const DASHES = [
   ['solid', 'Contínuo', '────────', null],
@@ -1728,19 +1729,30 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
     return this.__lineHeights[lineIndex] = base + extra;
   },
   /* Caixa: fundo e moldura próprios (independentes da cor do texto) */
-  boxFill: '', boxStroke: '', boxStrokeWidth: 0, boxDash: 'solid', boxPad: 0,
+  boxFill: '', boxStroke: '', boxStrokeWidth: 0, boxDash: 'solid', boxPad: 0, boxShape: 'rect',
   objectCaching: false,
+  /* Caixa circular: a largura do texto se ajusta sozinha ao conteúdo (sem quebrar linha) e o círculo envolve o texto + a margem */
+  initDimensions() {
+    if (this.boxShape !== 'circle' || this.__kvFit) return this.callSuper('initDimensions');
+    this.__kvFit = true;
+    try { this.width = 1e4; this.callSuper('initDimensions'); const w = Math.ceil(this.calcTextWidth()) + 1; this.width = Math.max(w, 1); this.callSuper('initDimensions'); }
+    finally { this.__kvFit = false; }
+    this.padding = this._circleR() - Math.min(this.width, this.height) / 2;
+  },
+  _circleR() { return Math.max(this.width, this.height) / 2 + (this.boxPad || 0); },
   _boxRect() { const p = this.boxPad || 0; return { x: -this.width / 2 - p, y: -this.height / 2 - p, w: this.width + 2 * p, h: this.height + 2 * p }; },
   _hasBox() { return !!(this.boxFill || (this.boxStroke && this.boxStrokeWidth > 0)); },
   _render(ctx) {
     if (this._hasBox()) {
       const r = this._boxRect();
       ctx.save();
-      if (this.boxFill) { ctx.fillStyle = this.boxFill; ctx.fillRect(r.x, r.y, r.w, r.h); }
+      const circ = this.boxShape === 'circle', R = circ ? this._circleR() : 0;
+      const shape = () => { ctx.beginPath(); if (circ) ctx.arc(0, 0, R, 0, Math.PI * 2); else ctx.rect(r.x, r.y, r.w, r.h); };
+      if (this.boxFill) { ctx.fillStyle = this.boxFill; shape(); ctx.fill(); }
       if (this.boxStroke && this.boxStrokeWidth > 0) {
         ctx.lineWidth = this.boxStrokeWidth; ctx.strokeStyle = this.boxStroke; ctx.lineJoin = 'miter';
         ctx.setLineDash(dashArr(this.boxDash, this.boxStrokeWidth) || []); ctx.lineCap = capFor(this.boxDash);
-        ctx.strokeRect(r.x, r.y, r.w, r.h);
+        shape(); ctx.stroke();
       }
       ctx.restore();
     }
@@ -1752,9 +1764,10 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
     const r = this._boxRect(), f = this.boxFill ? new fabric.Color(this.boxFill) : null, s = this.boxStroke && this.boxStrokeWidth > 0 ? new fabric.Color(this.boxStroke) : null;
     const da = s ? dashArr(this.boxDash, this.boxStrokeWidth) : null;
     const style = `fill:${f ? f.toRgb() : 'none'};fill-opacity:${f ? f.getAlpha() : 0};stroke:${s ? s.toRgb() : 'none'};stroke-opacity:${s ? s.getAlpha() : 0};stroke-width:${s ? this.boxStrokeWidth : 0};${da ? 'stroke-dasharray:' + da.join(' ') + ';' : ''}opacity:${this.opacity}`;
+    if (this.boxShape === 'circle') return `<circle ${this.getSvgTransform()} cx="0" cy="0" r="${this._circleR()}" style="${style}"/>\n` + base;
     return `<rect ${this.getSvgTransform()} x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" style="${style}"/>\n` + base;
   },
-  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { paraSpace: this.paraSpace, boxFill: this.boxFill, boxStroke: this.boxStroke, boxStrokeWidth: this.boxStrokeWidth, boxDash: this.boxDash, boxPad: this.boxPad }); }
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { paraSpace: this.paraSpace, boxFill: this.boxFill, boxStroke: this.boxStroke, boxStrokeWidth: this.boxStrokeWidth, boxDash: this.boxDash, boxPad: this.boxPad, boxShape: this.boxShape || 'rect' }); }
 });
 fabric.Kvtext.fromObject = function (o, cb) {
   const styles = fabric.util.stylesFromArray ? fabric.util.stylesFromArray(o.styles, o.text) : o.styles;
@@ -5813,7 +5826,7 @@ function refreshCtx() {
     const bf = colorParts(bx.boxFill), bs = colorParts(bx.boxStroke);
     setVal('#b-fill', bf.none ? '#ffffff' : bf.hex); setPressed($('#b-fill-none'), bf.none); setVal('#b-fill-a', bf.none ? 100 : Math.round(bf.a * 100));
     setVal('#b-stroke', bs.hex); setPressed($('#b-stroke-none'), bs.none || !(bx.boxStrokeWidth > 0)); setVal('#b-stroke-a', bs.none ? 100 : Math.round(bs.a * 100));
-    setVal('#b-width', Math.round(pt2mm(bx.boxStrokeWidth || 0) * 100) / 100); setVal('#b-dash', bx.boxDash || 'solid'); setVal('#b-pad', r1(pt2mm(bx.boxPad || 0)));
+    setVal('#b-width', Math.round(pt2mm(bx.boxStrokeWidth || 0) * 100) / 100); setVal('#b-dash', bx.boxDash || 'solid'); setVal('#b-pad', r1(pt2mm(bx.boxPad || 0))); setPressed($('#b-circle'), bx.boxShape === 'circle');
   }
   const single1 = objs.length === 1 ? objs[0] : null;
   show('#cg-measure', tool === 'measure' && !t.length);
@@ -5989,10 +6002,21 @@ function applyBox(key) {
   if (key === 'width') { props.boxStrokeWidth = mm2pt(wMm); if (wMm > 0 && sNone) { setPressed($('#b-stroke-none'), false); props.boxStroke = rgba($('#b-stroke').value, clamp(+$('#b-stroke-a').value || 100, 0, 100) / 100); } }
   if (key === 'dash') props.boxDash = $('#b-dash').value;
   if (key === 'pad') { props.boxPad = pad; props.padding = pad; }
+  if (key === 'shape') {
+    props.boxShape = $('#b-circle').getAttribute('aria-pressed') === 'true' ? 'circle' : 'rect';
+    if (props.boxShape === 'circle') props.textAlign = 'center';
+  }
   const ts = targets().filter(o => o.type === 'kvtext');
   if (!ts.length) { Object.assign(defText, props); return; }
-  ts.forEach(o => { o.set(props); o.setCoords(); o.dirty = true; });
-  canvas.requestRenderAll(); commit();
+  ts.forEach(o => {
+    const c = o.getCenterPoint();
+    /* círculo sem fundo nem moldura ficaria invisível: liga uma moldura */
+    if (key === 'shape' && props.boxShape === 'circle' && !o.boxFill && !(o.boxStroke && o.boxStrokeWidth > 0)) { o.set({ boxStroke: o.fill || 'rgba(0,0,0,1)', boxStrokeWidth: mm2pt(0.35) }); setPressed($('#b-stroke-none'), false); }
+    o.set(props);
+    if (key === 'shape' || key === 'pad') { o.initDimensions(); if (o.boxShape !== 'circle') o.padding = o.boxPad || 0; o.setPositionByOrigin(c, 'center', 'center'); }
+    o.setCoords(); o.dirty = true;
+  });
+  canvas.requestRenderAll(); commit(); if (key === 'shape') refreshCtx();
 }
 $('#b-dash').innerHTML = DASHES.map(d => `<option value="${d[0]}">${d[2]}  ${d[1]}</option>`).join('');
 onChange('#b-fill', () => { setPressed($('#b-fill-none'), false); applyBox('fill'); }, 'input');
@@ -6004,6 +6028,7 @@ $('#b-stroke-none').onclick = e => { setPressed(e.currentTarget, e.currentTarget
 onChange('#b-width', () => applyBox('width'), 'input');
 onChange('#b-dash', () => applyBox('dash'));
 onChange('#b-pad', () => applyBox('pad'), 'input');
+$('#b-circle').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyBox('shape'); };
 $('#c-dash').innerHTML = DASHES.map(d => `<option value="${d[0]}">${d[2]}  ${d[1]}</option>`).join('');
 /* Barras horizontais roláveis com a roda do mouse */
 ['#ctxbar', '.cmdbar'].forEach(sel => $(sel).addEventListener('wheel', e => {
