@@ -811,7 +811,9 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         <p class="hint">Textos com estes campos são preenchidos com os dados de cada folha que usa o modelo. Ideal para montar um selo próprio.</p>
         <div class="btn-grid">
           <button class="btn" data-field="{projeto}">Projeto</button>
+          <button class="btn" data-field="{nome}">Nome da folha</button>
           <button class="btn" data-field="{titulo}">Título</button>
+          <button class="btn" data-field="{apresentacao}">Apresentação</button>
           <button class="btn" data-field="{folha}/{total}">Folha / total</button>
           <button class="btn" data-field="{escala}">Escala</button>
           <button class="btn" data-field="{data}">Data</button>
@@ -1088,7 +1090,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V60 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V61 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1146,7 +1148,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V60 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V61 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2192,7 +2194,8 @@ function fieldsFor(s, i) {
   const P0 = doc.project, n = doc.sheets.length, auto = String(i + 1).padStart(2, '0') + '/' + String(n).padStart(2, '0');
   return { projeto: P0.projeto || '', cliente: P0.cliente || '', endereco: P0.endereco || '', data: P0.data || '', resp: P0.resp || '',
     titulo: s.stamp.titulo || '', escala: +s.stamp.escala > 0 ? '1:' + s.stamp.escala : 'Indicada', rev: s.stamp.rev || '',
-    folha: String(i + 1).padStart(2, '0'), total: String(n).padStart(2, '0'), prancha: s.stamp.prancha || auto, nome: s.name || `Folha ${i + 1}` };
+    folha: String(i + 1).padStart(2, '0'), total: String(n).padStart(2, '0'), prancha: s.stamp.prancha || auto, nome: s.name || `Folha ${i + 1}`,
+    apresentacao: (typeof presById === 'function' && doc.presActive && presById(doc.presActive)) ? presById(doc.presActive).name : '' };
 }
 function hashStr(str) { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return h; }
 function fillFields(objs, f) {
