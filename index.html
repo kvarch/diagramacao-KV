@@ -1090,7 +1090,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V61 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V62 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1148,7 +1148,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V61 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V62 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2857,21 +2857,60 @@ function clipScenePoints(img) {
 function normalizeCrop(img) {
   const el = img.getElement(), natW = el.naturalWidth || el.width, natH = el.naturalHeight || el.height;
   if (!(img.cropX || img.cropY) && Math.abs(img.width - natW) < 0.5 && Math.abs(img.height - natH) < 0.5) return;
-  const pts = clipScenePoints(img), M = img.calcTransformMatrix();
+  const pts = clipScenePoints(img), M = img.calcTransformMatrix(), sceneMP = clipSceneMP(img);
   const dL = { x: natW / 2 - ((img.cropX || 0) + img.width / 2), y: natH / 2 - ((img.cropY || 0) + img.height / 2) };
   const newCenter = fabric.util.transformPoint(dL, M);
   img.set({ cropX: 0, cropY: 0, width: natW, height: natH });
   img.setPositionByOrigin(newCenter, 'center', 'center'); img.setCoords();
+  if (sceneMP && typeof setImageClipMP === 'function') { setImageClipMP(img, sceneMP); return; }
   const inv = fabric.util.invertTransform(img.calcTransformMatrix());
   img.clipPath = new fabric.Polygon(pts.map(p => fabric.util.transformPoint(p, inv)), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false });
 }
+/* Recorte com furos/várias partes em coordenadas da prancha (ou null se for contorno simples) */
+function clipSceneMP(img) {
+  if (!img.kvClipRings || !img.kvClipRings.length) return null;
+  const M = img.calcTransformMatrix();
+  return img.kvClipRings.map(poly => poly.map(r => r.map(([x, y]) => { const p = fabric.util.transformPoint({ x, y }, M); return [p.x, p.y]; })));
+}
+/* Depois de recortar: o limite da imagem passa a ser o retângulo do recorte (alinhamento, encaixe e área de seleção).
+   A imagem original continua inteira por dentro — editar o recorte (duplo clique) volta a mostrar tudo. */
+function tightenCrop(img) {
+  if (!img || img.type !== 'image' || !img.clipPath || img.clipPath.absolutePositioned) return;
+  const M = img.calcTransformMatrix(), inv = fabric.util.invertTransform(M), sceneMP = clipSceneMP(img), scenePts = sceneMP ? null : clipScenePoints(img);
+  const local = (sceneMP ? sceneMP.flat(2) : scenePts.map(p => [p.x, p.y])).map(([x, y]) => fabric.util.transformPoint({ x, y }, inv));
+  if (local.length < 3) return;
+  const hw = img.width / 2, hh = img.height / 2;
+  const minx = Math.max(-hw, Math.min(...local.map(p => p.x))), maxx = Math.min(hw, Math.max(...local.map(p => p.x)));
+  const miny = Math.max(-hh, Math.min(...local.map(p => p.y))), maxy = Math.min(hh, Math.max(...local.map(p => p.y)));
+  if (maxx - minx < 1 || maxy - miny < 1) return;
+  if (minx <= -hw + 0.5 && maxx >= hw - 0.5 && miny <= -hh + 0.5 && maxy >= hh - 0.5) return;   // recorte ocupa a imagem toda
+  const newCenter = fabric.util.transformPoint({ x: (minx + maxx) / 2, y: (miny + maxy) / 2 }, M);
+  img.set({ cropX: (img.cropX || 0) + (minx + hw), cropY: (img.cropY || 0) + (miny + hh), width: maxx - minx, height: maxy - miny });
+  img.setPositionByOrigin(newCenter, 'center', 'center'); img.setCoords();
+  if (sceneMP && typeof setImageClipMP === 'function') setImageClipMP(img, sceneMP);
+  else { const inv2 = fabric.util.invertTransform(img.calcTransformMatrix()); img.clipPath = new fabric.Polygon(scenePts.map(p => fabric.util.transformPoint(p, inv2)), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false }); }
+  img.dirty = true; img.setCoords();
+}
+/* Seleção pelo formato do recorte: clicar fora do recorte (mas dentro do retângulo) não pega a imagem */
+const _imgContainsPoint = fabric.Image.prototype.containsPoint;
+fabric.Image.prototype.containsPoint = function (point, lines, absolute, calculate) {
+  if (!_imgContainsPoint.call(this, point, lines, absolute, calculate)) return false;
+  const cp = this.clipPath; if (!cp || cp.absolutePositioned || this.kvTemp || !this.canvas) return true;
+  try {
+    const v = this.canvas.viewportTransform, p = absolute ? point : fabric.util.transformPoint(point, fabric.util.invertTransform(v));
+    const inside = (ring, x, y) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+    const mp = clipSceneMP(this);
+    if (mp) return mp.some(poly => inside(poly[0], p.x, p.y) && !poly.slice(1).some(h => inside(h, p.x, p.y)));
+    return inside(clipScenePoints(this).map(q => [q.x, q.y]), p.x, p.y);
+  } catch (e) { return true; }
+};
 function enterCrop(img) {
   if (!img || img.type !== 'image') { toast('Selecione uma imagem para recortar.'); return; }
   if (isLk(img)) { toast('Desbloqueie a imagem para recortar.'); return; }
   if (editingPoly) togglePolyEdit(false);
   if (tool !== 'select') setTool('select');
   canvas.discardActiveObject();
-  const backup = { cropX: img.cropX, cropY: img.cropY, width: img.width, height: img.height, left: img.left, top: img.top, clip: img.clipPath ? img.clipPath.toObject() : null };
+  const backup = { cropX: img.cropX, cropY: img.cropY, width: img.width, height: img.height, left: img.left, top: img.top, clip: img.clipPath ? img.clipPath.toObject() : null, rings: img.kvClipRings ? JSON.parse(JSON.stringify(img.kvClipRings)) : null };
   if (img.kvClipRings && (img.kvClipRings.length > 1 || img.kvClipRings[0].length > 1)) toast('Este recorte tem furos ou várias partes: a edição de vértices mostra só o contorno principal. Esc cancela sem alterar.', true);
   normalizeCrop(img);
   const pts = clipScenePoints(img);
@@ -2899,7 +2938,7 @@ function exitCrop() {   // cancelar
   const s = cropState; if (!s) return;
   const b = s.backup, img = s.img;
   img.set({ cropX: b.cropX, cropY: b.cropY, width: b.width, height: b.height, left: b.left, top: b.top });
-  img.clipPath = null;
+  img.clipPath = null; img.kvClipRings = b.rings;
   if (b.clip) fabric.util.enlivenObjects([b.clip], arr => { img.clipPath = arr[0] || null; img.dirty = true; canvas.requestRenderAll(); });
   finishCropUI();
 }
@@ -2908,6 +2947,7 @@ function applyCrop() {
   const img = s.img, pts = vertsOf(s.poly);
   const inv = fabric.util.invertTransform(img.calcTransformMatrix());
   img.clipPath = new fabric.Polygon(pts.map(p => fabric.util.transformPoint(p, inv)), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false }); img.kvClipRings = null;
+  tightenCrop(img);
   finishCropUI(); commit(); toast('Recorte aplicado.');
 }
 function resetCrop() {
@@ -5728,7 +5768,9 @@ async function boolOp(op) {
   let pc; try { status('Preparando geometria…'); pc = await loadPolygonClipping(); } catch (e) { toast(e.message, true); status('Pronto'); return; }
   canvas.discardActiveObject();   // as coordenadas abaixo passam a ser as da prancha
   const order = canvas.getObjects(), sorted = objs.slice().sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  const base = sorted[0], cutters = sorted.slice(1), baseMP = shapeToMP(base);
+  const base = sorted[0], cutters = sorted.slice(1);
+  if (base.type === 'image') normalizeCrop(base);   // trabalha com a imagem inteira (necessário para “unir” devolver áreas)
+  const baseMP = shapeToMP(base);
   let cutMP; try { cutMP = cutters.length === 1 ? shapeToMP(cutters[0]) : pc.union(...cutters.map(shapeToMP)); } catch (e) { toast('Não foi possível calcular a forma: ' + e.message, true); status('Pronto'); return; }
   const isImg = base.type === 'image', name = base.kvName || TYPE_LABEL[base.type] || 'Forma';
   let results = [];
@@ -5746,10 +5788,11 @@ async function boolOp(op) {
   const idx = order.indexOf(base), made = [];
   if (isImg) {
     /* imagem: o resultado vira o recorte; em “dividir”, a imagem é duplicada para cada parte */
+    const imgs = [base]; for (let i = 1; i < results.length; i++) imgs.push(await cloneObj(base));   // clona antes de alterar a original
     for (let i = 0; i < results.length; i++) {
-      const im = i === 0 ? base : await cloneObj(base);
+      const im = imgs[i];
       if (i > 0) { im.set({ kvId: uid() }); im.objectCaching = false; canvas.insertAt(im, idx + i); applyObjState(im); }
-      setImageClipMP(im, results[i].mp); if (results.length > 1) im.kvName = name + results[i].part;
+      setImageClipMP(im, results[i].mp); tightenCrop(im); if (results.length > 1) im.kvName = name + results[i].part;
       made.push(im);
     }
   } else {
