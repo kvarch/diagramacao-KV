@@ -586,6 +586,14 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn" id="c-z-bottom" aria-label="Enviar para o fundo da folha" title="Fundo (End)"><span data-icon="toBottom"></span></button>
     <button class="icon-btn" id="c-below" aria-pressed="false" aria-label="Colocar abaixo do modelo de fundo" title="Abaixo do modelo de fundo (ex.: imagem sob o título do modelo)" hidden><span data-icon="belowTpl"></span></button>
   </div>
+  <div class="cg" id="cg-bool" hidden>
+    <span class="cg-label">Formas</span>
+    <button class="icon-btn" id="c-bool-union" aria-label="Unir formas" title="Unir — junta as formas (na imagem: devolve áreas recortadas)"><span data-icon="boolUnion"></span></button>
+    <button class="icon-btn" id="c-bool-sub" aria-label="Subtrair formas" title="Subtrair — recorta da forma (ou imagem) mais ao fundo as formas de cima"><span data-icon="boolSub"></span></button>
+    <button class="icon-btn" id="c-bool-int" aria-label="Interseção" title="Interseção — mantém só a área em comum"><span data-icon="boolInt"></span></button>
+    <button class="icon-btn" id="c-bool-div" aria-label="Dividir" title="Dividir — separa em duas partes: fora e dentro das formas de corte"><span data-icon="boolDiv"></span></button>
+    <button class="btn" id="c-bool-keep" aria-pressed="false" title="Manter as formas de corte depois da operação" style="min-width:auto;padding:0 8px;letter-spacing:0">Manter</button>
+  </div>
   <div class="cg" id="cg-align" hidden>
     <span class="cg-label" title="Um objeto: alinha à moldura da folha. Vários: alinha entre si">Alinhar · Espelhar</span>
     <button class="icon-btn" data-align-obj="l" aria-label="Alinhar à esquerda" title="Esquerda"><span data-icon="alL"></span></button>
@@ -1079,7 +1087,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V57 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V58 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1137,7 +1145,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V57 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V58 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1153,7 +1161,7 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
@@ -1249,6 +1257,10 @@ const ICONS = {
   folderCopy:'<path d="M2 8v11a2 2 0 0 0 2 2h14"/><path d="M20 17a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-5.8a2 2 0 0 1-1.7-.9L11.8 4a2 2 0 0 0-1.7-1H8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2Z"/>',
   clipboard:'<rect x="8" y="2" width="8" height="4" rx="0"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
   paste:'<path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2M16 4h2a2 2 0 0 1 2 2v2M11 14h10"/><path d="m17 10 4 4-4 4"/>',
+  boolUnion:'<path d="M4 4h10v6h6v10H10v-6H4z"/>',
+  boolSub:'<path d="M4 4h10v6h-4v4H4z"/><path d="M10 10h10v10H10z" stroke-dasharray="2 2"/>',
+  boolInt:'<path d="M4 4h10v10H4z" stroke-dasharray="2 2"/><path d="M10 10h10v10H10z" stroke-dasharray="2 2"/><path d="M10 10h4v4h-4z" fill="currentColor"/>',
+  boolDiv:'<path d="M4 4h10v10H4z"/><path d="M10 10h10v10H10z"/><path d="M10 10h4v4"/>',
   groupSm:'<rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -2810,6 +2822,7 @@ function fitImageToFrame(img) {
 
 /* ---------------- Recorte poligonal livre (duplo clique na imagem) ---------------- */
 let cropState = null;
+const ringArea = r => { let a = 0; for (let k = 0; k < r.length - 1; k++) a += r[k][0] * r[k + 1][1] - r[k + 1][0] * r[k][1]; return a / 2; };
 function clipScenePoints(img) {
   const cp = img.clipPath, M = img.calcTransformMatrix();
   if (!cp) {
@@ -2818,6 +2831,7 @@ function clipScenePoints(img) {
   }
   const CM = fabric.util.multiplyTransformMatrices(M, cp.calcTransformMatrix());
   let local;
+  if (img.kvClipRings && img.kvClipRings.length) { const big = img.kvClipRings.map(p => p[0]).sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; return big.slice(0, -1).map(([x, y]) => fabric.util.transformPoint({ x, y }, M)); }
   if (cp.points) local = cp.points.map(p => ({ x: p.x - cp.pathOffset.x, y: p.y - cp.pathOffset.y }));
   else if (cp.type === 'ellipse' || cp.type === 'circle') { const rx = cp.rx || cp.radius, ry = cp.ry || cp.radius; local = []; for (let i = 0; i < 36; i++) { const a = i * Math.PI * 2 / 36; local.push({ x: Math.cos(a) * rx, y: Math.sin(a) * ry }); } }
   else { const w = cp.width / 2, h = cp.height / 2; local = [{ x: -w, y: -h }, { x: w, y: -h }, { x: w, y: h }, { x: -w, y: h }]; }
@@ -2842,6 +2856,7 @@ function enterCrop(img) {
   if (tool !== 'select') setTool('select');
   canvas.discardActiveObject();
   const backup = { cropX: img.cropX, cropY: img.cropY, width: img.width, height: img.height, left: img.left, top: img.top, clip: img.clipPath ? img.clipPath.toObject() : null };
+  if (img.kvClipRings && (img.kvClipRings.length > 1 || img.kvClipRings[0].length > 1)) toast('Este recorte tem furos ou várias partes: a edição de vértices mostra só o contorno principal. Esc cancela sem alterar.', true);
   normalizeCrop(img);
   const pts = clipScenePoints(img);
   const ghost = new fabric.Image(img.getElement(), { scaleX: img.scaleX, scaleY: img.scaleY, angle: img.angle, flipX: img.flipX, flipY: img.flipY, left: img.left, top: img.top,
@@ -2876,12 +2891,12 @@ function applyCrop() {
   const s = cropState; if (!s) return;
   const img = s.img, pts = vertsOf(s.poly);
   const inv = fabric.util.invertTransform(img.calcTransformMatrix());
-  img.clipPath = new fabric.Polygon(pts.map(p => fabric.util.transformPoint(p, inv)), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false });
+  img.clipPath = new fabric.Polygon(pts.map(p => fabric.util.transformPoint(p, inv)), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false }); img.kvClipRings = null;
   finishCropUI(); commit(); toast('Recorte aplicado.');
 }
 function resetCrop() {
   const s = cropState; if (!s) return;
-  s.img.clipPath = null; finishCropUI(); commit(); toast('Imagem restaurada ao original.');
+  s.img.clipPath = null; s.img.kvClipRings = null; finishCropUI(); commit(); toast('Imagem restaurada ao original.');
 }
 canvas.on('object:moving', e => { if (cropState && e.target === cropState.poly) cropState.img.dirty = true; });
 canvas.on('object:scaling', e => { if (guardDrag(e)) return; if (cropState && e.target === cropState.poly) cropState.img.dirty = true; });
@@ -5622,6 +5637,122 @@ function buildPaletteMine() {
   });
 }
 
+/* ================= Operações de formas: unir, subtrair, interseção, dividir =================
+   Funcionam com retângulos, elipses, polígonos e polilinhas fechadas — e com imagens (o resultado vira o recorte da imagem).
+   Base = o elemento mais ao fundo da seleção; os demais são as formas de corte. Geometria: polygon-clipping (MIT), carregada sob demanda. */
+const PC_URLS = ['https://cdn.jsdelivr.net/npm/polygon-clipping@0.15.7/dist/polygon-clipping.umd.min.js', 'https://unpkg.com/polygon-clipping@0.15.7/dist/polygon-clipping.umd.min.js'];
+let boolKeep = false;
+async function loadPolygonClipping() {
+  if (window.polygonClipping) return window.polygonClipping;
+  for (const u of PC_URLS) {
+    try { await new Promise((res, rej) => { const s = document.createElement('script'); s.src = u; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); if (window.polygonClipping) return window.polygonClipping; } catch (e) {}
+  }
+  throw new Error('não foi possível carregar a biblioteca de geometria (verifique a conexão)');
+}
+const isBoolShape = o => !!o && !o.kvRole && !o.kvTemp && (['rect', 'ellipse', 'circle', 'polygon', 'image'].includes(o.type) || (o.type === 'kvpolyline' && o.closed) || (o.type === 'path' && o.kvBool));
+const closeRing = r => { if (r.length && (r[0][0] !== r[r.length - 1][0] || r[0][1] !== r[r.length - 1][1])) r.push([r[0][0], r[0][1]]); return r; };
+/* Contorno do elemento em coordenadas da prancha, no formato MultiPolygon [[anel externo, furos…], …] */
+function shapeToMP(o) {
+  const M = o.calcTransformMatrix(), tp = (x, y) => { const p = fabric.util.transformPoint({ x, y }, M); return [p.x, p.y]; };
+  if (o.type === 'image') {
+    const w = o.width / 2, h = o.height / 2, rect = [[closeRing([tp(-w, -h), tp(w, -h), tp(w, h), tp(-w, h)])]];
+    if (o.kvClipRings) return o.kvClipRings.map(poly => poly.map(r => closeRing(r.map(([x, y]) => tp(x, y)))));
+    if (o.clipPath && !o.clipPath.absolutePositioned) { const pts = clipScenePoints(o); if (pts && pts.length > 2) return [[closeRing(pts.map(p => [p.x, p.y]))]]; }
+    return rect;
+  }
+  if (o.type === 'rect') { const w = o.width / 2, h = o.height / 2; return [[closeRing([tp(-w, -h), tp(w, -h), tp(w, h), tp(-w, h)])]]; }
+  if (o.type === 'ellipse' || o.type === 'circle') {
+    const rx = o.rx || o.radius, ry = o.ry || o.radius, n = 128, r = [];
+    for (let i = 0; i < n; i++) { const a = i * Math.PI * 2 / n; r.push(tp(Math.cos(a) * rx, Math.sin(a) * ry)); }
+    return [[closeRing(r)]];
+  }
+  if (o.type === 'path' && o.kvBool) return o.kvBool.map(poly => poly.map(r => closeRing(r.map(([x, y]) => tp(x, y)))));
+  const off = o.pathOffset || { x: 0, y: 0 };
+  return [[closeRing(o.points.map(p => tp(p.x - off.x, p.y - off.y)))]];
+}
+const STYLE_KEYS = ['fill', 'stroke', 'strokeWidth', 'strokeUniform', 'strokeDashArray', 'strokeLineJoin', 'strokeLineCap', 'opacity', 'kvDash', 'kvDashK', 'kvGapK', 'kvBelow', 'kvLayer'];
+const styleOf = o => Object.fromEntries(STYLE_KEYS.filter(k => o[k] !== undefined).map(k => [k, Array.isArray(o[k]) ? o[k].slice() : o[k]]));
+const mpArea = mp => mp.reduce((s, poly) => s + poly.reduce((t, r, i) => { let a = 0; for (let k = 0; k < r.length - 1; k++) a += r[k][0] * r[k + 1][1] - r[k + 1][0] * r[k][1]; return t + (i ? -1 : 1) * Math.abs(a / 2); }, 0), 0);
+/* MultiPolygon → forma do app (polígono editável se for um contorno simples; senão caminho com furos) */
+function mpToShape(mp, base, label) {
+  const st = { ...styleOf(base), objectCaching: false, kvId: uid(), kvName: label };
+  if (mp.length === 1 && mp[0].length === 1) {
+    const r = mp[0][0].slice(0, -1);
+    return new fabric.Polygon(r.map(([x, y]) => ({ x, y })), st);
+  }
+  const d = mp.map(poly => poly.map(r => 'M ' + r.slice(0, -1).map(([x, y]) => `${x.toFixed(3)} ${y.toFixed(3)}`).join(' L ') + ' Z').join(' ')).join(' ');
+  const p = new fabric.Path(d, { ...st, fillRule: 'evenodd' });
+  /* guarda os anéis em coordenadas locais do caminho, para novas operações */
+  const inv = fabric.util.invertTransform(p.calcTransformMatrix());
+  p.kvBool = mp.map(poly => poly.map(r => r.map(([x, y]) => { const q = fabric.util.transformPoint({ x, y }, inv); return [q.x, q.y]; })));
+  return p;
+}
+/* Aplica um MultiPolygon (coordenadas da prancha) como recorte de uma imagem */
+function setImageClipMP(img, mp) {
+  const inv = fabric.util.invertTransform(img.calcTransformMatrix());
+  const local = mp.map(poly => poly.map(r => r.map(([x, y]) => { const q = fabric.util.transformPoint({ x, y }, inv); return [q.x, q.y]; })));
+  if (local.length === 1 && local[0].length === 1) {
+    img.clipPath = new fabric.Polygon(local[0][0].slice(0, -1).map(([x, y]) => ({ x, y })), { fill: '#000', stroke: null, strokeWidth: 0, objectCaching: false });
+    img.kvClipRings = null;
+  } else {
+    const d = local.map(poly => poly.map(r => 'M ' + r.slice(0, -1).map(([x, y]) => `${x.toFixed(3)} ${y.toFixed(3)}`).join(' L ') + ' Z').join(' ')).join(' ');
+    img.clipPath = new fabric.Path(d, { fill: '#000', stroke: null, strokeWidth: 0, fillRule: 'evenodd', objectCaching: false });
+    img.kvClipRings = local;
+  }
+  img.dirty = true; img.setCoords();
+}
+const cloneObj = o => new Promise(res => o.clone(c => res(c), PROPS));
+async function boolOp(op) {
+  const sel = canvas.getActiveObject();
+  const objs = sel && sel.type === 'activeSelection' ? sel.getObjects().slice() : [];
+  if (objs.length < 2) { toast('Selecione duas ou mais formas (ou uma imagem e formas) para combinar.'); return; }
+  const bad = objs.filter(o => !isBoolShape(o));
+  if (bad.length) { toast('Funciona com retângulos, elipses, polígonos, polilinhas fechadas e imagens. Desmarque: ' + bad.map(o => o.kvName || TYPE_LABEL[o.type] || o.type).slice(0, 3).join(', '), true); return; }
+  if (objs.some(isLk)) { toast('Desbloqueie os elementos antes de combinar.', true); return; }
+  let pc; try { status('Preparando geometria…'); pc = await loadPolygonClipping(); } catch (e) { toast(e.message, true); status('Pronto'); return; }
+  canvas.discardActiveObject();   // as coordenadas abaixo passam a ser as da prancha
+  const order = canvas.getObjects(), sorted = objs.slice().sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const base = sorted[0], cutters = sorted.slice(1), baseMP = shapeToMP(base);
+  let cutMP; try { cutMP = cutters.length === 1 ? shapeToMP(cutters[0]) : pc.union(...cutters.map(shapeToMP)); } catch (e) { toast('Não foi possível calcular a forma: ' + e.message, true); status('Pronto'); return; }
+  const isImg = base.type === 'image', name = base.kvName || TYPE_LABEL[base.type] || 'Forma';
+  let results = [];
+  try {
+    if (op === 'union') {
+      /* imagem: devolve áreas recortadas, sem passar da borda da imagem */
+      if (isImg) { const full = (() => { const kc = base.clipPath, kr = base.kvClipRings; base.clipPath = null; base.kvClipRings = null; const m = shapeToMP(base); base.clipPath = kc; base.kvClipRings = kr; return m; })(); results = [{ mp: pc.intersection(pc.union(baseMP, cutMP), full), part: '' }]; }
+      else results = [{ mp: pc.union(baseMP, cutMP), part: ' (unida)' }];
+    } else if (op === 'subtract') results = [{ mp: pc.difference(baseMP, cutMP), part: ' (recortada)' }];
+    else if (op === 'intersect') results = [{ mp: pc.intersection(baseMP, cutMP), part: ' (interseção)' }];
+    else if (op === 'divide') results = [{ mp: pc.difference(baseMP, cutMP), part: ' (parte 1)' }, { mp: pc.intersection(baseMP, cutMP), part: ' (parte 2)' }];
+  } catch (e) { toast('Não foi possível calcular a forma: ' + e.message, true); status('Pronto'); return; }
+  results = results.filter(r => r.mp && r.mp.length && mpArea(r.mp) > 0.01);
+  if (!results.length) { toast('O resultado ficou vazio — as formas não se sobrepõem do jeito esperado.', true); status('Pronto'); return; }
+  const idx = order.indexOf(base), made = [];
+  if (isImg) {
+    /* imagem: o resultado vira o recorte; em “dividir”, a imagem é duplicada para cada parte */
+    for (let i = 0; i < results.length; i++) {
+      const im = i === 0 ? base : await cloneObj(base);
+      if (i > 0) { im.set({ kvId: uid() }); im.objectCaching = false; canvas.insertAt(im, idx + i); applyObjState(im); }
+      setImageClipMP(im, results[i].mp); if (results.length > 1) im.kvName = name + results[i].part;
+      made.push(im);
+    }
+  } else {
+    results.forEach((r, i) => { const s = mpToShape(r.mp, base, name + r.part); canvas.insertAt(s, idx + i); applyObjState(s); made.push(s); });
+    canvas.remove(base);
+  }
+  if (!boolKeep) cutters.forEach(c => canvas.remove(c));
+  raiseChrome();
+  if (made.length === 1) canvas.setActiveObject(made[0]); else canvas.setActiveObject(new fabric.ActiveSelection(made, { canvas }));
+  canvas.requestRenderAll(); commit(); refreshPanel(); scheduleLayers(); status('Pronto');
+  const L = { union: 'Formas unidas', subtract: 'Recorte aplicado', intersect: 'Interseção aplicada', divide: 'Forma dividida em ' + made.length + ' partes' }[op];
+  toast(`${L}${isImg ? ' na imagem' : ''}.${boolKeep ? ' As formas de corte foram mantidas.' : ''}`);
+}
+$('#c-bool-union').onclick = () => boolOp('union');
+$('#c-bool-sub').onclick = () => boolOp('subtract');
+$('#c-bool-int').onclick = () => boolOp('intersect');
+$('#c-bool-div').onclick = () => boolOp('divide');
+$('#c-bool-keep').onclick = () => { boolKeep = !boolKeep; setPressed($('#c-bool-keep'), boolKeep); toast(boolKeep ? 'As formas de corte serão mantidas após a operação.' : 'As formas de corte serão removidas após a operação.'); };
+
 /* ---------------- Barra contextual e painel Objeto ---------------- */
 const isText = o => ['textbox', 'i-text', 'text', 'kvtext'].includes(o.type);
 const isDim = o => o && o.type === 'kvdim';
@@ -5691,6 +5822,7 @@ function refreshCtx() {
   show('#c-closed', !!single1 && single1.type === 'kvcurve'); show('#c-smooth', !!single1 && single1.type === 'kvcurve' && !!single1.ctrls); if (single1 && single1.type === 'kvcurve') setPressed($('#c-closed'), single1.closed);
   if (single1 && isPoly(single1)) { setPressed($('#c-vertex'), single1.kvEditing); $('#c-vertex-lbl').textContent = single1.kvEditing ? 'Concluir' : 'Vértices'; }
   show('#cg-image', ctx.image); show('#cg-align', ctx.align); show('#cg-order', ctx.align);
+  show('#cg-bool', objs.length >= 2 && objs.every(o => typeof isBoolShape === 'function' && isBoolShape(o)));
   { const bt = objs.length && objs.some(o => mode === 'sheets' && hasTpl(sheetOf(o))); show('#c-below', !!bt); if (bt) setPressed($('#c-below'), objs.every(o => o.kvBelow)); } show('#cg-opacity', true);
   $('#lb-fill').textContent = (ctx.text && !t.some(o => !noFill(o) && !isText(o) && !isDim(o))) ? (t.some(isDim) || (!t.length && tool === 'dim') ? 'Texto' : 'Cor') : 'Preench.';
   const src = first ? {
