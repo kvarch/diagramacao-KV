@@ -1088,7 +1088,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V59 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V60 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1146,7 +1146,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V59 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V60 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -6557,12 +6557,18 @@ function addSheet(copyContent) {
   relayout(() => { P().splice(idx + 1, 0, ns); });
   setActiveIdRaw(ns.id);
   const dst = sheetRect(ns.id), dx = dst.x - srcRect.x, dy = dst.y - srcRect.y;
+  /* as cópias ficam prontas em tempos diferentes (imagens demoram mais): só entram na folha quando todas estiverem prontas,
+     na mesma ordem de camadas da folha original */
   let pending = toClone.length;
-  const done = () => { raiseChrome(); rebuildChrome(); renderSheetList(); syncDocUI(); commit(); fitPage(); };
+  const clones = new Array(toClone.length);
+  const done = () => {
+    clones.forEach(c => { if (!c) return; canvas.add(c); applyObjState(c); });
+    raiseChrome(); rebuildChrome(); renderSheetList(); syncDocUI(); commit(); fitPage();
+  };
   if (!pending) done();
-  toClone.forEach(o => o.clone(c => {
+  toClone.forEach((o, i) => o.clone(c => {
     c.set({ left: c.left + dx, top: c.top + dy, kvId: uid() }); if (c.type === 'image') c.objectCaching = false;
-    canvas.add(c); applyObjState(c); if (--pending === 0) done();
+    clones[i] = c; if (--pending === 0) done();
   }, PROPS));
   const W = mode === 'tpl' ? 'Modelo' : 'Folha';
   toast(copyContent ? `${W} duplicado(a) com o conteúdo.` : `${W} ${idx + 2} criado(a).`);
