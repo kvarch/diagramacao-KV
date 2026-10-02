@@ -957,12 +957,14 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <div class="panel" role="tabpanel" id="panel-pict" aria-labelledby="tab-pict" hidden>
       <section class="section">
         <h2>Pictogramas</h2>
-        <p class="hint">Acervo aberto da <a href="https://pictogrammers.com/library/mdi/" target="_blank" rel="noopener">Pictogrammers</a> (licença Apache 2.0). Busque em português ou inglês; clique para inserir ou arraste para a folha.</p>
-        <div class="field"><label for="pi-q">Buscar</label><input type="text" id="pi-q" placeholder="ex.: árvore, ônibus, estacionamento, bike…"></div>
+        <p class="hint">Escolha o acervo, o estilo e a categoria; depois busque em português ou inglês. Clique para inserir ou arraste para a folha.</p>
+        <div class="field"><label for="pi-lib">Acervo</label><select id="pi-lib"></select></div>
+        <p class="info" id="pi-lic" style="margin-top:-4px"></p>
         <div class="row2">
-          <div class="field"><label for="pi-lib">Acervo</label><select id="pi-lib"><option value="mdi">Material Design Icons</option><option value="mdil">MDI Light (traço fino)</option></select></div>
-          <div class="field"><label for="pi-cat">Categoria</label><select id="pi-cat"><option value="">Todas as categorias</option></select></div>
+          <div class="field" id="pi-style-wrap"><label for="pi-style">Estilo</label><select id="pi-style"></select></div>
+          <div class="field" id="pi-cat-wrap"><label for="pi-cat">Categoria</label><select id="pi-cat"><option value="">Todas as categorias</option></select></div>
         </div>
+        <div class="field"><label for="pi-q">Buscar</label><input type="text" id="pi-q" placeholder="ex.: árvore, ônibus, estacionamento, bike…"></div>
         <div class="row2">
           <div class="field"><label for="pi-color">Cor ao inserir</label><input type="color" id="pi-color" value="#000000"></div>
           <div class="field"><label for="pi-size">Tamanho ao inserir (mm)</label><input type="number" id="pi-size" value="15" min="2" max="500" step="1"></div>
@@ -1090,7 +1092,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V62 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V63 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1148,7 +1150,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V62 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V63 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -4371,6 +4373,46 @@ const PICT_LIBS = {
   mdi: { label: 'Material Design Icons', base: 'https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47' },
   mdil: { label: 'MDI Light', base: 'https://cdn.jsdelivr.net/npm/@mdi/light-svg@0.2.63' }
 };
+/* Acervos com licença livre para uso comercial, sem exigir crédito nas pranchas (MIT, ISC ou Apache 2.0).
+   Os demais acervos vêm do serviço público da Iconify (mesmos arquivos SVG originais de cada projeto). */
+const ICONIFY = 'https://api.iconify.design';
+const PICT_SOURCES = {
+  mdi: { label: 'Material Design Icons', lic: 'Apache 2.0', url: 'https://pictogrammers.com/library/mdi/', styles: [['mdi', 'Preenchido'], ['mdil', 'Light (traço fino)']] },
+  lucide: { label: 'Lucide', prefix: 'lucide', lic: 'ISC', url: 'https://lucide.dev', styles: [['all', 'Contorno']] },
+  tabler: { label: 'Tabler Icons', prefix: 'tabler', lic: 'MIT', url: 'https://tabler.io/icons', styles: [['outline', 'Contorno'], ['filled', 'Preenchido']] },
+  ph: { label: 'Phosphor', prefix: 'ph', lic: 'MIT', url: 'https://phosphoricons.com', styles: [['regular', 'Regular'], ['thin', 'Fino'], ['light', 'Leve'], ['bold', 'Negrito'], ['fill', 'Preenchido'], ['duotone', 'Duotone']] },
+  bi: { label: 'Bootstrap Icons', prefix: 'bi', lic: 'MIT', url: 'https://icons.getbootstrap.com', styles: [['outline', 'Contorno'], ['fill', 'Preenchido']] },
+  msym: { label: 'Google Material Symbols', prefix: 'material-symbols', lic: 'Apache 2.0', url: 'https://fonts.google.com/icons', styles: [['outline', 'Contorno'], ['fill', 'Preenchido'], ['rounded', 'Arredondado'], ['sharp', 'Reto']] },
+  huge: { label: 'Hugeicons (gratuitos)', prefix: 'hugeicons', lic: 'MIT', url: 'https://hugeicons.com', styles: [['all', 'Contorno arredondado']] }
+};
+const PH_W = ['thin', 'light', 'bold', 'fill', 'duotone'];
+/* Cada acervo guarda os estilos como sufixo no nome; filtra pelo estilo e devolve o nome-base para a busca */
+function styleMatch(src, style, n) {
+  if (src === 'tabler') return style === 'filled' ? n.endsWith('-filled') : !n.endsWith('-filled');
+  if (src === 'bi') return style === 'fill' ? n.endsWith('-fill') : !n.endsWith('-fill');
+  if (src === 'ph') return style === 'regular' ? !PH_W.some(w => n.endsWith('-' + w)) : n.endsWith('-' + style);
+  if (src === 'msym') {
+    if (style === 'outline') return n.endsWith('-outline');
+    if (style === 'rounded') return n.endsWith('-outline-rounded');
+    if (style === 'sharp') return n.endsWith('-outline-sharp');
+    return !/-(outline|rounded|sharp)(-|$)/.test(n);
+  }
+  return true;
+}
+const baseName = n => n.replace(/-(filled|fill|thin|light|bold|duotone|outline-rounded|outline-sharp|outline|rounded|sharp)$/, '');
+async function loadIconifyMeta(prefix) {
+  const key = 'pict-meta:iconify:' + prefix + ':v1';
+  let m = null; try { m = await idb.get(key); } catch (e) {}
+  if (m) return m;
+  $('#pi-status').textContent = 'Carregando catálogo do acervo…';
+  const r = await fetch(`${ICONIFY}/collection?prefix=${encodeURIComponent(prefix)}`); if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json(), cats = {}, all = new Set(j.uncategorized || []);
+  Object.entries(j.categories || {}).forEach(([c, list]) => list.forEach(n => { all.add(n); (cats[n] = cats[n] || []).push(c); }));
+  const hidden = new Set(j.hidden || []);
+  m = { names: [...all].filter(n => !hidden.has(n)).sort(), cats };
+  try { await idb.set(key, m); } catch (e) {}
+  return m;
+}
 const PICT_CAT_PT = {
   'Home Automation': 'Casa / automação', 'Files / Folders': 'Arquivos / pastas', 'Alpha / Numeric': 'Letras / números', 'Date / Time': 'Data / hora', 'Brand / Logo': 'Marcas',
   'Arrow': 'Setas', 'Food / Drink': 'Comida / bebida', 'Banking': 'Finanças', 'Text / Content / Format': 'Texto / formatação', 'Gaming / RPG': 'Jogos', 'Account / User': 'Pessoas / usuário',
@@ -4396,7 +4438,7 @@ const PICT_PT = {
   seta: ['arrow'], mapa: ['map'], localizacao: ['map-marker'], marcador: ['map-marker'], pin: ['map-marker'], camera: ['camera', 'cctv'], cachorro: ['dog'], gato: ['cat'], pet: ['paw', 'dog']
 };
 const pictNorm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-let pictMeta = {}, pictLib = 'mdi', pictShown = 120;
+let pictMeta = {}, pictLib = 'mdi', pictSrc = 'mdi', pictStyle = 'mdi', pictShown = 120;
 const pictSvgCache = new Map();
 async function loadPictMeta(lib) {
   if (pictMeta[lib]) return pictMeta[lib];
@@ -4420,21 +4462,39 @@ function pictFilter(list) {
   const score = x => Math.min(...toks[0].map(w => x.n === w ? 0 : x.n.startsWith(w + '-') || x.n.endsWith('-' + w) ? 1 : x.n.startsWith(w) ? 2 : x.n.includes(w) ? 3 : 4)) * 100 + x.n.length;
   return res.sort((a, b) => score(a) - score(b));
 }
+async function pictList() {
+  const S = PICT_SOURCES[pictSrc];
+  if (!S.prefix) { pictLib = pictStyle; return loadPictMeta(pictStyle); }
+  const m = await loadIconifyMeta(S.prefix);
+  return m.names.filter(n => styleMatch(pictSrc, pictStyle, n)).map(n => ({ n, a: baseName(n).replace(/-/g, ' '), t: m.cats[n] || (m.cats[baseName(n)] || []) }));
+}
+const pictThumb = n => { const S = PICT_SOURCES[pictSrc]; return S.prefix ? `${ICONIFY}/${S.prefix}/${n}.svg` : `${PICT_LIBS[pictStyle].base}/svg/${n}.svg`; };
+const pictKey = () => PICT_SOURCES[pictSrc].prefix ? pictSrc : pictStyle;
+function syncPictSourceUI() {
+  const S = PICT_SOURCES[pictSrc], st = $('#pi-style');
+  st.innerHTML = S.styles.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join('');
+  if (!S.styles.some(x => x[0] === pictStyle)) pictStyle = S.styles[0][0];
+  st.value = pictStyle; $('#pi-style-wrap').hidden = S.styles.length < 2;
+  $('#pi-lic').innerHTML = `<a href="${S.url}" target="_blank" rel="noopener">${escapeHtml(S.label)}</a> · licença ${S.lic} — uso comercial livre, sem exigir crédito nas pranchas.`;
+}
 async function renderPict() {
   const grid = $('#pi-grid'); grid.innerHTML = '';
   let list;
-  try { list = await loadPictMeta(pictLib); }
+  try { list = await pictList(); }
   catch (e) { $('#pi-status').textContent = 'Não foi possível carregar o catálogo (' + e.message + '). Verifique a conexão.'; return; }
   const cats = [...new Set(list.flatMap(x => x.t))].sort((a, b) => (PICT_CAT_PT[a] || a).localeCompare(PICT_CAT_PT[b] || b, 'pt-BR'));
   const sel = $('#pi-cat'), cur = sel.value;
-  if (sel.dataset.lib !== pictLib) { sel.innerHTML = '<option value="">Todas as categorias</option>' + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(PICT_CAT_PT[c] || c)}</option>`).join(''); sel.dataset.lib = pictLib; sel.value = cats.includes(cur) ? cur : ''; }
-  const res = pictFilter(list), base = PICT_LIBS[pictLib].base;
+  const lk = pictSrc + ':' + pictStyle;
+  if (sel.dataset.lib !== lk) { sel.innerHTML = '<option value="">Todas as categorias</option>' + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(PICT_CAT_PT[c] || c)}</option>`).join(''); sel.dataset.lib = lk; sel.value = cats.includes(cur) ? cur : ''; }
+  $('#pi-cat-wrap').hidden = !cats.length;
+  const res = pictFilter(list);
   $('#pi-status').textContent = res.length ? `${res.length.toLocaleString('pt-BR')} pictogramas${res.length > pictShown ? ` — mostrando ${pictShown}` : ''}. Clique ou arraste para a folha.` : 'Nenhum pictograma encontrado. Tente outro termo (em português ou inglês).';
   res.slice(0, pictShown).forEach(x => {
     const b = document.createElement('button'); b.className = 'pict-tile'; b.title = x.n; b.setAttribute('aria-label', `Inserir pictograma ${x.n}`); b.draggable = true;
-    b.innerHTML = `<img alt="" loading="lazy" src="${base}/svg/${x.n}.svg"><span>${escapeHtml(x.n)}</span>`;
-    b.onclick = () => insertPict(pictLib, x.n);
-    b.addEventListener('dragstart', e => { e.dataTransfer.setData('application/x-kv-icon', JSON.stringify({ lib: pictLib, name: x.n })); e.dataTransfer.effectAllowed = 'copy'; });
+    const lib = pictKey();
+    b.innerHTML = `<img alt="" loading="lazy" src="${pictThumb(x.n)}"><span>${escapeHtml(x.n)}</span>`;
+    b.onclick = () => insertPict(lib, x.n);
+    b.addEventListener('dragstart', e => { e.dataTransfer.setData('application/x-kv-icon', JSON.stringify({ lib, name: x.n })); e.dataTransfer.effectAllowed = 'copy'; });
     grid.appendChild(b);
   });
   $('#pi-more').hidden = res.length <= pictShown;
@@ -4442,7 +4502,10 @@ async function renderPict() {
 let pictTimer = 0;
 $('#pi-q').addEventListener('input', () => { clearTimeout(pictTimer); pictShown = 120; pictTimer = setTimeout(renderPict, 220); });
 $('#pi-cat').addEventListener('change', () => { pictShown = 120; renderPict(); });
-$('#pi-lib').addEventListener('change', e => { pictLib = e.target.value; pictShown = 120; renderPict(); });
+$('#pi-lib').addEventListener('change', e => { pictSrc = e.target.value; pictShown = 120; syncPictSourceUI(); renderPict(); });
+$('#pi-style').addEventListener('change', e => { pictStyle = e.target.value; pictShown = 120; renderPict(); });
+$('#pi-lib').innerHTML = Object.entries(PICT_SOURCES).map(([k, S]) => `<option value="${k}">${escapeHtml(S.label)}</option>`).join('');
+syncPictSourceUI();
 $('#pi-more').onclick = () => { pictShown += 240; renderPict(); };
 
 async function fetchPictSvg(lib, name) {
@@ -4451,6 +4514,8 @@ async function fetchPictSvg(lib, name) {
   const t = await r.text(); pictSvgCache.set(k, t); return t;
 }
 async function insertPict(lib, name, point) {
+  const S = PICT_SOURCES[lib];
+  if (S && S.prefix) return insertIconifyPict(lib, name, point);
   try {
     const txt = await fetchPictSvg(lib, name);
     const ds = [...txt.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map(m => m[1]);
@@ -4461,6 +4526,27 @@ async function insertPict(lib, name, point) {
     const c = point || viewCenter(); obj.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center');
     obj.kvName = 'Ícone ' + name;
     addUser(obj, 'Ícone', true);
+  } catch (e) { toast('Não foi possível inserir o pictograma: ' + e.message, true); }
+}
+
+async function insertIconifyPict(lib, name, point) {
+  try {
+    const S = PICT_SOURCES[lib], k = lib + ':' + name;
+    let txt = pictSvgCache.get(k);
+    if (!txt) { const r = await fetch(`${ICONIFY}/${S.prefix}/${name}.svg`); if (!r.ok) throw new Error('HTTP ' + r.status); txt = await r.text(); pictSvgCache.set(k, txt); }
+    const color = $('#pi-color').value, size = mm2pt(clamp(parseFloat($('#pi-size').value) || 15, 2, 500));
+    /* a cor “currentColor” vira a cor escolhida; tamanho em “1em” vira o do viewBox */
+    const vb = (txt.match(/viewBox="([^"]+)"/) || [])[1] || '0 0 24 24', [, , vw, vh] = vb.split(/[\s,]+/).map(Number);
+    const svg = txt.replace(/currentColor/g, color).replace(/\swidth="[^"]*"/, ` width="${vw}"`).replace(/\sheight="[^"]*"/, ` height="${vh}"`);
+    await new Promise(res => fabric.loadSVGFromString(svg, (objs, opts) => {
+      objs = (objs || []).filter(o => o && !((!o.fill || o.fill === 'none') && (!o.stroke || o.stroke === 'none')));
+      if (!objs.length) { toast('Ícone sem traçado reconhecível.', true); res(); return; }
+      const g = objs.length === 1 ? objs[0] : fabric.util.groupSVGElements(objs, opts);
+      const kk = size / Math.max(g.width * (g.scaleX || 1), g.height * (g.scaleY || 1)); g.set({ scaleX: (g.scaleX || 1) * kk, scaleY: (g.scaleY || 1) * kk });
+      const c = point || viewCenter(); g.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center');
+      g.kvIcon = { lib, name }; g.kvName = 'Ícone ' + name;
+      addUser(g, 'Ícone', true); res();
+    }));
   } catch (e) { toast('Não foi possível inserir o pictograma: ' + e.message, true); }
 }
 
