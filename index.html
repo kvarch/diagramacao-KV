@@ -377,6 +377,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .ptree .tb:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:-2px}
 .ptree .acts{display:flex;align-items:center;padding-right:2px;opacity:.55}
 .ptree li:hover .acts,.ptree li.active .acts,.ptree li:focus-within .acts{opacity:1}
+.inline-wrap{display:contents}
+.inline-wrap[hidden]{display:none}
 .ex-stack{display:grid;grid-template-columns:1fr;gap:10px}
 .ex-stack .field{margin:0}
 .ex-stack select{width:100%}
@@ -506,6 +508,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn" id="b-circle" aria-pressed="false" aria-label="Caixa circular" title="Caixa circular — o círculo envolve o texto; a margem controla o tamanho"><span data-icon="circle"></span></button>
     <span class="unit" title="Margem interna">⇲</span><label class="sr-only" for="b-pad">Margem interna em milímetros</label>
     <input type="number" id="b-pad" min="0" max="100" step="0.5" title="Margem interna entre texto e moldura (mm)"><span class="unit">mm</span>
+    <span id="b-size-wrap" class="inline-wrap"><span class="unit" title="Tamanho da moldura">⬚</span><label class="sr-only" for="b-size">Tamanho da moldura em milímetros</label><input type="number" id="b-size" min="1" max="1000" step="0.5" title="Tamanho da moldura (mm) — lado do quadrado ou diâmetro do círculo; vazio = automático pela margem"><span class="unit">mm</span></span>
   </div>
   <div class="cg" id="cg-text" hidden>
     <span class="cg-label">Texto</span>
@@ -967,8 +970,10 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         <div class="field"><label for="pi-q">Buscar</label><input type="text" id="pi-q" placeholder="ex.: árvore, ônibus, estacionamento, bike…"></div>
         <div class="row2">
           <div class="field"><label for="pi-color">Cor ao inserir</label><input type="color" id="pi-color" value="#000000"></div>
-          <div class="field"><label for="pi-size">Tamanho ao inserir (mm)</label><input type="number" id="pi-size" value="15" min="2" max="500" step="1"></div>
+          <div class="field"><label for="pi-size">Tamanho ao inserir (mm) — com moldura, é o da moldura</label><input type="number" id="pi-size" value="15" min="2" max="500" step="1"></div>
         </div>
+        <div class="field"><label for="pi-frame">Moldura ao inserir</label><select id="pi-frame"><option value="none">Sem moldura</option><option value="rect">Quadrada</option><option value="circle">Circular</option></select></div>
+        <p class="info">A moldura (fundo, borda, margem e formato) se ajusta depois pela barra superior, no grupo “Caixa”.</p>
         <p class="info" id="pi-status" aria-live="polite">Abra esta aba para carregar o catálogo.</p>
         <div class="pict-grid" id="pi-grid"></div>
         <button class="btn block" id="pi-more" hidden style="margin-top:8px">Mostrar mais</button>
@@ -1092,7 +1097,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V64 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V66 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1150,7 +1155,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V64 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V66 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1166,7 +1171,7 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
@@ -1743,7 +1748,7 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
     finally { this.__kvFit = false; }
     this.padding = this._circleR() - Math.min(this.width, this.height) / 2;
   },
-  _circleR() { return Math.max(this.width, this.height) / 2 + (this.boxPad || 0); },
+  _circleR() { return this.boxSize > 0 ? this.boxSize / 2 : Math.max(this.width, this.height) / 2 + (this.boxPad || 0); },
   _boxRect() { const p = this.boxPad || 0; return { x: -this.width / 2 - p, y: -this.height / 2 - p, w: this.width + 2 * p, h: this.height + 2 * p }; },
   _hasBox() { return !!(this.boxFill || (this.boxStroke && this.boxStrokeWidth > 0)); },
   _render(ctx) {
@@ -1771,7 +1776,7 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
     if (this.boxShape === 'circle') return `<circle ${this.getSvgTransform()} cx="0" cy="0" r="${this._circleR()}" style="${style}"/>\n` + base;
     return `<rect ${this.getSvgTransform()} x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" style="${style}"/>\n` + base;
   },
-  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { paraSpace: this.paraSpace, boxFill: this.boxFill, boxStroke: this.boxStroke, boxStrokeWidth: this.boxStrokeWidth, boxDash: this.boxDash, boxPad: this.boxPad, boxShape: this.boxShape || 'rect' }); }
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { paraSpace: this.paraSpace, boxFill: this.boxFill, boxStroke: this.boxStroke, boxStrokeWidth: this.boxStrokeWidth, boxDash: this.boxDash, boxPad: this.boxPad, boxShape: this.boxShape || 'rect', boxSize: this.boxSize || 0 }); }
 });
 fabric.Kvtext.fromObject = function (o, cb) {
   const styles = fabric.util.stylesFromArray ? fabric.util.stylesFromArray(o.styles, o.text) : o.styles;
@@ -4535,11 +4540,17 @@ async function insertPict(lib, name, point) {
     const obj = new fabric.Path(ds.join(' '), { fill: color, stroke: null, strokeWidth: 0, strokeUniform: true, kvIcon: { lib, name } });
     const k = size / Math.max(obj.width, obj.height); obj.set({ scaleX: k, scaleY: k });
     const c = point || viewCenter(); obj.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center');
-    obj.kvName = 'Ícone ' + name;
+    obj.kvName = 'Ícone ' + name; applyInsertFrame(obj, color);
     addUser(obj, 'Ícone', true);
   } catch (e) { toast('Não foi possível inserir o pictograma: ' + e.message, true); }
 }
 
+function applyInsertFrame(o, color) {
+  const f = $('#pi-frame').value; if (f === 'none') return;
+  /* com moldura, o “tamanho ao inserir” vale para a moldura: todos os ícones saem com molduras iguais */
+  o.set({ boxShape: f, boxStroke: rgba(color, 1), boxStrokeWidth: mm2pt(0.35), boxPad: mm2pt(2), boxFill: '', boxDash: 'solid', objectCaching: false, boxSize: mm2pt(clamp(parseFloat($('#pi-size').value) || 15, 2, 500)) });
+  fitIconToFrame(o);
+}
 async function insertIconifyPict(lib, name, point) {
   try {
     const S = PICT_SOURCES[lib];
@@ -4552,7 +4563,7 @@ async function insertIconifyPict(lib, name, point) {
       const g = objs.length === 1 ? objs[0] : fabric.util.groupSVGElements(objs, opts);
       const kk = size / Math.max(g.width * (g.scaleX || 1), g.height * (g.scaleY || 1)); g.set({ scaleX: (g.scaleX || 1) * kk, scaleY: (g.scaleY || 1) * kk });
       const c = point || viewCenter(); g.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center');
-      g.kvIcon = { lib, name }; g.kvName = 'Ícone ' + name;
+      g.kvIcon = { lib, name }; g.kvName = 'Ícone ' + name; applyInsertFrame(g, color);
       addUser(g, 'Ícone', true); res();
     }));
   } catch (e) { toast('Não foi possível inserir o pictograma: ' + e.message, true); }
@@ -4600,6 +4611,56 @@ function refreshSvgColors() {
     ul.appendChild(li);
   });
 }
+
+
+/* ---------------- Moldura de pictogramas (quadrada ou circular, com fundo, borda e margem) ----------------
+   Mesmas propriedades da caixa de texto (boxFill, boxStroke, boxStrokeWidth, boxDash, boxPad, boxShape).
+   A margem e a espessura da borda são em medidas da folha: não mudam ao redimensionar o ícone. */
+const hasIconFrame = o => !!(o && o.kvIcon && (o.boxFill || (o.boxStroke && o.boxStrokeWidth > 0)));
+function iconFrameGeom(o) {
+  const sx = Math.abs(o.scaleX) || 1, sy = Math.abs(o.scaleY) || 1, k = (sx + sy) / 2;
+  const circ = o.boxShape === 'circle';
+  if (o.boxSize > 0) { const S = o.boxSize / k; return { k, w: S, h: S, circ, R: S / 2, lw: (o.boxStrokeWidth || 0) / k }; }   // moldura de tamanho fixo
+  const pad = (o.boxPad || 0) / k, w = o.width + pad * 2, h = o.height + pad * 2, R = Math.max(o.width, o.height) / 2 + pad;
+  return { k, w, h, circ, R, lw: (o.boxStrokeWidth || 0) / k };
+}
+function drawIconFrame(o, ctx) {
+  const g = iconFrameGeom(o);
+  ctx.save();
+  const shape = () => { ctx.beginPath(); if (g.circ) ctx.arc(0, 0, g.R, 0, Math.PI * 2); else ctx.rect(-g.w / 2, -g.h / 2, g.w, g.h); };
+  if (o.boxFill) { ctx.fillStyle = o.boxFill; shape(); ctx.fill(); }
+  if (o.boxStroke && o.boxStrokeWidth > 0) {
+    ctx.lineWidth = g.lw; ctx.strokeStyle = o.boxStroke; ctx.lineJoin = 'miter';
+    ctx.setLineDash((dashArr(o.boxDash, o.boxStrokeWidth) || []).map(v => v / g.k)); ctx.lineCap = capFor(o.boxDash);
+    shape(); ctx.stroke();
+  }
+  ctx.restore();
+}
+function iconFrameSVG(o) {
+  const g = iconFrameGeom(o), f = o.boxFill ? new fabric.Color(o.boxFill) : null, sc = o.boxStroke && o.boxStrokeWidth > 0 ? new fabric.Color(o.boxStroke) : null;
+  const da = sc ? (dashArr(o.boxDash, o.boxStrokeWidth) || []).map(v => (v / g.k).toFixed(3)).join(' ') : '';
+  const style = `fill:${f ? f.toRgb() : 'none'};fill-opacity:${f ? f.getAlpha() : 0};stroke:${sc ? sc.toRgb() : 'none'};stroke-opacity:${sc ? sc.getAlpha() : 0};stroke-width:${g.lw};${da ? 'stroke-dasharray:' + da + ';' : ''}stroke-linejoin:miter`;
+  return g.circ ? `<circle ${o.getSvgTransform()} cx="0" cy="0" r="${g.R}" style="${style}"/>\n` : `<rect ${o.getSvgTransform()} x="${-g.w / 2}" y="${-g.h / 2}" width="${g.w}" height="${g.h}" style="${style}"/>\n`;
+}
+/* Moldura de tamanho fixo: o ícone é redimensionado para caber em (tamanho − 2 × margem), centralizado */
+function fitIconToFrame(o) {
+  if (!o || !o.kvIcon || !(o.boxSize > 0)) return;
+  const c = o.getCenterPoint(), inner = Math.max(1, o.boxSize - 2 * (o.boxPad || 0)), k = inner / Math.max(o.width, o.height);
+  o.set({ scaleX: k * Math.sign(o.scaleX || 1), scaleY: k * Math.sign(o.scaleY || 1) });
+  o.setPositionByOrigin(c, 'center', 'center'); o.setCoords();
+}
+const updateIconPadding = o => { if (!o || !o.kvIcon) return; const g = iconFrameGeom(o); o.padding = hasIconFrame(o) ? (g.circ ? g.R : Math.max(g.w, g.h) / 2) * g.k - Math.min(o.width, o.height) / 2 * g.k : 0; };
+{ /* Path: desenha a moldura antes do traçado; Group: antes dos elementos (o grupo não usa _render) */
+  const PP = fabric.Path.prototype, pr0 = PP._render, ps0 = PP.toSVG;
+  PP._render = function (ctx) { if (hasIconFrame(this)) drawIconFrame(this, ctx); return pr0.call(this, ctx); };
+  PP.toSVG = function (reviver) { const base = ps0.call(this, reviver); return hasIconFrame(this) ? iconFrameSVG(this) + base : base; };
+  const GP = fabric.Group.prototype, gd0 = GP.drawObject, gs0 = GP.toSVG;
+  GP.drawObject = function (ctx) { if (hasIconFrame(this)) drawIconFrame(this, ctx); return gd0.call(this, ctx); };
+  GP.toSVG = function (reviver) { const base = gs0.call(this, reviver); return hasIconFrame(this) ? iconFrameSVG(this) + base : base; };
+}
+/* ícone com moldura não usa cache (a moldura passa da borda do desenho) */
+canvas.on('object:added', e => { const o = e.target; if (o && o.kvIcon) { o.objectCaching = false; updateIconPadding(o); } });
+canvas.on('object:scaling', e => { const o = e.target; if (o && o.kvIcon && hasIconFrame(o)) { if (o.boxSize > 0) o.boxSize = Math.max(o.width, o.height) * (Math.abs(o.scaleX) + Math.abs(o.scaleY)) / 2 + 2 * (o.boxPad || 0); updateIconPadding(o); } });
 
 /* ---------------- Importação de PDF (pdf.js, carregado sob demanda) ----------------
    Cada página escolhida vira uma imagem na folha, na resolução escolhida; vinda de pasta vinculada, recarrega quando o PDF muda. */
@@ -5920,6 +5981,11 @@ function targets() {
   const out = [], walk = o => { if (o.type === 'group' && !o.kvRole && !o.kvSym) o.getObjects().forEach(walk); else out.push(o); };
   canvas.getActiveObjects().filter(o => !o.kvTemp).forEach(walk); return out;
 }
+/* alvos da caixa/moldura: textos e ícones (um ícone de várias partes é um grupo e conta como um só) */
+function boxTargets() {
+  const out = [], walk = o => { if (o.type === 'kvtext' || o.kvIcon) out.push(o); else if (o.type === 'group' && !o.kvRole && !o.kvSym) o.getObjects().forEach(walk); };
+  canvas.getActiveObjects().filter(o => !o.kvTemp).forEach(walk); return out;
+}
 function colorParts(c) {
   if (!c || c === 'transparent' || c === 'none' || typeof c !== 'string') return { hex: '#000000', a: 1, none: true };
   const col = new fabric.Color(c); return { hex: '#' + col.toHex().toLowerCase(), a: col.getAlpha(), none: false };
@@ -5960,13 +6026,14 @@ function refreshCtx() {
     $('#d-text').placeholder = auto;
     setVal('#d-unit', dm.dimUnit); setVal('#d-dec', dm.dimDec); setPressed($('#d-showunit'), dm.dimShowUnit); setVal('#d-pos', dm.dimPos); setVal('#d-gap', dm.dimGap);
   }
-  const bx = t.find(o => o.type === 'kvtext') || (!t.length && tool === 'text' ? defText : null);
+  const bx = boxTargets()[0] || (!t.length && tool === 'text' ? defText : null);
   show('#cg-box', !!bx);
   if (bx) {
     const bf = colorParts(bx.boxFill), bs = colorParts(bx.boxStroke);
     setVal('#b-fill', bf.none ? '#ffffff' : bf.hex); setPressed($('#b-fill-none'), bf.none); setVal('#b-fill-a', bf.none ? 100 : Math.round(bf.a * 100));
     setVal('#b-stroke', bs.hex); setPressed($('#b-stroke-none'), bs.none || !(bx.boxStrokeWidth > 0)); setVal('#b-stroke-a', bs.none ? 100 : Math.round(bs.a * 100));
     setVal('#b-width', Math.round(pt2mm(bx.boxStrokeWidth || 0) * 100) / 100); setVal('#b-dash', bx.boxDash || 'solid'); setVal('#b-pad', r1(pt2mm(bx.boxPad || 0))); setPressed($('#b-circle'), bx.boxShape === 'circle');
+    setVal('#b-size', bx.boxSize > 0 ? r1(pt2mm(bx.boxSize)) : ''); $('#b-size').placeholder = 'auto'; show('#b-size-wrap', !!bx.kvIcon || bx.boxShape === 'circle');
   }
   const single1 = objs.length === 1 ? objs[0] : null;
   show('#cg-measure', tool === 'measure' && !t.length);
@@ -6142,18 +6209,22 @@ function applyBox(key) {
   if (key === 'width') { props.boxStrokeWidth = mm2pt(wMm); if (wMm > 0 && sNone) { setPressed($('#b-stroke-none'), false); props.boxStroke = rgba($('#b-stroke').value, clamp(+$('#b-stroke-a').value || 100, 0, 100) / 100); } }
   if (key === 'dash') props.boxDash = $('#b-dash').value;
   if (key === 'pad') { props.boxPad = pad; props.padding = pad; }
+  if (key === 'size') { const v = parseFloat($('#b-size').value); props.boxSize = v > 0 ? mm2pt(clamp(v, 1, 1000)) : 0; }
   if (key === 'shape') {
     props.boxShape = $('#b-circle').getAttribute('aria-pressed') === 'true' ? 'circle' : 'rect';
-    if (props.boxShape === 'circle') props.textAlign = 'center';
   }
-  const ts = targets().filter(o => o.type === 'kvtext');
+  const ts = boxTargets();
   if (!ts.length) { Object.assign(defText, props); return; }
   ts.forEach(o => {
     const c = o.getCenterPoint();
     /* círculo sem fundo nem moldura ficaria invisível: liga uma moldura */
-    if (key === 'shape' && props.boxShape === 'circle' && !o.boxFill && !(o.boxStroke && o.boxStrokeWidth > 0)) { o.set({ boxStroke: o.fill || 'rgba(0,0,0,1)', boxStrokeWidth: mm2pt(0.35) }); setPressed($('#b-stroke-none'), false); }
+    if (!o.kvIcon && key === 'shape' && props.boxShape === 'circle' && !o.boxFill && !(o.boxStroke && o.boxStrokeWidth > 0)) { o.set({ boxStroke: o.fill || 'rgba(0,0,0,1)', boxStrokeWidth: mm2pt(0.35) }); setPressed($('#b-stroke-none'), false); }
     o.set(props);
-    if (key === 'shape' || key === 'pad') { o.initDimensions(); if (o.boxShape !== 'circle') o.padding = o.boxPad || 0; o.setPositionByOrigin(c, 'center', 'center'); }
+    if (o.kvIcon) { o.objectCaching = false; if (key === 'shape' && !o.boxFill && !(o.boxStroke && o.boxStrokeWidth > 0)) { const ic = colorParts(o.fill && o.fill !== '' ? o.fill : ((o._objects || []).map(c => c.fill || c.stroke).find(Boolean) || 'rgba(0,0,0,1)')); o.set({ boxStroke: rgba(ic.hex, 1), boxStrokeWidth: mm2pt(0.35) }); } if (key === 'size' || key === 'pad') fitIconToFrame(o); updateIconPadding(o); }
+    else {
+      if (key === 'shape' && o.boxShape === 'circle') o.set('textAlign', 'center');
+      if (key === 'shape' || key === 'pad' || key === 'size') { o.initDimensions(); if (o.boxShape !== 'circle') o.padding = o.boxPad || 0; o.setPositionByOrigin(c, 'center', 'center'); }
+    }
     o.setCoords(); o.dirty = true;
   });
   canvas.requestRenderAll(); commit(); if (key === 'shape') refreshCtx();
@@ -6168,6 +6239,7 @@ $('#b-stroke-none').onclick = e => { setPressed(e.currentTarget, e.currentTarget
 onChange('#b-width', () => applyBox('width'), 'input');
 onChange('#b-dash', () => applyBox('dash'));
 onChange('#b-pad', () => applyBox('pad'), 'input');
+onChange('#b-size', () => applyBox('size'));
 $('#b-circle').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyBox('shape'); };
 $('#c-dash').innerHTML = DASHES.map(d => `<option value="${d[0]}">${d[2]}  ${d[1]}</option>`).join('');
 /* Barras horizontais roláveis com a roda do mouse */
