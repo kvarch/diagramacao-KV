@@ -1092,7 +1092,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V63 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V64 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1150,7 +1150,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V63 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V64 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -4400,18 +4400,29 @@ function styleMatch(src, style, n) {
   return true;
 }
 const baseName = n => n.replace(/-(filled|fill|thin|light|bold|duotone|outline-rounded|outline-sharp|outline|rounded|sharp)$/, '');
-async function loadIconifyMeta(prefix) {
-  const key = 'pict-meta:iconify:' + prefix + ':v1';
+/* Acervo completo num único arquivo (pacotes oficiais @iconify-json pelo jsDelivr — mesma CDN do MDI):
+   evita centenas de requisições a um serviço externo e funciona em redes que bloqueiam a API da Iconify */
+const ICONSET_URLS = p => [`https://cdn.jsdelivr.net/npm/@iconify-json/${p}/icons.json`, `https://unpkg.com/@iconify-json/${p}/icons.json`];
+const iconSets = {};
+async function loadIconSet(prefix) {
+  if (iconSets[prefix]) return iconSets[prefix];
+  const key = 'pict-set:' + prefix + ':v2';
   let m = null; try { m = await idb.get(key); } catch (e) {}
-  if (m) return m;
-  $('#pi-status').textContent = 'Carregando catálogo do acervo…';
-  const r = await fetch(`${ICONIFY}/collection?prefix=${encodeURIComponent(prefix)}`); if (!r.ok) throw new Error('HTTP ' + r.status);
-  const j = await r.json(), cats = {}, all = new Set(j.uncategorized || []);
-  Object.entries(j.categories || {}).forEach(([c, list]) => list.forEach(n => { all.add(n); (cats[n] = cats[n] || []).push(c); }));
-  const hidden = new Set(j.hidden || []);
-  m = { names: [...all].filter(n => !hidden.has(n)).sort(), cats };
-  try { await idb.set(key, m); } catch (e) {}
-  return m;
+  if (!m) {
+    $('#pi-status').textContent = 'Baixando o acervo (só na primeira vez)…';
+    let j = null, err = null;
+    for (const u of ICONSET_URLS(prefix)) { try { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); j = await r.json(); break; } catch (e) { err = e; } }
+    if (!j) throw err || new Error('acervo indisponível');
+    let cats = {};
+    try { const r = await fetch(`https://cdn.jsdelivr.net/npm/@iconify-json/${prefix}/metadata.json`); if (r.ok) { const md = await r.json(); Object.entries(md.categories || {}).forEach(([c, list]) => list.forEach(n => { (cats[n] = cats[n] || []).push(c); })); } } catch (e) {}
+    const icons = {}; Object.entries(j.icons || {}).forEach(([n, ic]) => { if (!ic.hidden) icons[n] = { b: ic.body, w: ic.width || j.width || 16, h: ic.height || j.height || 16 }; });
+    m = { icons, cats }; try { await idb.set(key, m); } catch (e) {}
+  }
+  iconSets[prefix] = m; return m;
+}
+function iconSvg(prefix, name, color) {
+  const s = iconSets[prefix], ic = s && s.icons[name]; if (!ic) return null;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${ic.w}" height="${ic.h}" viewBox="0 0 ${ic.w} ${ic.h}">${ic.b.replace(/currentColor/g, color || '#000000')}</svg>`;
 }
 const PICT_CAT_PT = {
   'Home Automation': 'Casa / automação', 'Files / Folders': 'Arquivos / pastas', 'Alpha / Numeric': 'Letras / números', 'Date / Time': 'Data / hora', 'Brand / Logo': 'Marcas',
@@ -4459,16 +4470,16 @@ function pictFilter(list) {
   const toks = q.split(/\s+/).filter(Boolean).map(t => [t, ...(PICT_PT[t] || [])]);
   const res = list.filter(x => (!cat || x.t.includes(cat)) && toks.every(alts => alts.some(w => x.n.includes(w) || x.a.includes(w))));
   if (!toks.length) return res;
-  const score = x => Math.min(...toks[0].map(w => x.n === w ? 0 : x.n.startsWith(w + '-') || x.n.endsWith('-' + w) ? 1 : x.n.startsWith(w) ? 2 : x.n.includes(w) ? 3 : 4)) * 100 + x.n.length;
+  const score = x => Math.min(...toks[0].map(w => x.n === w ? 0 : x.n.startsWith(w + '-') ? 1 : x.n.endsWith('-' + w) ? 1.5 : x.n.startsWith(w) ? 2 : x.n.includes(w) ? 3 : 4)) * 100 + x.n.length;
   return res.sort((a, b) => score(a) - score(b));
 }
 async function pictList() {
   const S = PICT_SOURCES[pictSrc];
   if (!S.prefix) { pictLib = pictStyle; return loadPictMeta(pictStyle); }
-  const m = await loadIconifyMeta(S.prefix);
-  return m.names.filter(n => styleMatch(pictSrc, pictStyle, n)).map(n => ({ n, a: baseName(n).replace(/-/g, ' '), t: m.cats[n] || (m.cats[baseName(n)] || []) }));
+  const m = await loadIconSet(S.prefix);
+  return Object.keys(m.icons).sort().filter(n => styleMatch(pictSrc, pictStyle, n)).map(n => ({ n, a: baseName(n).replace(/-/g, ' '), t: m.cats[n] || (m.cats[baseName(n)] || []) }));
 }
-const pictThumb = n => { const S = PICT_SOURCES[pictSrc]; return S.prefix ? `${ICONIFY}/${S.prefix}/${n}.svg` : `${PICT_LIBS[pictStyle].base}/svg/${n}.svg`; };
+const pictThumb = n => { const S = PICT_SOURCES[pictSrc]; return S.prefix ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg(S.prefix, n, '#000000') || '') : `${PICT_LIBS[pictStyle].base}/svg/${n}.svg`; };
 const pictKey = () => PICT_SOURCES[pictSrc].prefix ? pictSrc : pictStyle;
 function syncPictSourceUI() {
   const S = PICT_SOURCES[pictSrc], st = $('#pi-style');
@@ -4531,13 +4542,10 @@ async function insertPict(lib, name, point) {
 
 async function insertIconifyPict(lib, name, point) {
   try {
-    const S = PICT_SOURCES[lib], k = lib + ':' + name;
-    let txt = pictSvgCache.get(k);
-    if (!txt) { const r = await fetch(`${ICONIFY}/${S.prefix}/${name}.svg`); if (!r.ok) throw new Error('HTTP ' + r.status); txt = await r.text(); pictSvgCache.set(k, txt); }
+    const S = PICT_SOURCES[lib];
+    await loadIconSet(S.prefix);
     const color = $('#pi-color').value, size = mm2pt(clamp(parseFloat($('#pi-size').value) || 15, 2, 500));
-    /* a cor “currentColor” vira a cor escolhida; tamanho em “1em” vira o do viewBox */
-    const vb = (txt.match(/viewBox="([^"]+)"/) || [])[1] || '0 0 24 24', [, , vw, vh] = vb.split(/[\s,]+/).map(Number);
-    const svg = txt.replace(/currentColor/g, color).replace(/\swidth="[^"]*"/, ` width="${vw}"`).replace(/\sheight="[^"]*"/, ` height="${vh}"`);
+    const svg = iconSvg(S.prefix, name, color); if (!svg) throw new Error('ícone não encontrado no acervo');
     await new Promise(res => fabric.loadSVGFromString(svg, (objs, opts) => {
       objs = (objs || []).filter(o => o && !((!o.fill || o.fill === 'none') && (!o.stroke || o.stroke === 'none')));
       if (!objs.length) { toast('Ícone sem traçado reconhecível.', true); res(); return; }
