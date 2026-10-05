@@ -241,7 +241,8 @@ details.diag summary{min-height:48px;display:flex;align-items:center;cursor:poin
 details.diag pre{max-height:220px;overflow:auto;font-size:11px;background:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);padding:8px;margin:0;white-space:pre-wrap;word-break:break-all}
 .layer-sheet{background:var(--md-sys-color-surface-container-low)}
 .layer-sheet .name span{font-weight:600}
-.layer-sheet.active .name span{color:var(--md-sys-color-primary)}
+.layer-sheet.active{background:color-mix(in srgb,var(--md-sys-color-primary) 22%,var(--md-sys-color-surface));box-shadow:inset 4px 0 0 var(--md-sys-color-primary)}
+.layer-sheet.active .name span{color:var(--md-sys-color-primary);font-weight:700}
 #panel-layers .section{padding:16px 8px}
 #panel-layers .hint{padding:0 8px}
 .layer-child{border-left:4px solid var(--md-sys-color-surface-container-high)}
@@ -367,7 +368,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .ptree .name small{margin-left:auto;color:var(--md-sys-color-on-surface-variant);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .ptree .name svg.i{width:16px;height:16px;flex:none}
 .ptree .ps .name{padding-left:30px}
-.ptree .ps.active{background:color-mix(in srgb,var(--md-sys-color-primary) 14%,transparent)}
+.ptree .ps.active{background:color-mix(in srgb,var(--md-sys-color-primary) 24%,transparent);box-shadow:inset 4px 0 0 var(--md-sys-color-primary)}
+.ptree .ps.active .name span{color:var(--md-sys-color-primary)}
 .ptree .ps.active .name span{font-weight:600}
 .ptree .tb{width:26px;height:28px;min-width:26px;display:grid;place-items:center;padding:0;background:transparent;border:0;color:var(--md-sys-color-on-surface-variant);cursor:pointer}
 .ptree .tb svg.i{width:14px;height:14px}
@@ -1097,7 +1099,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V69 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V71 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1155,7 +1157,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V69 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V71 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2062,7 +2064,16 @@ function buildSnapCache(exclude) {
     if (ex.has(o) || !o.visible || (o.group && !inSel.has(o))) return;
     const br = visualRect(o);
     xs.push(br.left, br.left + br.width / 2, br.left + br.width); ys.push(br.top, br.top + br.height / 2, br.top + br.height);
-    if (!o.group) vertsOf(o).forEach(p => pts.push({ x: p.x, y: p.y }));
+    /* texto: além das letras, valem também as bordas da caixa de texto (o retângulo que aparece ao selecionar) */
+    if (o.type === 'kvtext') {
+      const M = o.calcTransformMatrix(), w = o.width / 2, h = o.height / 2;
+      const P = [[-w, -h], [w, -h], [w, h], [-w, h]].map(([x, y]) => fabric.util.transformPoint({ x, y }, M));
+      const X = P.map(p => p.x), Y = P.map(p => p.y), l = Math.min(...X), r = Math.max(...X), t = Math.min(...Y), b = Math.max(...Y);
+      xs.push(l, (l + r) / 2, r); ys.push(t, (t + b) / 2, b);
+    }
+    /* vértices só de formas vetoriais; texto, imagem e ícone usam os cantos do limite visível (os da caixa de seleção atrapalhavam) */
+    if (o.type === 'kvtext' || o.type === 'image' || o.kvIcon) [[br.left, br.top], [br.left + br.width, br.top], [br.left, br.top + br.height], [br.left + br.width, br.top + br.height]].forEach(q => pts.push({ x: q[0], y: q[1] }));
+    else if (!o.group) vertsOf(o).forEach(p => pts.push({ x: p.x, y: p.y }));
     pts.push({ x: br.left + br.width / 2, y: br.top + br.height / 2 });
   });
   sheetRects().forEach((r, i) => {
@@ -6671,6 +6682,16 @@ function toggleSheetFlag(s, flag) {
   toast(`${sheetLabel(s)} ${flag === 'hidden' ? (s.hidden ? 'oculta' : 'visível') : (s.locked ? 'bloqueada' : 'desbloqueada')}.`);
 }
 const editingIn = el => { const a = document.activeElement; return a && a.tagName === 'INPUT' && el.contains(a); };
+/* Camadas abrem na folha em que você está: as outras ficam recolhidas e a lista rola até ela */
+let layersFocusId = null;
+function focusLayersOnActive(force) {
+  const id = getActiveId(); if (!id || (!force && id === layersFocusId)) return;
+  layersFocusId = id;
+  P().forEach(s => { if (s.id === id) collapsed.delete(s.id); else collapsed.add(s.id); });
+}
+function scrollLayersToActive() {
+  const h = $('#layer-list .layer-sheet.active'); if (h) h.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
 function renderLayers() {
   const root = $('#layer-list');
   if (editingIn(root)) return;
@@ -6806,7 +6827,7 @@ function renderSheetList() {
   const cur = mode === 'sheets' ? presById(doc.presActive) : null;
   $('#h-sheets-title').textContent = mode === 'tpl' ? 'Modelos do projeto' : 'Apresentações e folhas';
   renderExportSheets();
-  const lt = $('#tab-layers'); if (lt && lt.getAttribute('aria-selected') === 'true') scheduleLayers();
+  const lt = $('#tab-layers'); if (lt && lt.getAttribute('aria-selected') === 'true') { const ch = getActiveId() !== layersFocusId; focusLayersOnActive(false); scheduleLayers(); if (ch) setTimeout(scrollLayersToActive, 80); }
 }
 /* Copiar uma folha (com o conteúdo) para colar em outra apresentação */
 function copySheet(sid) {
@@ -7483,7 +7504,7 @@ const tabs = $$('.tab');
 function selectTab(t) {
   tabs.forEach(x => { const on = x === t; x.setAttribute('aria-selected', String(on)); x.tabIndex = on ? 0 : -1; $('#' + x.getAttribute('aria-controls')).hidden = !on; });
   if (t.id === 'tab-pict' && !$('#pi-grid').children.length) renderPict();
-  if (t.id === 'tab-layers') renderLayers(); if (t.id === 'tab-links') renderLinks(); if (t.id === 'tab-export') renderExportSheets(); if (t.id === 'tab-sheet') renderSheetList();
+  if (t.id === 'tab-layers') { focusLayersOnActive(true); renderLayers(); requestAnimationFrame(scrollLayersToActive); } if (t.id === 'tab-links') renderLinks(); if (t.id === 'tab-export') renderExportSheets(); if (t.id === 'tab-sheet') renderSheetList();
 }
 tabs.forEach((t, i) => {
   t.addEventListener('click', () => selectTab(t));
