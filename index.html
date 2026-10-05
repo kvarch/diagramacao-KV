@@ -1097,7 +1097,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V68 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V69 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1155,7 +1155,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V68 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V69 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1984,7 +1984,7 @@ function snapGuide(g, raw, e) {
   if (e && e.altKey) return raw;
   if (doc.snapObj) {
     if (!guideCache) guideCache = guideSnapCache(g);
-    const list = g.o === 'v' ? guideCache.xs : guideCache.ys, th = 8 / canvas.getZoom();
+    const list = g.o === 'v' ? guideCache.xs : guideCache.ys, th = 14 / canvas.getZoom();   // ímã mais forte para guias
     let best = null, bd = th; list.forEach(v => { const d = Math.abs(v - raw); if (d < bd) { bd = d; best = v; } });
     if (best !== null) { g.snapped = true; return best; }
   }
@@ -2024,13 +2024,45 @@ function vertsOf(o) {
     return o.getCoords(true);
   } catch (e) { return []; }
 }
+/* Limite visível do elemento para o encaixe: texto pelas letras (ou pela caixa, se tiver fundo/moldura),
+   imagem pelo recorte, ícone pela moldura — e não pela caixa invisível de seleção */
+function visualRect(o) {
+  try {
+    const M = o.calcTransformMatrix(), box = pts => { const P = pts.map(([x, y]) => fabric.util.transformPoint({ x, y }, M)); const xs = P.map(p => p.x), ys = P.map(p => p.y); const l = Math.min(...xs), t = Math.min(...ys); return { left: l, top: t, width: Math.max(...xs) - l, height: Math.max(...ys) - t }; };
+    if (o.type === 'kvtext') {
+      const w = o.width, h = o.height;
+      if (o.boxFill || (o.boxStroke && o.boxStrokeWidth > 0)) {
+        if (o.boxShape === 'circle') { const R = o._circleR(); return box([[-R, -R], [R, -R], [R, R], [-R, R]]); }
+        const p = o.boxPad || 0; return box([[-w / 2 - p, -h / 2 - p], [w / 2 + p, -h / 2 - p], [w / 2 + p, h / 2 + p], [-w / 2 - p, h / 2 + p]]);
+      }
+      let minX = Infinity, maxX = -Infinity;
+      (o._textLines || []).forEach((ln, i) => {
+        const lw = o.getLineWidth(i); if (!lw) return;
+        const al = o.textAlign || 'left', off = /center/.test(al) ? (w - lw) / 2 : /right/.test(al) ? w - lw : 0;
+        minX = Math.min(minX, -w / 2 + off); maxX = Math.max(maxX, -w / 2 + off + lw);
+      });
+      if (minX === Infinity) return o.getBoundingRect(true, true);
+      const th = o.calcTextHeight(); return box([[minX, -h / 2], [maxX, -h / 2], [maxX, -h / 2 + th], [minX, -h / 2 + th]]);
+    }
+    if (o.type === 'image' && o.clipPath && !o.clipPath.absolutePositioned && typeof clipScenePoints === 'function') {
+      const P = (typeof clipSceneMP === 'function' && clipSceneMP(o)) ? clipSceneMP(o).flat(2).map(([x, y]) => ({ x, y })) : clipScenePoints(o);
+      const xs = P.map(p => p.x), ys = P.map(p => p.y), l = Math.min(...xs), t = Math.min(...ys); return { left: l, top: t, width: Math.max(...xs) - l, height: Math.max(...ys) - t };
+    }
+    if (o.kvIcon && typeof hasIconFrame === 'function' && hasIconFrame(o)) {
+      const g = iconFrameGeom(o); return g.circ ? box([[-g.R, -g.R], [g.R, -g.R], [g.R, g.R], [-g.R, g.R]]) : box([[-g.w / 2, -g.h / 2], [g.w / 2, -g.h / 2], [g.w / 2, g.h / 2], [-g.w / 2, g.h / 2]]);
+    }
+    if (o.group) { const sw = o.strokeWidth || 0, w = o.width + sw, h = o.height + sw; return box([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]]); }   // dentro de uma seleção: coordenadas da prancha
+  } catch (e) {}
+  return o.getBoundingRect(true, true);
+}
 function buildSnapCache(exclude) {
   const ex = new Set(exclude || []), xs = [], ys = [], pts = [];
+  const inSel = new Set(canvas.getActiveObject() && canvas.getActiveObject().type === 'activeSelection' ? canvas.getActiveObject().getObjects() : []);
   userObjects().forEach(o => {
-    if (ex.has(o) || !o.visible || o.group) return;
-    const br = o.getBoundingRect(true, true);
+    if (ex.has(o) || !o.visible || (o.group && !inSel.has(o))) return;
+    const br = visualRect(o);
     xs.push(br.left, br.left + br.width / 2, br.left + br.width); ys.push(br.top, br.top + br.height / 2, br.top + br.height);
-    vertsOf(o).forEach(p => pts.push({ x: p.x, y: p.y }));
+    if (!o.group) vertsOf(o).forEach(p => pts.push({ x: p.x, y: p.y }));
     pts.push({ x: br.left + br.width / 2, y: br.top + br.height / 2 });
   });
   sheetRects().forEach((r, i) => {
