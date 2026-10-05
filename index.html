@@ -1097,7 +1097,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V66 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V68 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1155,7 +1155,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V66 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V68 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1822,7 +1822,8 @@ canvas.on('before:render', ({ ctx }) => {
   });
   ctx.restore();
 });
-canvas.on('after:render', ({ ctx }) => {
+canvas.on('after:render', ({ ctx } = {}) => {
+  if (!ctx) return;   // o Fabric também dispara este evento sem contexto (camada de seleção)
   if (exporting) return;
   drawSafe(ctx); drawGuides(ctx); drawSnapLines(ctx); scheduleRulers();
 });
@@ -5204,9 +5205,32 @@ async function renderVersions() {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { clearTimeout(autosaveTimer); storeSave(); } });
 window.addEventListener('pagehide', () => { clearTimeout(autosaveTimer); storeSave(); });
 /* Abertura: identifica o projeto do Giraffe e carrega os dados dele */
+/* Projeto atual segundo o Giraffe (sem esperar) — usado para perceber troca de projeto com o painel aberto */
+function currentGiraffeProjectId() {
+  try { if (!gi || !gi.state) return null; for (const k of ['project', 'projectId', 'selectedProject', 'projectDetails', 'currentProject']) { const v = gi.state.get(k); const id = typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v)) ? String(v) : pickProjectId(v); if (id) return id; } } catch (e) {}
+  return null;
+}
+/* O Giraffe pode manter o painel aberto ao trocar de projeto: se o projeto mudar, salva e recarrega o app no projeto novo */
+let projectWatch = 0;
+function watchProjectChange() {
+  clearInterval(projectWatch);
+  if (!inIframe) return;
+  projectWatch = setInterval(async () => {
+    const id = currentGiraffeProjectId();
+    if (!id || !/^giraffe:/.test(projectKey) || 'giraffe:' + id === projectKey) return;
+    clearInterval(projectWatch);
+    status('Projeto do Giraffe mudou — abrindo o projeto ' + id + '…');
+    try { clearTimeout(autosaveTimer); await storeSave(); } catch (e) {}
+    location.reload();
+  }, 2500);
+}
 async function storeOpen() {
   status('Identificando o projeto…');
-  const p = await detectProject(); projectKey = p.key; projectLabel = p.label;
+  let p = await detectProject();
+  /* confirmação: o valor precisa se manter estável (o Giraffe pode ainda mostrar o projeto anterior por um instante) */
+  if (inIframe && p.key !== 'local') { await wait(1200); const again = currentGiraffeProjectId(); if (again && 'giraffe:' + again !== p.key) p = { key: 'giraffe:' + again, label: 'Giraffe · projeto ' + again }; }
+  projectKey = p.key; projectLabel = p.label;
+  watchProjectChange();
   const lbl = $('#store-proj'); if (lbl) lbl.textContent = projectLabel;
   if (inIframe && projectKey === 'local') toast('Não foi possível identificar o projeto do Giraffe. Os dados abertos são os locais; recarregue o painel para tentar de novo.', true);
   setTimeout(() => { renderVersions(); renderDatasets(); }, 500);
@@ -5447,8 +5471,10 @@ async function refreshSyncBadge() {
   $('#sync-push').classList.toggle('has-changes', n > 0);
 }
 /* Receber: baixa a versão do projeto e junta com a daqui */
+function projectMismatch() { const cur = currentGiraffeProjectId(); return !!(cur && String(cur) !== String(projNum())); }
 async function syncPull(opts = {}) {
   if (!syncOk) return false;
+  if (projectMismatch()) return false;
   if (syncBusy) { if (opts.manual) toast('Já há um envio ou recebimento em andamento — aguarde alguns segundos.'); return false; }
   if (opts.manual) toast('Recebendo alterações…');
   if (!opts.force && (cropState || editingPoly || drawState || (canvas.getActiveObject() && canvas.getActiveObject().isEditing) || canvas._currentTransform)) return false;
@@ -5462,6 +5488,7 @@ async function syncPull(opts = {}) {
     setSyncStatus('☁ Recebendo alterações…');
     const m = await fetchJsonAtt(a);
     if (!m || m.app !== 'kv-pranchas' || !m.parts) throw new Error('arquivo de sincronização inválido');
+    if (m.project && String(m.project) !== String(projNum())) throw new Error(`o arquivo da equipe é do projeto ${m.project}, mas o app está no projeto ${projNum()} — recarregue o painel`);
     if (head && head.rev && m.rev && head.rev !== m.rev) { if (opts.manual) toast('O projeto está sendo salvo por outra pessoa neste instante. Tente receber de novo em alguns segundos.'); return false; }
     if (!head && !opts.manual && m.savedAt && m.savedAt === syncState.remoteAt && Object.keys(syncState.base).length) return false;   // formato antigo, sem cabeçalho
     const R = m.parts, L = await buildSyncParts(), localT = await localSavedAt();
@@ -5512,6 +5539,7 @@ async function syncPull(opts = {}) {
 }
 /* Enviar: recebe antes (para não sobrescrever ninguém), depois grava a versão juntada */
 async function syncPush(opts = {}) {
+  if (syncOk && projectMismatch()) { if (opts.manual) toast('O projeto do Giraffe mudou. Recarregando o app no projeto certo…', true); return false; }
   if (!syncOk) { if (opts.manual) toast('A sincronização funciona com o app aberto dentro de um projeto do Giraffe.', true); return false; }
   if (syncBusy) { if (opts.manual) { toast('Já há um envio ou recebimento em andamento — o seu clique será atendido em seguida.'); setTimeout(() => syncPush(opts), 2500); } return false; }
   if (opts.manual) { toast('Enviando alterações…'); $('#sync-push').classList.add('busy'); }
@@ -5530,7 +5558,7 @@ async function syncPush(opts = {}) {
       if (cur && Object.keys(parts).every(k => partHash(parts[k]) === (syncState.base[k] ?? null)) && Object.keys(syncState.base).every(k => k in parts)) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); return true; }
       await pushAssets(parts);
       const u = await currentUser();
-      const rev = newRev(), m = { app: 'kv-pranchas', kind: 'sync', v: 2, rev, savedAt: Date.now(), device: deviceId, by: u.email, byName: u.name, parts };
+      const rev = newRev(), m = { app: 'kv-pranchas', kind: 'sync', v: 2, rev, project: projNum(), savedAt: Date.now(), device: deviceId, by: u.email, byName: u.name, parts };
       /* última conferência antes de gravar */
       { const h2 = await readHead(); if (h2 && h2.rev && h2.rev !== syncState.remoteRev) { syncBusy = false; continue; } }
       await uploadAtt(SYNC_FILE, m);
@@ -5612,6 +5640,8 @@ async function syncForceRemote() {
     await refreshAtts();
     const a = attByName(SYNC_FILE); if (!a) { toast('Não há versão da equipe nos anexos deste projeto.', true); return; }
     const m = await fetchJsonAtt(a); if (!m || !m.parts) throw new Error('arquivo de sincronização inválido');
+    if (m.project && String(m.project) !== String(projNum())) throw new Error(`o arquivo da equipe é do projeto ${m.project}, mas o app está no projeto ${projNum()} — recarregue o painel`);
+    { const cur = currentGiraffeProjectId(); if (cur && String(cur) !== String(projNum())) throw new Error(`o Giraffe está no projeto ${cur}, mas o app foi aberto no ${projNum()} — recarregue o painel`); }
     await maybeBackup(true);
     await pullAssets(m.parts);
     const snap = partsToSnap(m.parts, doc);
@@ -6516,12 +6546,19 @@ let clipboard = null;
 let clipSrc = null;   // retângulo da folha de origem (para colar na mesma posição em outra folha)
 function copySel(cb) {
   const a = canvas.getActiveObject(); if (!a || a.kvTemp) return;
-  const sh = sheetOf(a), r = sheetRect(sh.id); clipSrc = { id: sh.id, x: r.x, y: r.y, mode };
+  /* folha de origem = a da maioria dos elementos copiados (o centro de uma seleção grande pode cair fora das folhas) */
+  const objs = a.type === 'activeSelection' ? a.getObjects() : [a], cnt = {};
+  objs.forEach(o => { const id = sheetOf(o).id; cnt[id] = (cnt[id] || 0) + 1; });
+  const sid = Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x])[0] || sheetOf(a).id;
+  if (sid !== getActiveId()) setActiveSheet(sid);
+  const r = sheetRect(sid); clipSrc = { id: sid, x: r.x, y: r.y, mode, activeAtCopy: getActiveId() };
   a.clone(c => { clipboard = c; cb && cb(); if (!cb) status('Copiado — clique na folha de destino e cole com Ctrl+V (mesma posição)'); }, PROPS);
 }
 function pasteClip(inPlace) {
   if (!clipboard) return;
-  const tgt = activeSheet(), tr = sheetRect(tgt.id);
+  /* cola na folha de origem, a não ser que você tenha mudado de folha depois de copiar */
+  const changed = !clipSrc || clipSrc.mode !== mode || getActiveId() !== clipSrc.activeAtCopy;
+  const tgt = (!changed && sheetById(clipSrc.id)) || activeSheet(), tr = sheetRect(tgt.id);
   const other = clipSrc && (clipSrc.id !== tgt.id || clipSrc.mode !== mode);
   clipboard.clone(c => {
     canvas.discardActiveObject();
@@ -6534,6 +6571,7 @@ function pasteClip(inPlace) {
     raiseChrome(); canvas.setActiveObject(c);
     if (!other && !inPlace) clipboard.set({ left: clipboard.left + dx, top: clipboard.top + dy });
     if (other) toast(`Colado em ${sheetLabel(tgt)} na mesma posição.`);
+    if (clipSrc) clipSrc.activeAtCopy = getActiveId();
     canvas.requestRenderAll(); commit(); refreshPanel();
   }, PROPS);
 }
