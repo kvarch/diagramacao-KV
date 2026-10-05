@@ -1099,7 +1099,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V71 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V72 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1157,7 +1157,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V71 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V72 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -5400,12 +5400,14 @@ function partLabel(k, parts) {
   if (k.startsWith('tpl:')) return `o modelo “${partName(k, parts)}”`;
   return k;
 }
+let conflictCtx = { localAt: 0, remoteAt: 0 };
 async function resolveConflicts(conflicts, local, remote, result, who) {
   for (const k of conflicts) {
     const L = local[k], R = remote[k], lab = partLabel(k, L ? local : remote);
     let v;
-    if (!L || !R) v = await askChoice(`Conflito: ${lab} foi ${L ? 'excluída por ' + who + ' e alterada aqui' : 'alterada por ' + who + ' e excluída aqui'}. O que fazer?`, [{ label: 'Manter a folha', value: 'keep', primary: true }, { label: 'Excluir', value: 'drop' }]);
-    else v = await askChoice(`Conflito: ${lab} foi alterada aqui e por ${who} ao mesmo tempo. Qual versão manter?`, [{ label: 'Manter as duas', value: 'both', primary: true }, { label: 'Usar a minha', value: 'mine' }, { label: `Usar a de ${who}`, value: 'theirs' }]);
+    const here = `neste computador (${fmtWhen(conflictCtx.localAt)})`, there = `por ${who} (${fmtWhen(conflictCtx.remoteAt)})`;
+    if (!L || !R) v = await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi ${L ? 'excluída ' + there + ' e alterada ' + here : 'alterada ' + there + ' e excluída ' + here}. O que fazer?`, [{ label: 'Manter a folha', value: 'keep', primary: true }, { label: 'Excluir', value: 'drop' }]);
+    else v = await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi alterada ${here} e também ${there}. “Manter as duas” não perde nada.`, [{ label: 'Manter as duas', value: 'both', primary: true }, { label: 'Usar a deste computador', value: 'mine' }, { label: `Usar a de ${who}`, value: 'theirs' }]);
     if (v === 'keep') result[k] = L || R;
     else if (v === 'drop') delete result[k];
     else if (v === 'mine') result[k] = L;
@@ -5413,7 +5415,7 @@ async function resolveConflicts(conflicts, local, remote, result, who) {
     else {  // manter as duas: a minha no lugar + a outra como cópia logo depois
       result[k] = L;
       const copy = JSON.parse(JSON.stringify(R)), nid = uid();
-      copy.meta = { ...copy.meta, id: nid, name: `${partName(k, remote)} (versão de ${who})` };
+      copy.meta = { ...copy.meta, id: nid, name: `${partName(k, remote)} (versão de ${who.replace(/^por /, '')})` };
       if (!(L.meta && L.meta.name)) result[k] = { ...L, meta: { ...L.meta, name: partName(k, local) } };   // fixa o nome da original para a numeração não mudar
       if (k.startsWith('sheet:')) {
         const [, pid, sid] = k.split(':'); (copy.objects || []).forEach(o => { o.kvSheet = nid; });
@@ -5495,9 +5497,25 @@ async function pushAssets(parts) {
   }
 }
 async function saveSyncState() { try { await idb.set('S:' + projectKey, syncState); } catch (e) {} }
-function whoOf(m) { if (!m) return 'outra pessoa'; if (m.device === deviceId) return 'você (outra sessão)'; return m.byName || m.by || 'outra pessoa'; }
+const fmtWhen = t => t ? new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+function whoOf(m) {
+  if (!m) return 'outro computador';
+  if (m.device === deviceId) return 'este computador (outra sessão)';
+  if (m.by && syncUser && syncUser.email && m.by.toLowerCase() === syncUser.email.toLowerCase()) return 'você, em outro computador';
+  return m.byName || m.by || 'outro computador';
+}
 async function currentUser() {
   if (syncUser) return syncUser;
+  /* e-mail e nome do usuário logado: vêm do JWT do Giraffe (getUserClaimsJwt → user_email / user_name) */
+  try {
+    const { rpc } = await loadSdk();
+    const jwt = await rpc.invoke('getUserClaimsJwt', []);
+    const tok = typeof jwt === 'string' ? jwt : (jwt && (jwt.token || jwt.jwt)) || '', part = String(tok).split('.')[1];
+    if (part) {
+      const p = JSON.parse(decodeURIComponent(escape(atob(part.replace(/-/g, '+').replace(/_/g, '/')))));
+      if (p.user_email || p.user_name || p.email) { syncUser = { email: p.user_email || p.email || '', name: p.user_name || p.name || p.user_email || '' }; return syncUser; }
+    }
+  } catch (e) {}
   try { const { state } = await loadSdk(); for (const k of ['user', 'me', 'currentUser', 'profile']) { const u = state.get(k); if (u && (u.email || u.name)) { syncUser = { email: u.email || '', name: u.name || u.email || '' }; return syncUser; } } } catch (e) {}
   syncUser = { email: '', name: '' }; return syncUser;
 }
@@ -5553,7 +5571,9 @@ async function syncPull(opts = {}) {
         if (syncState.notifiedRev !== m.rev) { syncState.notifiedRev = m.rev; toast(`${whoOf(m)} alterou ${conflicts.length === 1 ? 'uma folha' : conflicts.length + ' folhas'} em que você também está trabalhando. Clique em “Receber alterações” (☁↓) para escolher o que manter.`, true); }
         return false;
       }
+      conflictCtx = { localAt: localT, remoteAt: m.savedAt || 0 };
       await resolveConflicts(conflicts, L, R, result, whoOf(m));
+      syncState.decidedAt = Date.now();   // você acabou de escolher: não pergunta de novo nesta abertura
     }
     const changed = Object.keys({ ...L, ...result }).some(k => partHash(L[k]) !== partHash(result[k]));
     if (changed) {
@@ -5635,17 +5655,28 @@ async function syncInit(opened) {
   try { syncAuto = localStorage.getItem('kv-pranchas-syncauto') !== '0'; } catch (e) {}
   $('#sync-auto').checked = syncAuto;
   info.textContent = `Projeto do Giraffe ${projNum()}: o trabalho fica nos anexos do projeto e aparece para quem abrir o app nele.`;
+  currentUser().catch(() => {});
+  const localT0 = await localSavedAt();   // última alteração feita neste computador (antes de qualquer recebimento)
   await syncPull({ force: true, silent: false, initial: true });
-  /* Ao abrir: se este computador tem alterações que não estão na versão da equipe, pergunta o que fazer */
+  /* Ao abrir, com alterações deste computador que não chegaram à equipe:
+     – se são mais recentes que a versão da equipe (o caso comum: você saiu antes de terminar o envio) → envia sozinho;
+     – se a versão da equipe é mais nova → pergunta, com “Manter as duas” como padrão (nada se perde). */
   try {
-    const n = await localChangesCount(), head = syncOk ? await readHead() : null;
-    if (n > 0 && head && head.rev) {
-      const fmtD = t => new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-      syncShownToast = true;
-      askBar(`Este computador tem ${n} alteração(ões) que não estão na versão da equipe (última versão da equipe: ${head.byName || head.by || 'salva'} em ${fmtD(head.savedAt)}). O que fazer?`, [
-        { label: 'Carregar a versão da equipe', primary: true, fn: () => syncForceRemote() },
-        { label: 'Enviar as daqui', fn: () => syncPush({ manual: true }) },
-        { label: 'Decidir depois', fn: () => {} }]);
+    const n = await localChangesCount();
+    if (n > 0) {
+      const head = await readHead();
+      const justDecided = syncState.decidedAt && Date.now() - syncState.decidedAt < 5 * 60e3;
+      if (justDecided || !head || !head.rev || !localT0 || localT0 >= (head.savedAt || 0) - 60e3) {
+        syncShownToast = true;
+        toast(`Enviando ${n} alteração(ões) deste computador que ficaram pendentes${localT0 ? ' (feitas em ' + fmtWhen(localT0) + ')' : ''}.`);
+        syncPush({});
+      } else {
+        syncShownToast = true;
+        askBar(`Este computador tem ${n} alteração(ões) feitas em ${fmtWhen(localT0)} que não foram enviadas, e a equipe tem uma versão mais nova (${whoOf(head)}, ${fmtWhen(head.savedAt)}). O que fazer?`, [
+          { label: 'Manter as duas', primary: true, fn: () => syncKeepBoth() },
+          { label: 'Usar a da equipe', fn: () => syncForceRemote() },
+          { label: 'Enviar a deste computador', fn: () => syncPush({ manual: true }) }]);
+      }
     }
   } catch (e) {}
   clearInterval(syncPollTimer);
@@ -5673,6 +5704,43 @@ async function syncDiagnose() {
     else put('Arquivo principal (kv-pranchas-sync.json): não encontrado');
     put(`Última versão recebida/enviada aqui: ${syncState.remoteRev || '—'}`);
   } catch (e) { put('Erro ao consultar os anexos: ' + e.message); }
+}
+/* Manter as duas: a versão da equipe fica no lugar; cada folha/modelo diferente deste computador entra como cópia “(versão deste computador)” */
+async function syncKeepBoth() {
+  if (!syncOk || syncBusy) return; syncBusy = true;
+  try {
+    await refreshAtts();
+    const a = attByName(SYNC_FILE); if (!a) return;
+    const m = await fetchJsonAtt(a); if (!m || !m.parts) throw new Error('arquivo de sincronização inválido');
+    await maybeBackup(true);
+    const R = m.parts, L = await buildSyncParts(), result = JSON.parse(JSON.stringify(R)); let added = 0;
+    for (const k of Object.keys(L)) {
+      if (partHash(L[k]) === partHash(R[k])) continue;
+      if (k.startsWith('sheet:')) {
+        const [, pid, sid] = k.split(':'), nid = R[k] ? uid() : sid, copy = JSON.parse(JSON.stringify(L[k]));
+        if (R[k]) { copy.meta = { ...copy.meta, id: nid, name: `${partName(k, L)} (versão deste computador)` }; (copy.objects || []).forEach(o => { o.kvSheet = nid; }); }
+        if (!result['pres:' + pid]) { result['pres:' + pid] = L['pres:' + pid] ? { ...L['pres:' + pid], sheetOrder: [] } : { name: 'Apresentação deste computador', sheetOrder: [] }; result.presorder = [...(result.presorder || []), pid]; }
+        result['sheet:' + pid + ':' + nid] = copy;
+        const pm = result['pres:' + pid]; if (!(pm.sheetOrder || []).includes(nid)) result['pres:' + pid] = { ...pm, sheetOrder: [...(pm.sheetOrder || []), nid] };
+        added++;
+      } else if (k.startsWith('tpl:')) {
+        const id = k.slice(4), nid = R[k] ? uid() : id, copy = JSON.parse(JSON.stringify(L[k]));
+        if (R[k]) copy.meta = { ...copy.meta, id: nid, name: `${partName(k, L)} (versão deste computador)` };
+        result['tpl:' + nid] = copy; if (!(result.tplorder || []).includes(nid)) result.tplorder = [...(result.tplorder || []), nid];
+        added++;
+      }
+    }
+    await pullAssets(result);
+    const snap = partsToSnap(result, doc);
+    await assetsToUrls([snap.objects, ...(snap.doc.templates || []).map(t => t.objects || []), ...(snap.doc.pres || []).map(p => p.objects || [])]);
+    await restore(snap); resetHistory(); fitPage(); await storeSave();
+    syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
+    syncState.remoteRev = m.rev || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false;
+    await saveSyncState();
+    toast(`Versão da equipe carregada e ${added} folha(s)/modelo(s) deste computador mantidos como cópia “(versão deste computador)”. Elas serão enviadas à equipe.`);
+  } catch (e) { toast('Não foi possível juntar as versões: ' + e.message, true); }
+  finally { syncBusy = false; refreshSyncBadge(); }
+  syncPush({});
 }
 /* Substituir a cópia deste computador pela versão da equipe (a cópia atual vira versão de segurança) */
 async function syncForceRemote() {
