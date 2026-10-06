@@ -381,6 +381,11 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .ptree li:hover .acts,.ptree li.active .acts,.ptree li:focus-within .acts{opacity:1}
 .inline-wrap{display:contents}
 .inline-wrap[hidden]{display:none}
+.askbar-all{margin:6px 0 2px;font-size:13px}
+.ptree li.ps[draggable=true]{cursor:grab}
+.ptree li.drop-before{box-shadow:inset 0 3px 0 var(--md-sys-color-primary)}
+.ptree li.drop-after{box-shadow:inset 0 -3px 0 var(--md-sys-color-primary)}
+.ptree li.dragging{opacity:.45}
 .ex-stack{display:grid;grid-template-columns:1fr;gap:10px}
 .ex-stack .field{margin:0}
 .ex-stack select{width:100%}
@@ -784,7 +789,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
           </span>
         </div>
         <ul class="ptree" id="sheet-list"></ul>
-        <p class="hint only-sheets">Cada pasta é uma apresentação. Clique numa folha para abrir; duplo clique renomeia. Ícones da folha: mover, copiar (para colar em outra apresentação), duplicar e excluir.</p>
+        <p class="hint only-sheets">Cada pasta é uma apresentação. Clique numa folha para abrir; duplo clique renomeia. Arraste uma folha para mudar a ordem. Ícones da folha: mover, copiar (para colar em outra apresentação), duplicar e excluir.</p>
         <button hidden id="sh-dup"></button><button hidden id="sh-del"></button><ul hidden id="pres-list"></ul>
       </section>
       <section class="section only-sheets">
@@ -1099,7 +1104,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V72 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V74 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1157,7 +1162,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V72 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V74 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -4814,10 +4819,15 @@ function setSaveStatus(msg, err) {
   const s = $('#sv-state'); if (s) s.textContent = msg || '';
 }
 /* Barra de confirmação com botões (sem janelas modais, que o painel do Giraffe pode bloquear) */
-function askBar(msg, actions) {
+function askBar(msg, actions, opts = {}) {
   const bar = $('#askbar'); bar.innerHTML = ''; const p = document.createElement('p'); p.textContent = msg; bar.appendChild(p);
+  let chk = null;
+  if (opts.applyAll) {   // “aplicar a todas”: a mesma escolha vale para os próximos avisos iguais
+    const lb = document.createElement('label'); lb.className = 'check askbar-all';
+    lb.innerHTML = `<input type="checkbox"> ${escapeHtml(opts.applyAll)}`; chk = lb.querySelector('input'); bar.appendChild(lb);
+  }
   const box = document.createElement('div'); box.className = 'askbar-actions';
-  actions.forEach(a => { const b = document.createElement('button'); b.className = 'btn' + (a.primary ? ' primary' : ''); b.textContent = a.label; b.onclick = () => { bar.hidden = true; a.fn && a.fn(); }; box.appendChild(b); });
+  actions.forEach(a => { const b = document.createElement('button'); b.className = 'btn' + (a.primary ? ' primary' : ''); b.textContent = a.label; b.onclick = () => { bar.hidden = true; a.fn && a.fn(chk ? chk.checked : false); }; box.appendChild(b); });
   bar.appendChild(box); bar.hidden = false; box.querySelector('button').focus();
 }
 function scheduleFolderSave() {
@@ -5389,7 +5399,7 @@ function mergeParts(local, remote, base) {
   if (result.tplorder) result.tplorder = result.tplorder.filter(id => result['tpl:' + id]);
   return { result, conflicts };
 }
-function askChoice(msg, options) { return new Promise(res => askBar(msg, options.map(o => ({ label: o.label, primary: o.primary, fn: () => res(o.value) })))); }
+function askChoice(msg, options, applyAll) { return new Promise(res => askBar(msg, options.map(o => ({ label: o.label, primary: o.primary, fn: all => res(applyAll ? { value: o.value, all } : o.value) })), applyAll ? { applyAll } : {})); }
 function partName(k, parts) {
   if (k.startsWith('sheet:')) { const [, pid, sid] = k.split(':'), p = parts[k], pm = parts['pres:' + pid], i = pm ? (pm.sheetOrder || []).indexOf(sid) : -1; return (p && p.meta && p.meta.name) || `Folha ${i >= 0 ? i + 1 : ''}`.trim(); }
   if (k.startsWith('tpl:')) { const p = parts[k], i = (parts.tplorder || []).indexOf(k.slice(4)); return (p && p.meta && p.meta.name) || `Modelo ${i >= 0 ? i + 1 : ''}`.trim(); }
@@ -5402,12 +5412,20 @@ function partLabel(k, parts) {
 }
 let conflictCtx = { localAt: 0, remoteAt: 0 };
 async function resolveConflicts(conflicts, local, remote, result, who) {
-  for (const k of conflicts) {
+  let allEdit = null, allDel = null;   // escolhas “aplicar a todas” (uma para folhas alteradas nos dois lados, outra para excluídas de um lado)
+  for (const [ci, k] of conflicts.entries()) {
     const L = local[k], R = remote[k], lab = partLabel(k, L ? local : remote);
+    const left = conflicts.slice(ci + 1).filter(x => (!!local[x] && !!remote[x]) === (!!L && !!R)).length;
+    const allLabel = left ? `Aplicar esta escolha também às próximas ${left} folha(s) com o mesmo tipo de conflito` : null;
     let v;
+    if (L && R && allEdit) v = allEdit; else if ((!L || !R) && allDel) v = allDel; else {
     const here = `neste computador (${fmtWhen(conflictCtx.localAt)})`, there = `por ${who} (${fmtWhen(conflictCtx.remoteAt)})`;
-    if (!L || !R) v = await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi ${L ? 'excluída ' + there + ' e alterada ' + here : 'alterada ' + there + ' e excluída ' + here}. O que fazer?`, [{ label: 'Manter a folha', value: 'keep', primary: true }, { label: 'Excluir', value: 'drop' }]);
-    else v = await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi alterada ${here} e também ${there}. “Manter as duas” não perde nada.`, [{ label: 'Manter as duas', value: 'both', primary: true }, { label: 'Usar a deste computador', value: 'mine' }, { label: `Usar a de ${who}`, value: 'theirs' }]);
+    const ask = (!L || !R)
+      ? await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi ${L ? 'excluída ' + there + ' e alterada ' + here : 'alterada ' + there + ' e excluída ' + here}. O que fazer?`, [{ label: 'Manter a folha', value: 'keep', primary: true }, { label: 'Excluir', value: 'drop' }], allLabel)
+      : await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi alterada ${here} e também ${there}. “Manter as duas” não perde nada.`, [{ label: 'Manter as duas', value: 'both', primary: true }, { label: 'Usar a deste computador', value: 'mine' }, { label: `Usar a de ${who}`, value: 'theirs' }], allLabel);
+    v = allLabel ? ask.value : ask;
+    if (allLabel && ask.all) { if (L && R) allEdit = v; else allDel = v; }
+    }
     if (v === 'keep') result[k] = L || R;
     else if (v === 'drop') delete result[k];
     else if (v === 'mine') result[k] = L;
@@ -6857,6 +6875,7 @@ function renderSheetList() {
       const [bUp, bDown, bDup, bDel] = li.querySelectorAll('.tb'), bName = li.querySelector('.name');
       clickOrDbl(bName, () => { setActiveSheet(s.id); fitPage(); }, () => inlineRename(bName, label, v => { s.name = v; canvas.requestRenderAll(); commit(); }));
       bUp.onclick = () => moveSheet(i, -1); bDown.onclick = () => moveSheet(i, 1);
+      wireSheetDrag(li, 'tpl', s.id, i, null);
       bDup.onclick = () => { setActiveSheet(s.id); addSheet(true); };
       bDel.onclick = () => { setActiveSheet(s.id); deleteSheet(); };
       ul.appendChild(li);
@@ -6888,6 +6907,7 @@ function renderSheetList() {
         bCopy.onclick = async () => { await inPres(); copySheet(s.id); };
         bDup.onclick = async () => { await inPres(); addSheet(true); };
         bDel.onclick = async () => { await inPres(); deleteSheet(); };
+        wireSheetDrag(li, p.id, s.id, i, act ? null : () => switchPres(p.id));
         ul.appendChild(li);
       });
     });
@@ -6914,6 +6934,34 @@ async function pasteSheet(pid) {
   await enlivenOnto(list); userObjects().forEach(o => applyObjState(o));
   raiseChrome(); rebuildChrome(); renderSheetList(); syncDocUI(); commit(); fitPage();
   toast(`Folha “${ns.name}” colada em “${presById(pid).name}”.`);
+}
+/* Arrastar folhas na lista para mudar a ordem (dentro da mesma apresentação, ou entre modelos no modo Modelos) */
+function moveSheetTo(i, j) {
+  const n = P().length; if (i === j || i < 0 || j < 0 || i >= n || j >= n) return;
+  relayout(() => { const a = P(), [s] = a.splice(i, 1); a.splice(j, 0, s); });
+  renderSheetList(); commit(); fitPage();
+}
+let sheetDrag = null;
+function wireSheetDrag(li, pid, sid, idx, inPres) {
+  li.draggable = true; li.dataset.pid = pid; li.dataset.idx = idx;
+  li.addEventListener('dragstart', e => { sheetDrag = { pid, sid, idx }; li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', sid); } catch (err) {} });
+  li.addEventListener('dragend', () => { sheetDrag = null; li.classList.remove('dragging'); $$('#sheet-list li').forEach(x => x.classList.remove('drop-before', 'drop-after')); });
+  li.addEventListener('dragover', e => {
+    if (!sheetDrag || sheetDrag.pid !== pid) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    const r = li.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+    li.classList.toggle('drop-after', after); li.classList.toggle('drop-before', !after);
+  });
+  li.addEventListener('dragleave', () => li.classList.remove('drop-before', 'drop-after'));
+  li.addEventListener('drop', async e => {
+    if (!sheetDrag || sheetDrag.pid !== pid) return;
+    e.preventDefault();
+    const r = li.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2, from = sheetDrag.idx;
+    let to = idx + (after ? 1 : 0); if (from < to) to--;
+    li.classList.remove('drop-before', 'drop-after'); sheetDrag = null;
+    if (inPres) await inPres();
+    moveSheetTo(from, to);
+  });
 }
 function moveSheet(i, d) {
   const j = i + d; if (j < 0 || j >= P().length) return;
@@ -7225,6 +7273,14 @@ async function exportPDF(list, dpi, name) {
 const _origGetSrc = fabric.Image.prototype.getSrc, _origGetSvgSrc = fabric.Image.prototype.getSvgSrc;
 fabric.Image.prototype.getSrc = function (f) { return this.__kvHref || _origGetSrc.call(this, f); };
 fabric.Image.prototype.getSvgSrc = function (f) { return this.__kvHref || _origGetSvgSrc.call(this, f); };
+/* Com a imagem já reamostrada só na área visível (o.width × o.height), o SVG deve usar exatamente esse retângulo.
+   O Fabric escreve o tamanho do arquivo original (para recortes com cropX/cropY), o que esticava a imagem no PDF. */
+const _origImgToSVG = fabric.Image.prototype._toSVG;
+fabric.Image.prototype._toSVG = function () {
+  if (!this.__kvHref) return _origImgToSVG.call(this);
+  const x = -this.width / 2, y = -this.height / 2;
+  return ['\t<image ', 'COMMON_PARTS', 'xlink:href="', this.__kvHref, '" x="', x, '" y="', y, '" width="', this.width, '" height="', this.height, '" preserveAspectRatio="none"></image>\n'];
+};
 function hasAlpha(el) {
   try { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.drawImage(el, 0, 0, 48, 48); const d = x.getImageData(0, 0, 48, 48).data; for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true; } catch (e) {}
   return false;
@@ -7238,12 +7294,14 @@ async function prepareSheetImages(sh, r, dpi, lossless) {
   for (const [o, extra] of list) {
     const el = o._element || o.getElement(); if (!el || o.kvMissing) continue;
     const nw = el.naturalWidth || el.width, nh = el.naturalHeight || el.height; if (!nw || !nh) continue;
-    const q = fabric.util.qrDecompose(o.calcTransformMatrix()), dw = o.width * Math.abs(q.scaleX) * extra, dh = o.height * Math.abs(q.scaleY) * extra;
-    let tw = Math.min(nw, Math.ceil(dw * k)), th = Math.min(nh, Math.ceil(dh * k));
-    const mp = tw * th; if (mp > 60e6) { const f = Math.sqrt(60e6 / mp); tw = Math.floor(tw * f); th = Math.floor(th * f); }
-    if (tw < 1 || th < 1) continue;
-    /* desenha a imagem inteira (com filtros) no tamanho-alvo; o recorte da folha continua sendo feito pelo SVG */
-    const sx = tw / nw, sy = th / nh, c = document.createElement('canvas'); c.width = Math.max(1, Math.round(o.width * sx)); c.height = Math.max(1, Math.round(o.height * sy));
+    /* fator único para os dois eixos (sem distorcer), calculado sobre a área visível da imagem (o.width × o.height),
+       que numa imagem recortada é menor que o arquivo original — nunca maior que a resolução do original */
+    const q = fabric.util.qrDecompose(o.calcTransformMatrix());
+    let s = Math.min(1, Math.max(Math.abs(q.scaleX), Math.abs(q.scaleY)) * extra * k);
+    let cw = Math.max(1, Math.round(o.width * s)), ch = Math.max(1, Math.round(o.height * s));
+    if (cw * ch > 60e6) { const f = Math.sqrt(60e6 / (cw * ch)); cw = Math.max(1, Math.floor(cw * f)); ch = Math.max(1, Math.floor(ch * f)); }
+    /* desenha a área visível da imagem (com filtros) no tamanho-alvo; o recorte em polígono continua sendo feito pelo SVG */
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
     const x = c.getContext('2d'), png = lossless || hasAlpha(el);
     if (!png) { x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); }
     x.imageSmoothingQuality = 'high';
