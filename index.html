@@ -1000,6 +1000,11 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <div class="panel" role="tabpanel" id="panel-layers" aria-labelledby="tab-layers" hidden>
       <section class="section">
         <h2>Camadas por folha</h2>
+        <p class="hint" style="margin:4px 0 6px">Duplicatas = elementos idênticos e exatamente sobrepostos na mesma folha.</p>
+        <div class="btn-grid" style="margin-bottom:8px">
+          <button class="btn" id="lay-dupsel" title="Seleciona as cópias para você conferir; apague com Delete ou tire da seleção com Shift+clique">Selecionar duplicatas</button>
+          <button class="btn" id="lay-dedupe" title="Remove as cópias (o original de cada uma fica); Ctrl+Z desfaz">Remover duplicatas</button>
+        </div>
         <p class="hint">Cada elemento é uma camada da sua folha, do topo para o fundo. Duplo clique renomeia; arraste ou use as setas para reordenar. Oculte ou bloqueie o elemento ou a folha inteira.</p>
         <ul class="list" id="layer-list"></ul>
       </section>
@@ -1108,7 +1113,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V79 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V82 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1167,7 +1172,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V79 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V82 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -3334,9 +3339,47 @@ function walkSer(objs, fn) { (objs || []).forEach(o => { fn(o); if (o.objects) w
 /* Elementos com o mesmo identificador (sobra de versões anteriores da sincronização/desfazer):
    – cópia idêntica na mesma folha, no mesmo lugar → removida (era uma duplicata sobreposta);
    – nos demais casos → a cópia ganha identificador próprio (selecionar/apagar passa a agir só nela). */
+/* “Assinatura visual” de um elemento: tudo o que aparece na folha, sem identificador/nome, com números arredondados
+   e imagens comparadas pelo conteúdo (o mesmo arquivo pode ter endereços temporários diferentes) */
+function visualSig(o) {
+  try {
+    const j = canvas._toObject(o, 'toObject', PROPS);
+    const keepKv = new Set(['kvDash', 'kvDashK', 'kvGapK', 'kvBelow', 'kvClipRings', 'kvBool']);
+    walkSer([j], x => { if (x.type === 'image' && x.src) x.src = hashCache.get(x.src) || x.src; Object.keys(x).forEach(k => { if ((k.startsWith('kv') && !keepKv.has(k)) || ['selectable', 'evented', 'hasControls', 'objectCaching', 'hoverCursor', 'moveCursor', 'padding', 'borderColor', 'cornerColor', 'transparentCorners', 'lockMovementX', 'lockMovementY', 'lockRotation', 'lockScalingX', 'lockScalingY'].includes(k)) delete x[k]; }); });
+    return JSON.stringify(j, (k, v) => typeof v === 'number' ? Math.round(v * 20) / 20 : v);
+  } catch (e) { return Math.random() + ''; }
+}
+/* Ferramenta “Remover duplicatas”: elementos idênticos e sobrepostos na mesma folha (a cópia de cima é removida) */
+function findVisualDuplicates() {
+  const first = new Map(), dups = [];
+  userObjects().filter(o => !o.kvTemp).forEach(o => { const key = sheetOf(o).id + '|' + visualSig(o); if (first.has(key)) dups.push(o); else first.set(key, o); });
+  return dups;
+}
+/* Selecionar as cópias para conferir antes de apagar */
+function selectVisualDuplicates() {
+  const dups = findVisualDuplicates();
+  if (!dups.length) { toast('Nenhum elemento duplicado sobreposto encontrado nas folhas da apresentação aberta.'); return; }
+  canvas.discardActiveObject();
+  const sheets = [...new Set(dups.map(o => sheetOf(o).id))];
+  if (sheets[0] && sheets[0] !== getActiveId()) setActiveSheet(sheets[0]);
+  layersFocusId = getActiveId();
+  sheets.forEach(id => collapsed.delete(id));   // abre na aba Camadas todas as folhas que têm cópias
+  if (dups.length === 1) canvas.setActiveObject(dups[0]); else canvas.setActiveObject(new fabric.ActiveSelection(dups, { canvas }));
+  canvas.requestRenderAll(); refreshPanel(); renderLayers();
+  setTimeout(() => { const r = $('#layer-list li.layer-child.sel, #layer-list li.layer-child[aria-selected="true"], #layer-list li.layer-child.selected'); if (r) r.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 120);
+  toast(`${dups.length} cópia(s) selecionada(s) em ${sheets.length} folha(s) — destacadas na lista. Confira e apague com Delete; Shift+clique tira uma da seleção.`);
+}
+function removeVisualDuplicates() {
+  const dups = findVisualDuplicates();
+  if (!dups.length) { toast('Nenhum elemento duplicado sobreposto encontrado nas folhas da apresentação aberta.'); return; }
+  const sheets = new Set(dups.map(o => sheetOf(o).id));
+  askBar(`Encontrei ${dups.length} elemento(s) duplicado(s) — idênticos e no mesmo lugar de outro — em ${sheets.size} folha(s). Remover as cópias? (o original de cada um fica)`, [
+    { label: 'Remover cópias', primary: true, fn: () => { canvas.discardActiveObject(); dups.forEach(o => canvas.remove(o)); canvas.requestRenderAll(); commit(); scheduleLayers(); toast(`${dups.length} cópia(s) removida(s). Envie as alterações para a equipe receber a versão limpa.`); } },
+    { label: 'Cancelar' }]);
+}
 function fixDuplicateIds() {
   const seen = new Map(); let removed = 0, renamed = 0;
-  const sig = o => { try { const j = canvas._toObject(o, 'toObject', PROPS); delete j.kvId; return JSON.stringify(j); } catch (e) { return Math.random() + ''; } };
+  const sig = o => visualSig(o);
   canvas.getObjects().filter(o => !o.kvRole && !o.kvTemp && o.kvId).forEach(o => {
     const prev = seen.get(o.kvId);
     if (!prev) { seen.set(o.kvId, o); return; }
@@ -5833,7 +5876,9 @@ async function syncInit(opened) {
     if (n > 0) {
       const head = await readHead();
       const justDecided = syncState.decidedAt && Date.now() - syncState.decidedAt < 5 * 60e3;
-      if (justDecided || !head || !head.rev || !localT0 || localT0 >= (head.savedAt || 0) - 60e3) {
+      /* a versão “mais nova” da equipe foi enviada por este mesmo computador: não há outra pessoa envolvida — envia a daqui (ex.: limpeza de duplicatas feita ao abrir) */
+      const sameDevice = head && head.device && head.device === deviceId;
+      if (justDecided || sameDevice || !head || !head.rev || !localT0 || localT0 >= (head.savedAt || 0) - 60e3) {
         syncShownToast = true;
         toast(`Enviando ${n} alteração(ões) deste computador que ficaram pendentes${localT0 ? ' (feitas em ' + fmtWhen(localT0) + ')' : ''}.`);
         syncPush({});
@@ -7267,6 +7312,8 @@ async function delPres() {
 }
 function renderPresList() { renderSheetList(); }
 $('#orph-scan').onclick = renderOrphans;
+$('#lay-dedupe').onclick = removeVisualDuplicates;
+$('#lay-dupsel').onclick = selectVisualDuplicates;
 $('#sh-import').onclick = () => $('#in-sheetfile').click();
 $('#in-sheetfile').addEventListener('change', async e => { const fs = [...e.target.files]; e.target.value = ''; for (const f of fs) await importSheetFile(f); });
 $('#pres-new').onclick = newPres; $('#pres-dup').onclick = dupPres; $('#pres-del').onclick = delPres;
