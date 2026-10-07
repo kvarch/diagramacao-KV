@@ -1104,7 +1104,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V74 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V75 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1162,7 +1162,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V74 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V75 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -5302,6 +5302,29 @@ const SYNC_FILE = 'kv-pranchas-sync.json', IMG_PREFIX = 'kv-img-', HEAD_FILE = '
    A detecção de novidades usa esse rev — não a data do anexo, que o Giraffe nem sempre atualiza ao regravar. */
 async function readHead() { const a = attByName(HEAD_FILE); if (!a) return null; try { return await fetchAtt(a, true); } catch (e) { return null; } }
 const newRev = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+/* Trava de escrita: antes de gravar o arquivo da equipe, o computador “reserva a vez” num anexo pequeno,
+   espera e confere se a reserva continua sua. Dois envios ao mesmo tempo não se sobrescrevem mais. */
+const LOCK_FILE = 'kv-pranchas-lock.json', LOCK_TTL = 90e3;
+async function readLock() { await refreshAtts(); const a = attByName(LOCK_FILE); if (!a) return null; try { return await fetchAtt(a, true); } catch (e) { return null; } }
+async function acquireLock() {
+  for (let i = 0; i < 30; i++) {
+    const L = await readLock(), now = Date.now();
+    if (L && L.nonce && L.device !== deviceId && (L.until || 0) > now) {
+      setSyncStatus(`☁ Aguardando ${L.byName || 'outro computador'} terminar de enviar…`);
+      await wait(2500 + Math.random() * 2500); continue;
+    }
+    const nonce = newRev();
+    await uploadRaw(LOCK_FILE, JSON.stringify({ device: deviceId, nonce, until: now + LOCK_TTL, byName: (syncUser && syncUser.name) || '' }));
+    await wait(1800 + Math.random() * 600);
+    const L2 = await readLock();
+    if (L2 && L2.nonce === nonce) return nonce;
+    await wait(1200 + Math.random() * 2000);
+  }
+  return null;
+}
+async function releaseLock(nonce) {
+  try { const L = await readLock(); if (L && L.nonce === nonce) await uploadRaw(LOCK_FILE, JSON.stringify({ device: deviceId, nonce: '', until: 0 })); } catch (e) {}
+}
 let syncOk = false, syncState = { base: {}, remoteRev: null, remoteAt: 0, lastPush: 0 }, syncBusy = false, syncAuto = true;
 let syncPushTimer = 0, syncPollTimer = 0, syncAtts = [], syncUser = null, syncShownToast = false;
 const partHash = p => p === undefined ? null : (() => { const s = JSON.stringify(p); return hashStr(s) + ':' + s.length; })();
@@ -5452,16 +5475,29 @@ async function refreshAtts() {
   syncAtts = Array.isArray(raw && raw.attachments) ? raw.attachments : [];
   return syncAtts;
 }
-const attByName = n => syncAtts.filter(a => a && a.name === n).sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))[0] || null;
+/* Anexo “oficial” de um nome = o de MENOR id (o primeiro criado). Antes era o de data mais recente — mas o Giraffe não
+   atualiza a data ao regravar, e quando duas pessoas criavam o arquivo ao mesmo tempo cada computador lia uma cópia diferente. */
+const attId = a => { const n = Number(a && a.id); return Number.isFinite(n) ? n : Infinity; };
+const attsByName = n => syncAtts.filter(a => a && a.name === n).sort((a, b) => attId(a) - attId(b) || String(a.id).localeCompare(String(b.id)));
+const attByName = n => attsByName(n)[0] || null;
 async function fetchAtt(a, asJson) {
   const { rpc } = await loadSdk();
-  for (let k = 0; k < 2; k++) {
-    const t = await rpc.invoke('getTempUrl', [a.url]); const u = typeof t === 'string' ? t : t && (t.url || t.tempUrl || t.signedUrl);
-    if (!u) throw new Error('getTempUrl vazio');
-    const r = await fetch(u); if (r.ok) return asJson ? r.json() : r.arrayBuffer();
-    if (r.status !== 404) throw new Error('HTTP ' + r.status); await wait(1500);
+  let last = null;
+  for (let k = 0; k < 5; k++) {
+    if (k) await wait(700 * k + Math.random() * 500);
+    let u = null;
+    try { const t = await rpc.invoke('getTempUrl', [a.url]); u = typeof t === 'string' ? t : t && (t.url || t.tempUrl || t.signedUrl); }
+    catch (e) { last = e; continue; }   // falha momentânea do Giraffe: tenta de novo
+    if (!u) { last = new Error('getTempUrl vazio'); continue; }
+    let r = null;
+    try { r = await fetch(u, { cache: 'no-store' }); } catch (e) { last = e; continue; }
+    if (r.ok) return asJson ? r.json() : r.arrayBuffer();
+    last = new Error('HTTP ' + r.status);
+    if (r.status === 404 || r.status === 403) {   // o arquivo foi regravado por alguém: busca o endereço novo
+      try { await refreshAtts(); const fresh = syncAtts.find(x => String(x.id) === String(a.id)) || attByName(a.name); if (fresh) a = fresh; } catch (e) {}
+    }
   }
-  throw new Error('anexo indisponível');
+  throw new Error('anexo indisponível no momento (' + (last && last.message || 'erro') + ')');
 }
 /* O Giraffe aceita anexos de até 10 MB: arquivos maiores são divididos em partes de ~8 MB (sem perda de qualidade).
    O anexo principal vira um índice { chunked, n, stamp } e as partes ficam em <nome>.part1, .part2… */
@@ -5551,6 +5587,27 @@ async function refreshSyncBadge() {
 }
 /* Receber: baixa a versão do projeto e junta com a daqui */
 function projectMismatch() { const cur = currentGiraffeProjectId(); return !!(cur && String(cur) !== String(projNum())); }
+async function mergeDuplicateCopies(canon, result) {
+  const dups = attsByName(SYNC_FILE).filter(x => x !== canon); if (!dups.length) return 0;
+  syncState.dupMerged = syncState.dupMerged || {};
+  let added = 0;
+  for (const d of dups) {
+    let dm; try { dm = await fetchJsonAtt(d); } catch (e) { continue; }
+    if (!dm || !dm.parts || syncState.dupMerged[d.id] === dm.rev) continue;
+    const P = dm.parts;
+    for (const k of Object.keys(P)) {
+      if (!k.startsWith('sheet:') || !(P[k].objects || []).length) continue;
+      const [, pid, sid] = k.split(':');
+      if (Object.keys(result).some(x => x.startsWith('sheet:') && x.endsWith(':' + sid))) continue;   // já existe na versão oficial
+      let to = pid;
+      if (!result['pres:' + pid]) { const nm = P['pres:' + pid] && P['pres:' + pid].name, same = Object.keys(result).find(x => x.startsWith('pres:') && result[x].name === nm); to = same ? same.slice(5) : (result.presorder || [])[0] || pid; if (!result['pres:' + to]) { result['pres:' + to] = { name: nm || 'Apresentação recuperada', sheetOrder: [] }; result.presorder = [...(result.presorder || []), to]; } }
+      result['sheet:' + to + ':' + sid] = P[k];
+      const pm = result['pres:' + to]; result['pres:' + to] = { ...pm, sheetOrder: [...(pm.sheetOrder || []), sid] }; added++;
+    }
+    syncState.dupMerged[d.id] = dm.rev;
+  }
+  return added;
+}
 async function syncPull(opts = {}) {
   if (!syncOk) return false;
   if (projectMismatch()) return false;
@@ -5576,12 +5633,24 @@ async function syncPull(opts = {}) {
     const neverSynced = Object.keys(syncState.base).length === 0;
     let result, conflicts = [], staleNote = '';
     if (neverSynced) {
-      result = { ...R };
-      if (userObjects().length) {
-        await maybeBackup(true);
-        staleNote = ' A cópia antiga que estava neste computador foi guardada em Exportar › Versões de segurança.';
-      }
+      /* primeira sincronização deste computador: a versão da equipe entra e o que só existe aqui (folhas e modelos com conteúdo) é mantido.
+         A folha vazia inicial de um projeto novo é descartada; apresentações com o mesmo nome são unificadas. */
+      const Lx = JSON.parse(JSON.stringify(L)), presName = {};
+      Object.keys(R).filter(k => k.startsWith('pres:')).forEach(k => { presName[R[k].name] = presName[R[k].name] || k.slice(5); });
+      Object.keys(Lx).filter(k => k.startsWith('pres:') && !(k in R)).forEach(k => {
+        const pid = k.slice(5), to = presName[Lx[k].name]; if (!to) return;
+        (Lx[k].sheetOrder || []).forEach(sid => { const sk = 'sheet:' + pid + ':' + sid; if (Lx[sk]) { Lx['sheet:' + to + ':' + sid] = Lx[sk]; delete Lx[sk]; } });
+        Lx['pres:' + to] = { ...(R['pres:' + to] || {}), sheetOrder: [...((R['pres:' + to] || {}).sheetOrder || []), ...(Lx[k].sheetOrder || [])] };
+        delete Lx[k]; Lx.presorder = (Lx.presorder || []).filter(x => x !== pid);
+      });
+      Object.keys(Lx).filter(k => k.startsWith('sheet:') && !(k in R) && !((Lx[k].objects || []).length)).forEach(k => delete Lx[k]);
+      ({ result, conflicts } = mergeParts(Lx, R, {}));
+      result.rest = R.rest || result.rest;
+      Object.keys(result).filter(k => k.startsWith('pres:')).forEach(k => { const pid = k.slice(5); result[k] = { ...result[k], sheetOrder: (result[k].sheetOrder || []).filter(sid => result['sheet:' + pid + ':' + sid]) }; });
+      if (userObjects().length) { await maybeBackup(true); staleNote = ' O que existia só neste computador foi mantido junto (e há uma cópia em Exportar › Versões de segurança).'; }
     } else ({ result, conflicts } = mergeParts(L, R, syncState.base));
+    /* cópias duplicadas do arquivo da equipe (criadas quando várias pessoas começaram ao mesmo tempo): recupera as folhas que só existem nelas */
+    const recovered = await mergeDuplicateCopies(a, result);
     if (conflicts.length) {
       if (opts.silent) {
         setSyncStatus(`☁ ${conflicts.length} conflito(s) com a versão de ${whoOf(m)} — clique em Receber`, 'warn'); syncState.pendingConflict = true;
@@ -5610,6 +5679,9 @@ async function syncPull(opts = {}) {
     syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
     syncState.remoteRev = m.rev || (head && head.rev) || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
     await saveSyncState();
+    if (recovered) toast(`${recovered} folha(s) que estavam numa cópia separada do arquivo da equipe foram recuperadas e serão enviadas.`, true);
+    /* o que só existe aqui (junções, recuperações) segue para a equipe sem esperar nova edição */
+    if (!opts.underLock && (await localChangesCount()) > 0) scheduleSyncPush();
     if (changed) syncShownToast = true;
 
     if (changed) toast(neverSynced ? `Versão mais recente da equipe carregada (salva por ${whoOf(m)} em ${new Date(m.savedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}).${staleNote}` : `Alterações de ${whoOf(m)} recebidas${conflicts.length ? ` (${conflicts.length} conflito(s) resolvido(s))` : ''}.`, !!staleNote);
@@ -5624,9 +5696,16 @@ async function syncPush(opts = {}) {
   if (!syncOk) { if (opts.manual) toast('A sincronização funciona com o app aberto dentro de um projeto do Giraffe.', true); return false; }
   if (syncBusy) { if (opts.manual) { toast('Já há um envio ou recebimento em andamento — o seu clique será atendido em seguida.'); setTimeout(() => syncPush(opts), 2500); } return false; }
   if (opts.manual) { toast('Enviando alterações…'); $('#sync-push').classList.add('busy'); }
+  let nonce = null;
   try {
+  /* nada para enviar e ninguém mudou nada: responde na hora, sem reservar a vez */
+  try { if (!(await localChangesCount())) { await refreshAtts(); const h0 = await readHead(); if (h0 && h0.rev && h0.rev === syncState.remoteRev) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); refreshSyncBadge(); return true; } } } catch (e) {}
+  /* imagens novas vão antes (não dependem da vez: cada uma tem nome próprio) */
+  try { syncBusy = true; await refreshAtts(); await pushAssets(await buildSyncParts()); } catch (e) { setSyncStatus('☁ Falha ao enviar imagens: ' + e.message, 'warn'); if (opts.manual) toast('Não foi possível enviar: ' + e.message, true); syncBusy = false; return false; } finally { syncBusy = false; }
+  nonce = await acquireLock();
+  if (!nonce) { setSyncStatus('☁ Outra pessoa está enviando — tento de novo em instantes', 'warn'); if (opts.manual) toast('Outra pessoa está enviando agora. Tento de novo em instantes.', true); setTimeout(() => syncPush({}), 20000); return false; }
   for (let tries = 0; tries < 3; tries++) {
-    await syncPull({ force: true, manual: false, silent: false });
+    await syncPull({ force: true, manual: false, silent: false, underLock: true });
     if (syncState.pendingConflict) return false;
     syncBusy = true;
     try {
@@ -5655,7 +5734,7 @@ async function syncPush(opts = {}) {
   }
   toast('O projeto está sendo alterado por outra pessoa neste momento. Tente enviar de novo em instantes.', true);
   return false;
-  } finally { $('#sync-push').classList.remove('busy'); }
+  } finally { if (nonce) await releaseLock(nonce); $('#sync-push').classList.remove('busy'); }
 }
 function scheduleSyncPush() {
   if (!syncOk || !syncAuto) return;
@@ -5716,6 +5795,8 @@ async function syncDiagnose() {
     const kv = syncAtts.filter(a => /^kv-/.test(a.name || ''));
     put(`Anexos do KV Pranchas: ${kv.length}`);
     kv.slice(0, 30).forEach(a => put(`  • ${a.name}  (id ${a.id}${a.updated_at ? ', ' + a.updated_at : ''})`));
+    const dupN = attsByName(SYNC_FILE).length; if (dupN > 1) put(`Atenção: ${dupN} cópias de ${SYNC_FILE} — o app usa a de menor id (${attByName(SYNC_FILE).id}) e recupera as folhas das outras.`);
+    { const lk = await readLock(); put(lk && lk.nonce && (lk.until || 0) > Date.now() ? `Envio em andamento por ${lk.byName || 'outro computador'} (vez reservada até ${new Date(lk.until).toLocaleTimeString('pt-BR')})` : 'Nenhum envio em andamento'); }
     const h = await readHead(); put(h ? `Cabeçalho: versão ${h.rev} salva por ${h.byName || h.by || '—'} em ${new Date(h.savedAt).toLocaleString('pt-BR')}` : 'Cabeçalho (kv-pranchas-head.json): não encontrado');
     const a = attByName(SYNC_FILE);
     if (a) { try { const m = await fetchJsonAtt(a); put(`Arquivo principal: ok — ${Object.keys(m.parts || {}).length} partes, versão ${m.rev || '—'}`); } catch (e) { put('Arquivo principal: erro ao baixar — ' + e.message); } }
