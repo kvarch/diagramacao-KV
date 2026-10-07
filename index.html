@@ -1060,6 +1060,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         <p class="info" id="sync-state" aria-live="polite"></p>
         <button class="btn block" id="sync-force">Carregar a versão da equipe (substituir a deste computador)</button>
         <button class="btn block" id="sync-diag-btn">Diagnóstico da sincronização</button>
+        <div class="btn-grid" style="margin-top:6px"><button class="btn" id="sync-test-btn" title="Bateria completa: lista, download pelo Giraffe, download direto e gravação de teste. Leva até 3 minutos.">Teste completo de conexão</button><button class="btn" id="sync-copy-btn" title="Copia o resultado do diagnóstico/teste para enviar ao suporte">Copiar resultado</button></div>
         <pre class="info" id="sync-diag" hidden style="white-space:pre-wrap;font-size:11px;max-height:260px;overflow:auto;user-select:text"></pre>
         <p class="info">As alterações de várias pessoas são juntadas por folha. Se a mesma folha for alterada por duas pessoas, o app pergunta qual manter — ou mantém as duas.</p>
       </section>
@@ -1113,7 +1114,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V82 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V83 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1172,7 +1173,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V82 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V83 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -5985,6 +5986,36 @@ async function syncForceRemote() {
 $('#sync-force').onclick = () => askBar('Substituir tudo o que está neste computador pela versão da equipe salva no Giraffe? A cópia atual daqui fica guardada em Versões de segurança.', [
   { label: 'Carregar versão da equipe', primary: true, fn: syncForceRemote }, { label: 'Cancelar' }]);
 $('#sync-diag-btn').onclick = syncDiagnose;
+$('#sync-copy-btn').onclick = async () => { const t = $('#sync-diag').textContent || ''; if (!t.trim()) { toast('Rode o diagnóstico ou o teste antes.'); return; } try { await navigator.clipboard.writeText(t); toast('Resultado copiado — cole na conversa.'); } catch (e) { const r = document.createRange(); r.selectNodeContents($('#sync-diag')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('Selecionei o texto: use Ctrl+C para copiar.'); } };
+/* Teste completo: mede cada etapa do caminho de recebimento e envio, com tempo e erro exato */
+async function syncFullTest() {
+  const out = [], put = t => { out.push(t); $('#sync-diag').hidden = false; $('#sync-diag').textContent = out.join('\n'); };
+  const step = async (label, fn) => { const t0 = Date.now(); put(label + '…'); let txt; try { txt = 'OK — ' + await fn(); } catch (e) { txt = 'FALHOU — ' + (e && (e.name === 'AbortError' ? 'tempo esgotado' : e.message) || e); } out[out.length - 1] = `${label}: ${txt} (${((Date.now() - t0) / 1000).toFixed(1)} s)`; $('#sync-diag').textContent = out.join('\n'); };
+  const host = u => { try { return new URL(u, location.href).host; } catch (e) { return '?'; } };
+  put('=== TESTE COMPLETO DE CONEXÃO — KV Pranchas ===');
+  put(`Versão: ${(document.body.innerText.match(/Beta - V\d+/) || ['?'])[0]} · ${new Date().toLocaleString('pt-BR')}`);
+  put(`Navegador: ${navigator.userAgent}`);
+  put(`Online: ${navigator.onLine ? 'sim' : 'não'} · Giraffe: ${giraffeOrigin()} · app: ${location.host}`);
+  put(`Projeto: ${projectLabel} · Sincronização ativa: ${syncOk ? 'sim' : 'não'} · ocupada: ${syncBusy ? 'sim' : 'não'}`);
+  if (!syncOk) { put('Sincronização desligada neste computador — fim.'); return; }
+  try { const u = await currentUser(); put(`Usuário: ${u.name || '—'} <${u.email || '—'}>`); } catch (e) {}
+  await step('1. Lista de anexos (fetchProjectDetails)', async () => { await refreshAtts(); const n = attsByName(SYNC_FILE).length; return `${syncAtts.length} anexos · arquivo da equipe: ${n} · cabeçalho: ${attsByName(HEAD_FILE).length} · reserva: ${attsByName(LOCK_FILE).length}`; });
+  const targets = [[HEAD_FILE, 'cabeçalho'], [SYNC_FILE, 'arquivo da equipe']];
+  for (const [nm, lab] of targets) {
+    const a = attByName(nm); if (!a) { put(`2. ${lab}: não está na lista`); continue; }
+    let temp = null;
+    await step(`2. getTempUrl do ${lab} (id ${a.id})`, async () => { const t = await rpcT('getTempUrl', [a.url], 20000); temp = typeof t === 'string' ? t : t && (t.url || t.tempUrl || t.signedUrl); if (!temp) throw new Error('resposta vazia: ' + JSON.stringify(t).slice(0, 120)); return 'endereço em ' + host(temp); });
+    if (temp) await step(`3. download do ${lab} pelo endereço temporário`, async () => { const r = await fetchT(temp, 30000); const b = await r.arrayBuffer(); return `HTTP ${r.status}, ${(b.byteLength / 1024).toFixed(0)} kB`; });
+    await step(`4. download direto do ${lab} (${host(new URL(a.url, giraffeOrigin()).href)})`, async () => { const r = await fetchT(new URL(a.url, giraffeOrigin()).href, 30000); return `HTTP ${r.status}`; });
+  }
+  const testName = 'kv-pranchas-teste-' + String(deviceId).slice(0, 8) + '.json', stamp = newRev();
+  await step('5. gravação de teste (uploadProjectAttachment)', async () => { const r = await uploadRaw(testName, JSON.stringify({ stamp, at: Date.now() })); return 'id ' + ([r && r.attachmentId, r && r.id, r && r.data && r.data.id].find(v => v != null) ?? '?'); });
+  await step('6. o anexo de teste aparece na lista?', async () => { await refreshAtts(); const a = attByName(testName); if (!a) throw new Error('NÃO aparece — a lista de anexos deste computador não está atualizando'); return 'sim (id ' + a.id + ')'; });
+  await step('7. leitura do anexo de teste', async () => { const a = attByName(testName) || (syncState.knownIds && { id: syncState.knownIds[testName], url: '' }); if (!a || !a.url) throw new Error('sem endereço para ler'); const j = await fetchAtt(a, true); if (!j || j.stamp !== stamp) throw new Error('conteúdo diferente do gravado (cópia antiga?)'); return 'conteúdo confere'; });
+  put(`Última versão recebida/enviada aqui: ${syncState.remoteRev || '—'} · em ${syncState.lastSync ? new Date(syncState.lastSync).toLocaleString('pt-BR') : '—'}`);
+  put('=== FIM — use “Copiar resultado” e envie o texto ===');
+}
+$('#sync-test-btn').onclick = () => { $('#sync-diag').textContent = ''; syncFullTest(); };
 $('#sync-push').onclick = () => syncPush({ manual: true });
 $('#sync-pull').onclick = () => syncPull({ manual: true, force: true });
 $('#sync-push2').onclick = () => syncPush({ manual: true });
