@@ -378,6 +378,9 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 .ptree .tb.del:hover:not(:disabled){color:var(--md-sys-color-error)}
 .ptree .tb:focus-visible{outline:2px solid var(--md-sys-color-primary);outline-offset:-2px}
 .ptree .acts{display:flex;align-items:center;padding-right:2px;opacity:.55}
+.ptree li.ps .acts{display:none}
+.ptree li.ps:hover .acts,.ptree li.ps.active .acts,.ptree li.ps:focus-within .acts{display:flex}
+.ptree li.ps:hover .name small,.ptree li.ps.active .name small,.ptree li.ps:focus-within .name small{display:none}
 .ptree li:hover .acts,.ptree li.active .acts,.ptree li:focus-within .acts{opacity:1}
 .inline-wrap{display:contents}
 .inline-wrap[hidden]{display:none}
@@ -786,10 +789,11 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
             <button class="icon-btn sm only-sheets danger" id="pres-del" aria-label="Excluir a apresentação aberta" title="Excluir a apresentação aberta"><span data-icon="trash"></span></button>
             <span class="vsep" aria-hidden="true"></span>
             <button class="icon-btn sm" id="sh-add" aria-label="Nova folha" title="Nova folha na apresentação aberta"><span data-icon="filePlus"></span></button>
+            <button class="icon-btn sm only-sheets" id="sh-import" aria-label="Importar folha de outro projeto" title="Importar folha (.kvfolha.json) de outro projeto"><span data-icon="folderOpen"></span></button>
           </span>
         </div>
         <ul class="ptree" id="sheet-list"></ul>
-        <p class="hint only-sheets">Cada pasta é uma apresentação. Clique numa folha para abrir; duplo clique renomeia. Arraste uma folha para mudar a ordem. Ícones da folha: mover, copiar (para colar em outra apresentação), duplicar e excluir.</p>
+        <p class="hint only-sheets">Cada pasta é uma apresentação. Clique numa folha para abrir; duplo clique renomeia. Arraste uma folha para mudar a ordem. Ícones da folha: mover, copiar (para colar em outra apresentação), exportar (para outro projeto), duplicar e excluir. Para trazer uma folha de outro projeto, use o ícone de pasta no topo.</p>
         <button hidden id="sh-dup"></button><button hidden id="sh-del"></button><ul hidden id="pres-list"></ul>
       </section>
       <section class="section only-sheets">
@@ -1104,7 +1108,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V76 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V77 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1151,6 +1155,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="in-image" accept="image/*,.pdf,application/pdf" multiple hidden>
 <input type="file" id="in-project" accept=".json,application/json" hidden>
+<input type="file" id="in-sheetfile" accept=".json,application/json" multiple hidden>
 <input type="file" id="in-tpl" accept=".json,application/json" hidden>
 <input type="file" id="in-svg" accept=".svg,image/svg+xml" multiple hidden>
 <input type="file" id="in-dir" webkitdirectory directory multiple hidden>
@@ -1162,7 +1167,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V76 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V77 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -6971,8 +6976,8 @@ const presCollapsed = new Set();
 let sheetClip = null;
 function tb(icon, label, dis, cls) { return `<button class="tb${cls ? ' ' + cls : ''}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" ${dis ? 'disabled' : ''}>${svgIcon(icon)}</button>`; }
 function sheetRowHTML(label, meta, i, n, tpl) {
-  return `<button class="name" title="Clique: abrir · duplo clique: renomear">${svgIcon('file')}<span>${escapeHtml(label)}</span><small>${meta}</small></button>
-    <span class="acts">${tb('up', `Mover ${label} para cima`, i === 0)}${tb('down', `Mover ${label} para baixo`, i === n - 1)}${tpl ? '' : tb('copy', `Copiar ${label} (para colar em outra apresentação)`)}${tb('sheetPlus', `Duplicar ${label}`)}${tb('trash', `Excluir ${label}`, n < 2, 'del')}</span>`;
+  return `<button class="name" title="${escapeHtml(label)} — clique: abrir · duplo clique: renomear">${svgIcon('file')}<span>${escapeHtml(label)}</span><small>${meta}</small></button>
+    <span class="acts">${tb('up', `Mover ${label} para cima`, i === 0)}${tb('down', `Mover ${label} para baixo`, i === n - 1)}${tpl ? '' : tb('copy', `Copiar ${label} (para colar em outra apresentação)`) + tb('download', `Exportar ${label} para outro projeto (arquivo .kvfolha.json)`)}${tb('sheetPlus', `Duplicar ${label}`)}${tb('trash', `Excluir ${label}`, n < 2, 'del')}</span>`;
 }
 function renderSheetList() {
   const ul = $('#sheet-list');
@@ -7012,12 +7017,13 @@ function renderSheetList() {
         const li = document.createElement('li'); li.className = 'ps' + (act && s.id === doc.active ? ' active' : '');
         const label = sheetLabel(s, i), tp = tplById(s.template);
         li.innerHTML = sheetRowHTML(label, `${tp ? '▣ ' : ''}${PRESET_LABEL[s.preset]} ${s.orient === 'portrait' ? 'R' : 'P'}`, i, sheets.length, false);
-        const bName = li.querySelector('.name'), [bUp, bDown, bCopy, bDup, bDel] = li.querySelectorAll('.tb');
+        const bName = li.querySelector('.name'), [bUp, bDown, bCopy, bExp, bDup, bDel] = li.querySelectorAll('.tb');
         const inPres = async () => { if (!act) await switchPres(p.id); setActiveSheet(s.id); };
         clickOrDbl(bName, async () => { await inPres(); fitPage(); }, () => inlineRename(bName, label, v => { s.name = v; canvas.requestRenderAll(); commit(); renderSheetList(); }));
         bUp.onclick = async () => { await inPres(); moveSheet(sheetIndex(s.id), -1); };
         bDown.onclick = async () => { await inPres(); moveSheet(sheetIndex(s.id), 1); };
         bCopy.onclick = async () => { await inPres(); copySheet(s.id); };
+        bExp.onclick = async () => { await inPres(); exportSheetFile(s.id); };
         bDup.onclick = async () => { await inPres(); addSheet(true); };
         bDel.onclick = async () => { await inPres(); deleteSheet(); };
         wireSheetDrag(li, p.id, s.id, i, act ? null : () => switchPres(p.id));
@@ -7031,6 +7037,58 @@ function renderSheetList() {
   const lt = $('#tab-layers'); if (lt && lt.getAttribute('aria-selected') === 'true') { const ch = getActiveId() !== layersFocusId; focusLayersOnActive(false); scheduleLayers(); if (ch) setTimeout(scrollLayersToActive, 80); }
 }
 /* Copiar uma folha (com o conteúdo) para colar em outra apresentação */
+/* Exportar / importar folhas entre projetos: arquivo .kvfolha.json com a folha (formato, moldura, selo), todo o conteúdo,
+   as imagens embutidas e o modelo de fundo usado. Ao importar, a folha entra no fim da apresentação aberta. */
+async function exportSheetFile(sid) {
+  const s = doc.sheets.find(x => x.id === sid); if (!s) return;
+  if (mode === 'tpl') { toast('Volte ao modo Folhas para exportar folhas.'); return; }
+  status('Preparando a folha para exportar…');
+  const r = sheetRect(sid), label = sheetLabel(s, sheetIndex(sid));
+  const objs = userObjects().filter(o => sheetOf(o).id === sid).map(o => { const j = canvas._toObject(o, 'toObject', PROPS); j.left -= r.x; j.top -= r.y; return j; });
+  const images = {};
+  walkSer(objs, o => { if (o.type === 'image' && blobReg.has(o.src) && !images[o.src]) images[o.src] = null; });
+  for (const u of Object.keys(images)) images[u] = await blobToDataURL(blobReg.get(u));
+  const tpl = s.template ? tplById(s.template) : null;
+  const templates = tpl ? await packTemplates([tpl]) : null;
+  const data = { app: 'kv-pranchas', kind: 'sheet', version: 1, exportedAt: new Date().toISOString(), from: doc.project && doc.project.projeto, sheets: [{ meta: JSON.parse(JSON.stringify(s)), label, objects: objs }], images, templates };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  download(blob, sanitize(label) + '.kvfolha.json'); status('Pronto');
+  toast(`“${label}” exportada (${(blob.size / 1048576).toFixed(1)} MB). No outro projeto, use “Importar folha” na aba Folhas.`);
+}
+async function importSheetFile(file) {
+  if (mode === 'tpl') { toast('Volte ao modo Folhas para importar folhas.', true); return; }
+  let data;
+  try { data = JSON.parse(await file.text()); } catch (e) { toast('Arquivo inválido.', true); return; }
+  if (!data || data.app !== 'kv-pranchas' || data.kind !== 'sheet' || !Array.isArray(data.sheets)) { toast('Este arquivo não é uma folha exportada do KV Pranchas (.kvfolha.json).', true); return; }
+  status('Importando folha…');
+  /* modelo de fundo: entra como modelo novo deste projeto */
+  const tplMap = {};
+  if (data.templates && Array.isArray(data.templates.templates) && data.templates.templates.length) {
+    try {
+      const list = await unpackTemplates(data.templates);
+      for (const [i, t] of list.entries()) { const before = new Set(doc.templates.map(x => x.id)); await addTemplatesToProject([t]); const added = doc.templates.find(x => !before.has(x.id)); if (added) tplMap[data.templates.templates[i].id] = added.id; }
+    } catch (e) { console.warn('modelo', e); }
+  }
+  const map = {};
+  for (const [u, d] of Object.entries(data.images || {})) { try { map[u] = blobToUrl(await dataURLToBlob(d)); } catch (e) {} }
+  let last = null, n = 0;
+  for (const sh of data.sheets) {
+    const ns = { ...JSON.parse(JSON.stringify(sh.meta || newSheet())), id: uid(), name: (sh.meta && sh.meta.name) || sh.label || 'Folha importada' };
+    if (ns.template) ns.template = tplMap[ns.template] || (tplById(ns.template) ? ns.template : null);
+    relayout(() => { P().push(ns); });
+    const r = sheetRect(ns.id);
+    const list = (sh.objects || []).map(o => ({ ...JSON.parse(JSON.stringify(o)), left: (o.left || 0) + r.x, top: (o.top || 0) + r.y, kvId: uid() }));
+    walkSer(list, o => {
+      if (o.type === 'image') o.src = map[o.src] || (String(o.src).startsWith('data:') ? o.src : PLACEHOLDER);
+      if (o.kvLink && o.kvLink.kind === 'giraffe') o.kvLink = { ...o.kvLink, auto: false };   // vista de outro projeto: sem atualização automática
+    });
+    await enlivenOnto(list); last = ns.id; n++;
+  }
+  userObjects().forEach(o => applyObjState(o));
+  if (last) setActiveIdRaw(last);
+  raiseChrome(); rebuildChrome(); renderSheetList(); syncDocUI(); commit(); fitPage(); status('Pronto');
+  toast(`${n} folha(s) importada(s) para “${presById(doc.presActive) ? presById(doc.presActive).name : 'a apresentação aberta'}”${Object.keys(tplMap).length ? ', com o modelo de fundo' : ''}.`);
+}
 function copySheet(sid) {
   const s = doc.sheets.find(x => x.id === sid); if (!s) return;
   const r = sheetRect(sid), objs = userObjects().filter(o => sheetOf(o).id === sid).map(o => { const j = canvas._toObject(o, 'toObject', PROPS); j.left -= r.x; j.top -= r.y; return j; });
@@ -7173,6 +7231,8 @@ async function delPres() {
 }
 function renderPresList() { renderSheetList(); }
 $('#orph-scan').onclick = renderOrphans;
+$('#sh-import').onclick = () => $('#in-sheetfile').click();
+$('#in-sheetfile').addEventListener('change', async e => { const fs = [...e.target.files]; e.target.value = ''; for (const f of fs) await importSheetFile(f); });
 $('#pres-new').onclick = newPres; $('#pres-dup').onclick = dupPres; $('#pres-del').onclick = delPres;
 $('#sh-add').onclick = $('#cmd-new-sheet').onclick = () => addSheet(false);
 $('#sh-dup').onclick = () => addSheet(true);
