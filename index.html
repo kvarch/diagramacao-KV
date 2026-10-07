@@ -1108,7 +1108,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V77 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V79 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1167,7 +1167,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V77 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V79 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -3331,6 +3331,20 @@ function commit() {
 function flushCommit() { if (commitTimer) { clearTimeout(commitTimer); doCommit(); } }
 function updateUndoUI() { $('#cmd-undo').disabled = hist.idx <= 0; $('#cmd-redo').disabled = hist.idx >= hist.stack.length - 1; }
 function walkSer(objs, fn) { (objs || []).forEach(o => { fn(o); if (o.objects) walkSer(o.objects, fn); }); }
+/* Elementos com o mesmo identificador (sobra de versões anteriores da sincronização/desfazer):
+   – cópia idêntica na mesma folha, no mesmo lugar → removida (era uma duplicata sobreposta);
+   – nos demais casos → a cópia ganha identificador próprio (selecionar/apagar passa a agir só nela). */
+function fixDuplicateIds() {
+  const seen = new Map(); let removed = 0, renamed = 0;
+  const sig = o => { try { const j = canvas._toObject(o, 'toObject', PROPS); delete j.kvId; return JSON.stringify(j); } catch (e) { return Math.random() + ''; } };
+  canvas.getObjects().filter(o => !o.kvRole && !o.kvTemp && o.kvId).forEach(o => {
+    const prev = seen.get(o.kvId);
+    if (!prev) { seen.set(o.kvId, o); return; }
+    if (sheetOf(prev).id === sheetOf(o).id && sig(prev) === sig(o)) { canvas.remove(o); removed++; }
+    else { o.kvId = uid(); renamed++; }
+  });
+  if (removed || renamed) { console.warn('[ids] duplicatas removidas:', removed, '· ids renovados:', renamed); setTimeout(() => { commit(); if (removed) toast(`${removed} elemento(s) duplicado(s) sobreposto(s) foram removidos.`); }, 300); }
+}
 function restore(snap) {
   return new Promise(resolve => {
     restoring = true;
@@ -3344,6 +3358,7 @@ function restore(snap) {
     let list = snap.objects || [];
     if (mode === 'tpl') { presStore = list; list = templatesToLoad(); }
     enlivenOnto(list).then(() => {
+      if (mode !== 'tpl') fixDuplicateIds();
       applySheetStates(); rebuildChrome(); syncDocUI(); renderSheetList(); if (typeof syncGvAuto === 'function') syncGvAuto();
       restoring = false; canvas.requestRenderAll(); scheduleLayers(); renderLinks(); refreshPanel();
       resolve();
@@ -5374,7 +5389,8 @@ function urlizeParts(parts) {
   return out;
 }
 function rebaseHistory(changedKeys, R) {
-  if (!changedKeys.length) return;
+  if (!changedKeys.length) return true;
+  let ok = true;
   hist.stack = hist.stack.map(str => {
     try {
       const s = JSON.parse(str), P = snapToParts(s);
@@ -5386,9 +5402,13 @@ function rebaseHistory(changedKeys, R) {
       P.presorder = mergeOrder(P.presorder || [], R.presorder || []).filter(id => P['pres:' + id]);
       P.presorder.forEach(pid => { const pm = P['pres:' + pid]; pm.sheetOrder = (pm.sheetOrder || []).filter(sid => P['sheet:' + pid + ':' + sid]); });
       P.tplorder = (P.tplorder || []).filter(id => P['tpl:' + id]);
-      return JSON.stringify(partsToSnap(P, s.doc));
-    } catch (e) { return str; }
+      const out = partsToSnap(P, s.doc), seen = new Set();
+      const dup = list => (list || []).some(o => { if (!o || !o.kvId) return false; if (seen.has(o.kvId)) return true; seen.add(o.kvId); return false; });
+      if (dup(out.objects) || (out.doc.pres || []).some(p => dup(p.objects))) ok = false;
+      return JSON.stringify(out);
+    } catch (e) { ok = false; return str; }
   });
+  return ok;
 }
 function partsToSnap(parts, localDoc) {
   const d = JSON.parse(JSON.stringify(localDoc));
@@ -5467,7 +5487,7 @@ async function resolveConflicts(conflicts, local, remote, result, who) {
       copy.meta = { ...copy.meta, id: nid, name: `${partName(k, remote)} (versão de ${who.replace(/^por /, '')})` };
       if (!(L.meta && L.meta.name)) result[k] = { ...L, meta: { ...L.meta, name: partName(k, local) } };   // fixa o nome da original para a numeração não mudar
       if (k.startsWith('sheet:')) {
-        const [, pid, sid] = k.split(':'); (copy.objects || []).forEach(o => { o.kvSheet = nid; });
+        const [, pid, sid] = k.split(':'); (copy.objects || []).forEach(o => { o.kvSheet = nid; }); walkSer(copy.objects || [], o => { if (o.kvId) o.kvId = uid(); });
         result['sheet:' + pid + ':' + nid] = copy;
         const pm = result['pres:' + pid]; if (pm) result['pres:' + pid] = { ...pm, sheetOrder: [...(pm.sheetOrder || []), nid] };   // cópia no fim, sem renumerar as outras
       } else { result['tpl:' + nid] = copy; result.tplorder = [...(result.tplorder || []), nid]; }
@@ -5507,6 +5527,12 @@ async function refreshAtts() {
 const attId = a => { const n = Number(a && a.id); return Number.isFinite(n) ? n : Infinity; };
 const attsByName = n => syncAtts.filter(a => a && a.name === n).sort((a, b) => attId(a) - attId(b) || String(a.id).localeCompare(String(b.id)));
 const attByName = n => attsByName(n)[0] || null;
+const giraffeOrigin = () => { try { return document.referrer ? new URL(document.referrer).origin : 'https://app.giraffe.build'; } catch (e) { return 'https://app.giraffe.build'; } };
+async function directAttFetch(a, asJson) {
+  if (!a || !a.url) return null;
+  try { const r = await fetchT(new URL(a.url, giraffeOrigin()).href, 30000); if (r.ok) { syncState.directOk = true; return asJson ? r.json() : r.arrayBuffer(); } } catch (e) {}
+  return null;
+}
 async function fetchAtt(a, asJson) {
   const { rpc } = await loadSdk();
   let last = null;
@@ -5514,7 +5540,12 @@ async function fetchAtt(a, asJson) {
     if (k) await wait(700 * k + Math.random() * 500);
     let u = null;
     try { const t = await rpcT('getTempUrl', [a.url], 15000); u = typeof t === 'string' ? t : t && (t.url || t.tempUrl || t.signedUrl); }
-    catch (e) { last = e; continue; }   // falha momentânea do Giraffe: tenta de novo
+    catch (e) {
+      last = e;
+      /* getTempUrl falhando sempre neste computador: tenta o endereço direto do anexo no Giraffe */
+      if (k >= 1) { const d = await directAttFetch(a, asJson); if (d) return d; }
+      continue;
+    }   // falha momentânea do Giraffe: tenta de novo
     if (!u) { last = new Error('getTempUrl vazio'); continue; }
     let r = null;
     try { r = await fetchT(u, 45000); } catch (e) { last = e.name === 'AbortError' ? new Error('download demorou demais') : e; continue; }
@@ -5705,8 +5736,11 @@ async function syncPull(opts = {}) {
       const vpt = canvas.viewportTransform.slice();
       const changedKeys = [...new Set([...Object.keys(L), ...Object.keys(result)])].filter(k => partHash(L[k]) !== partHash(result[k]));
       await restore(snap); canvas.setViewportTransform(vpt);
-      rebaseHistory(changedKeys, urlizeParts(result));
-      hist.stack[hist.idx] = JSON.stringify(snapshot()); updateUndoUI();
+      /* quando a estrutura muda (primeira junção, apresentações unificadas, folhas recuperadas), os passos antigos do desfazer
+         ficariam com as folhas em dois lugares — e o Ctrl+Z duplicava o conteúdo. Nesses casos o histórico recomeça daqui. */
+      const presSame = JSON.stringify((L.presorder || []).slice().sort()) === JSON.stringify((result.presorder || []).slice().sort());
+      if (neverSynced || recovered || !presSame || !rebaseHistory(changedKeys, urlizeParts(result))) resetHistory();
+      else { hist.stack[hist.idx] = JSON.stringify(snapshot()); updateUndoUI(); }
       await storeSave();
     }
     syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
@@ -5833,6 +5867,8 @@ async function syncDiagnose() {
     kv.slice(0, 30).forEach(a => put(`  • ${a.name}  (id ${a.id}${a.updated_at ? ', ' + a.updated_at : ''})`));
     const dupN = attsByName(SYNC_FILE).length; if (dupN > 1) put(`Atenção: ${dupN} cópias de ${SYNC_FILE} — o app usa a de menor id (${attByName(SYNC_FILE).id}) e recupera as folhas das outras.`);
     const step = async (label, fn) => { const t0 = Date.now(); put(label + '…'); try { const r = await fn(); out[out.length - 1] = `${label}: ${r} (${((Date.now() - t0) / 1000).toFixed(1)} s)`; } catch (e) { out[out.length - 1] = `${label}: ERRO — ${e.message} (${((Date.now() - t0) / 1000).toFixed(1)} s)`; } $('#sync-diag').textContent = out.join('\n'); };
+    await step('Teste getTempUrl', async () => { const a = attByName(HEAD_FILE) || attByName(SYNC_FILE); if (!a) return 'sem anexo para testar'; const t = await rpcT('getTempUrl', [a.url], 15000); const u = typeof t === 'string' ? t : t && (t.url || t.tempUrl || t.signedUrl); if (!u) return 'resposta vazia'; const r = await fetchT(u, 20000); return 'ok, download HTTP ' + r.status; });
+    await step('Teste download direto', async () => { const a = attByName(HEAD_FILE) || attByName(SYNC_FILE); if (!a) return 'sem anexo'; try { const r = await fetchT(new URL(a.url, giraffeOrigin()).href, 20000); return 'HTTP ' + r.status; } catch (e) { return 'bloqueado (' + e.message + ')'; } });
     await step('Reserva de envio', async () => { const a = attByName(LOCK_FILE); if (!a) return 'nenhuma'; const lk = await fetchAtt(a, true); return lk && lk.nonce && (lk.until || 0) > Date.now() ? `em uso por ${lk.byName || 'outro computador'} até ${new Date(lk.until).toLocaleTimeString('pt-BR')}` : 'livre'; });
     await step('Cabeçalho', async () => { const a = attByName(HEAD_FILE); if (!a) return 'não encontrado na lista'; const h = await fetchAtt(a, true); return `versão ${h.rev} salva por ${h.byName || h.by || '—'} em ${new Date(h.savedAt).toLocaleString('pt-BR')}`; });
     await step('Arquivo principal', async () => { const a = attByName(SYNC_FILE); if (!a) return 'não encontrado na lista'; const m = await fetchJsonAtt(a); return `ok — ${Object.keys(m.parts || {}).length} partes, versão ${m.rev || '—'}`; });
@@ -5854,7 +5890,7 @@ async function syncKeepBoth() {
       if (partHash(L[k]) === partHash(R[k])) continue;
       if (k.startsWith('sheet:')) {
         const [, pid, sid] = k.split(':'), nid = R[k] ? uid() : sid, copy = JSON.parse(JSON.stringify(L[k]));
-        if (R[k]) { copy.meta = { ...copy.meta, id: nid, name: `${partName(k, L)} (versão deste computador)` }; (copy.objects || []).forEach(o => { o.kvSheet = nid; }); }
+        if (R[k]) { copy.meta = { ...copy.meta, id: nid, name: `${partName(k, L)} (versão deste computador)` }; (copy.objects || []).forEach(o => { o.kvSheet = nid; }); walkSer(copy.objects || [], o => { if (o.kvId) o.kvId = uid(); }); }
         if (!result['pres:' + pid]) { result['pres:' + pid] = L['pres:' + pid] ? { ...L['pres:' + pid], sheetOrder: [] } : { name: 'Apresentação deste computador', sheetOrder: [] }; result.presorder = [...(result.presorder || []), pid]; }
         result['sheet:' + pid + ':' + nid] = copy;
         const pm = result['pres:' + pid]; if (!(pm.sheetOrder || []).includes(nid)) result['pres:' + pid] = { ...pm, sheetOrder: [...(pm.sheetOrder || []), nid] };
