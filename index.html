@@ -1114,7 +1114,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V83 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V85 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1173,7 +1173,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V83 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V85 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -5365,20 +5365,25 @@ const SYNC_FILE = 'kv-pranchas-sync.json', IMG_PREFIX = 'kv-img-', HEAD_FILE = '
 /* Controle de versão: cada envio grava um identificador único (rev) no projeto e num arquivo pequeno de cabeçalho.
    A detecção de novidades usa esse rev — não a data do anexo, que o Giraffe nem sempre atualiza ao regravar. */
 async function readHead() { const a = attByName(HEAD_FILE); if (!a) return null; try { return await fetchAtt(a, true); } catch (e) { return null; } }
+/* leitura obrigatória: se o cabeçalho existe mas não pode ser baixado, falha (e o envio é cancelado) */
+async function readHeadStrict() { const a = attByName(HEAD_FILE); if (!a) return null; const h = await fetchAtt(a, true); if (!h || !h.rev) throw new Error('cabeçalho da equipe ilegível'); return h; }
+/* Trava de segurança: um computador que não consegue BAIXAR a versão da equipe nunca envia — senão gravaria por cima a cópia antiga dele */
+function readBlockedMsg() { return 'Este computador não está conseguindo baixar a versão da equipe (erro do Giraffe ao baixar anexos). Para não apagar o trabalho dos outros, o envio fica bloqueado aqui até o recebimento funcionar.'; }
 const newRev = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 /* Trava de escrita: antes de gravar o arquivo da equipe, o computador “reserva a vez” num anexo pequeno,
    espera e confere se a reserva continua sua. Dois envios ao mesmo tempo não se sobrescrevem mais. */
 const LOCK_FILE = 'kv-pranchas-lock.json', LOCK_TTL = 90e3;
 async function readLock() { await refreshAtts(); const a = attByName(LOCK_FILE); if (!a) return null; try { return await fetchAtt(a, true); } catch (e) { return null; } }
+let myLockNonce = null;
 async function acquireLock() {
   let notVisible = 0;
   for (let i = 0; i < 30; i++) {
     const L = await readLock(), now = Date.now();
-    if (L && L.nonce && L.device !== deviceId && (L.until || 0) > now) {
+    if (L && L.nonce && (L.device !== deviceId || L.nonce !== myLockNonce) && (L.until || 0) > now && !(L.device === deviceId && !myLockNonce && (L.until || 0) - now > LOCK_TTL)) {
       setSyncStatus(`☁ Aguardando ${L.byName || 'outro computador'} terminar de enviar…`);
       await wait(2500 + Math.random() * 2500); continue;
     }
-    const nonce = newRev();
+    const nonce = newRev(); myLockNonce = nonce;
     await uploadRaw(LOCK_FILE, JSON.stringify({ device: deviceId, nonce, until: now + LOCK_TTL, byName: (syncUser && syncUser.name) || '' }));
     await wait(1800 + Math.random() * 600);
     const L2 = await readLock();
@@ -5390,6 +5395,7 @@ async function acquireLock() {
   return null;
 }
 async function releaseLock(nonce) {
+  if (myLockNonce === nonce) myLockNonce = null;
   try { const L = await readLock(); if (L && L.nonce === nonce) await uploadRaw(LOCK_FILE, JSON.stringify({ device: deviceId, nonce: '', until: 0 })); } catch (e) {}
 }
 let syncOk = false, syncState = { base: {}, remoteRev: null, remoteAt: 0, lastPush: 0 }, syncBusy = false, syncAuto = true;
@@ -5688,6 +5694,7 @@ function setSyncStatus(msg, kind) {
 async function localChangesCount() { try { const L = await buildSyncParts(); const keys = new Set([...Object.keys(L), ...Object.keys(syncState.base)]); let n = 0; keys.forEach(k => { if (k === 'rest') return; if (partHash(L[k]) !== (syncState.base[k] ?? null)) n++; }); return n; } catch (e) { return 0; } }
 async function refreshSyncBadge() {
   if (!syncOk) return;
+  if (syncState.readFailing) { setSyncStatus('☁ Este computador não consegue baixar a versão da equipe — envio bloqueado (veja Exportar › Teste completo)', 'warn'); return; }
   const n = await localChangesCount();
   const t = syncState.lastSync ? new Date(syncState.lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
   setSyncStatus(n ? `☁ ${n} alteração(ões) não enviada(s)` : `☁ Sincronizado ${t}`, n ? 'warn' : '');
@@ -5730,10 +5737,20 @@ async function syncPull(opts = {}) {
     const head = await readHead();
     if (!opts.manual && head && head.rev && head.rev === syncState.remoteRev) return false;   // nada novo
     setSyncStatus('☁ Recebendo alterações…');
-    const m = await fetchJsonAtt(a);
+    let m;
+    try { m = await fetchJsonAtt(a); syncState.readFailing = false; }
+    catch (e) { syncState.readFailing = true; throw e; }
     if (!m || m.app !== 'kv-pranchas' || !m.parts) throw new Error('arquivo de sincronização inválido');
     if (m.project && String(m.project) !== String(projNum())) throw new Error(`o arquivo da equipe é do projeto ${m.project}, mas o app está no projeto ${projNum()} — recarregue o painel`);
-    if (head && head.rev && m.rev && head.rev !== m.rev) { if (opts.manual) toast('O projeto está sendo salvo por outra pessoa neste instante. Tente receber de novo em alguns segundos.'); return false; }
+    /* Cabeçalho e arquivo da equipe com versões diferentes. Normalmente é um envio em andamento (espera alguns segundos).
+       Se persistir (dois envios se sobrepuseram e o par ficou desencontrado), usa o arquivo como verdade e regrava o par certo. */
+    let repairPair = false;
+    if (head && head.rev && m.rev && head.rev !== m.rev) {
+      const age = Date.now() - (head.savedAt || 0);
+      if (age < 60e3 && head.device !== deviceId) { if (opts.manual) toast('O projeto está sendo salvo por outra pessoa neste instante. Tente receber de novo em alguns segundos.'); return false; }
+      console.warn('[sync] cabeçalho', head.rev, '≠ arquivo', m.rev, '— recuperando');
+      repairPair = true;
+    }
     if (!head && !opts.manual && m.savedAt && m.savedAt === syncState.remoteAt && Object.keys(syncState.base).length) return false;   // formato antigo, sem cabeçalho
     const R = m.parts, L = await buildSyncParts(), localT = await localSavedAt();
     /* Computador que nunca sincronizou este projeto: a cópia local é antiga (cache) — vale a versão da equipe.
@@ -5788,8 +5805,9 @@ async function syncPull(opts = {}) {
       await storeSave();
     }
     syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
-    syncState.remoteRev = m.rev || (head && head.rev) || null; syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
+    syncState.remoteRev = repairPair ? head.rev : (m.rev || (head && head.rev) || null); syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
     await saveSyncState();
+    if (repairPair && !opts.underLock) setTimeout(() => syncPush({ repair: true }), 1500);   // regrava cabeçalho + arquivo coerentes
     if (recovered) toast(`${recovered} folha(s) que estavam numa cópia separada do arquivo da equipe foram recuperadas e serão enviadas.`, true);
     /* o que só existe aqui (junções, recuperações) segue para a equipe sem esperar nova edição */
     if (!opts.underLock && (await localChangesCount()) > 0) scheduleSyncPush();
@@ -5798,11 +5816,22 @@ async function syncPull(opts = {}) {
     if (changed) toast(neverSynced ? `Versão mais recente da equipe carregada (salva por ${whoOf(m)} em ${new Date(m.savedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}).${staleNote}` : `Alterações de ${whoOf(m)} recebidas${conflicts.length ? ` (${conflicts.length} conflito(s) resolvido(s))` : ''}.`, !!staleNote);
     else if (opts.manual) toast('Você já está com a versão mais recente do projeto.');
     return true;
-  } catch (e) { setSyncStatus('☁ Falha ao receber: ' + e.message, 'warn'); if (opts.manual) toast('Não foi possível receber as alterações: ' + e.message, true); return false; }
+  } catch (e) {
+    setSyncStatus('☁ Falha ao receber: ' + e.message, 'warn');
+    if (syncState.readFailing && !syncState.readWarned) { syncState.readWarned = true; toast(readBlockedMsg(), true); }
+    else if (opts.manual) toast('Não foi possível receber as alterações: ' + e.message, true);
+    return false;
+  }
   finally { syncBusy = false; refreshSyncBadge(); }
 }
 /* Enviar: recebe antes (para não sobrescrever ninguém), depois grava a versão juntada */
-async function syncPush(opts = {}) {
+let pushInFlight = null;
+function syncPush(opts = {}) {
+  if (pushInFlight) { if (opts.manual) toast('Já estou enviando — aguarde alguns segundos.'); return pushInFlight; }
+  pushInFlight = syncPushRun(opts).finally(() => { pushInFlight = null; });
+  return pushInFlight;
+}
+async function syncPushRun(opts = {}) {
   if (syncOk && projectMismatch()) { if (opts.manual) toast('O projeto do Giraffe mudou. Recarregando o app no projeto certo…', true); return false; }
   if (!syncOk) { if (opts.manual) toast('A sincronização funciona com o app aberto dentro de um projeto do Giraffe.', true); return false; }
   if (syncBusy) { if (opts.manual) { toast('Já há um envio ou recebimento em andamento — o seu clique será atendido em seguida.'); setTimeout(() => syncPush(opts), 2500); } return false; }
@@ -5810,7 +5839,7 @@ async function syncPush(opts = {}) {
   let nonce = null;
   try {
   /* nada para enviar e ninguém mudou nada: responde na hora, sem reservar a vez */
-  try { if (!(await localChangesCount())) { await refreshAtts(); const h0 = await readHead(); if (h0 && h0.rev && h0.rev === syncState.remoteRev) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); refreshSyncBadge(); return true; } } } catch (e) {}
+  try { if (!opts.repair && !(await localChangesCount())) { await refreshAtts(); const h0 = await readHead(); if (h0 && h0.rev && h0.rev === syncState.remoteRev) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); refreshSyncBadge(); return true; } } } catch (e) {}
   /* imagens novas vão antes (não dependem da vez: cada uma tem nome próprio) */
   try { syncBusy = true; await refreshAtts(); await pushAssets(await buildSyncParts()); } catch (e) { setSyncStatus('☁ Falha ao enviar imagens: ' + e.message, 'warn'); if (opts.manual) toast('Não foi possível enviar: ' + e.message, true); syncBusy = false; return false; } finally { syncBusy = false; }
   nonce = await acquireLock();
@@ -5822,16 +5851,19 @@ async function syncPush(opts = {}) {
     try {
       setSyncStatus('☁ Enviando alterações…');
       await refreshAtts();
-      const cur = attByName(SYNC_FILE), head = await readHead();
+      const cur = attByName(SYNC_FILE);
+      if (cur && syncState.readFailing) throw new Error(readBlockedMsg());
+      const head = await readHeadStrict();   // erro aqui cancela o envio
+      if (cur && !head) { const m0 = await fetchJsonAtt(cur); if (!m0 || !m0.parts) throw new Error(readBlockedMsg()); if ((m0.savedAt || 0) !== (syncState.remoteAt || 0)) { syncBusy = false; continue; } }
+      if (cur && !syncState.remoteRev) throw new Error(readBlockedMsg());   // nunca recebeu a versão da equipe neste computador
       if (head && head.rev && head.rev !== syncState.remoteRev) { syncBusy = false; continue; }   // alguém enviou nesse meio-tempo: recebe de novo antes
-      if (!head && cur) { try { const m0 = await fetchJsonAtt(cur); if ((m0.savedAt || 0) !== (syncState.remoteAt || 0)) { syncBusy = false; continue; } } catch (e) {} }
       const parts = await buildSyncParts();
-      if (cur && Object.keys(parts).every(k => partHash(parts[k]) === (syncState.base[k] ?? null)) && Object.keys(syncState.base).every(k => k in parts)) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); return true; }
+      if (!opts.repair && cur && Object.keys(parts).every(k => partHash(parts[k]) === (syncState.base[k] ?? null)) && Object.keys(syncState.base).every(k => k in parts)) { syncState.lastPush = Date.now(); if (opts.manual) toast('Nada novo para enviar — o projeto já está atualizado.'); return true; }
       await pushAssets(parts);
       const u = await currentUser();
       const rev = newRev(), m = { app: 'kv-pranchas', kind: 'sync', v: 2, rev, project: projNum(), savedAt: Date.now(), device: deviceId, by: u.email, byName: u.name, parts };
       /* última conferência antes de gravar */
-      { const h2 = await readHead(); if (h2 && h2.rev && h2.rev !== syncState.remoteRev) { syncBusy = false; continue; } }
+      { const h2 = await readHeadStrict(); if (h2 && h2.rev && h2.rev !== syncState.remoteRev) { syncBusy = false; continue; } }
       await uploadAtt(SYNC_FILE, m);
       await uploadRaw(HEAD_FILE, JSON.stringify({ rev, savedAt: m.savedAt, device: deviceId, by: u.email, byName: u.name }));
       await refreshAtts();
@@ -5852,6 +5884,7 @@ let syncBusySince = 0;
 setInterval(() => { if (syncBusy) { if (!syncBusySince) syncBusySince = Date.now(); else if (Date.now() - syncBusySince > 4 * 60e3 && !$('#askbar') .matches(':not([hidden])')) { syncBusy = false; syncBusySince = 0; setSyncStatus('☁ Sincronização reiniciada após demora — tentando de novo', 'warn'); } } else syncBusySince = 0; }, 15000);
 function scheduleSyncPush() {
   if (!syncOk || !syncAuto) return;
+  if (syncState.readFailing) { setSyncStatus('☁ Recebimento falhando — envio bloqueado neste computador', 'warn'); return; }
   clearTimeout(syncPushTimer);
   const wait_ = Math.max(5000, 60000 - (Date.now() - (syncState.lastPush || 0)));
   syncPushTimer = setTimeout(() => syncPush({}), wait_);
@@ -5874,7 +5907,8 @@ async function syncInit(opened) {
      – se a versão da equipe é mais nova → pergunta, com “Manter as duas” como padrão (nada se perde). */
   try {
     const n = await localChangesCount();
-    if (n > 0) {
+    if (n > 0 && attByName(SYNC_FILE) && (syncState.readFailing || !syncState.remoteRev)) { syncShownToast = true; toast(readBlockedMsg(), true); setSyncStatus('☁ Recebimento falhando — envio bloqueado neste computador', 'warn'); }
+    else if (n > 0) {
       const head = await readHead();
       const justDecided = syncState.decidedAt && Date.now() - syncState.decidedAt < 5 * 60e3;
       /* a versão “mais nova” da equipe foi enviada por este mesmo computador: não há outra pessoa envolvida — envia a daqui (ex.: limpeza de duplicatas feita ao abrir) */
