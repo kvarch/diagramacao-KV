@@ -1114,7 +1114,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V85 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V88 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1173,7 +1173,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V85 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V88 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -3390,6 +3390,7 @@ function fixDuplicateIds() {
   if (removed || renamed) { console.warn('[ids] duplicatas removidas:', removed, '· ids renovados:', renamed); setTimeout(() => { commit(); if (removed) toast(`${removed} elemento(s) duplicado(s) sobreposto(s) foram removidos.`); }, 300); }
 }
 function restore(snap) {
+  if (snap && snap.doc && (hasDupSheets(snap.doc.sheets) || (snap.doc.pres || []).some(p => hasDupSheets(p.sheets)))) { console.warn('[folhas] folha repetida removida'); const clean = partsToSnap(snapToParts(snap), snap.doc); snap = { ...snap, doc: clean.doc, objects: clean.objects }; setTimeout(() => { commit(); toast('Uma folha que aparecia repetida (cópia com o mesmo identificador) foi corrigida.'); }, 400); }
   return new Promise(resolve => {
     restoring = true;
     if (cropState) exitCrop();
@@ -5256,7 +5257,8 @@ async function renderDatasets() {
 }
 async function storeLoad() {
   const meta = await idb.get(K('meta')); if (!meta || !meta.doc) return false;
-  const d = meta.doc, rects = rectsFor(d.sheets || []), objects = [];
+  const d = meta.doc; if (hasDupSheets(d.sheets)) { const s = new Set(); d.sheets = d.sheets.filter(x => { if (s.has(x.id)) return false; s.add(x.id); return true; }); }
+  const rects = rectsFor(d.sheets || []), objects = [];
   for (const [i, sh] of (d.sheets || []).entries()) {
     const part = await idb.get(K('sheet', sh.id)); if (!part) continue;
     lastPart.set(K('sheet', sh.id), hashStr(JSON.stringify(part)) + ':' + JSON.stringify(part).length);
@@ -5368,6 +5370,14 @@ async function readHead() { const a = attByName(HEAD_FILE); if (!a) return null;
 /* leitura obrigatória: se o cabeçalho existe mas não pode ser baixado, falha (e o envio é cancelado) */
 async function readHeadStrict() { const a = attByName(HEAD_FILE); if (!a) return null; const h = await fetchAtt(a, true); if (!h || !h.rev) throw new Error('cabeçalho da equipe ilegível'); return h; }
 /* Trava de segurança: um computador que não consegue BAIXAR a versão da equipe nunca envia — senão gravaria por cima a cópia antiga dele */
+/* Leitura atrasada: o Giraffe às vezes entrega a este computador o endereço de uma versão ANTIGA do arquivo da equipe
+   (a lista de anexos dele não atualizou). Aplicar essa versão gerava conflitos falsos e trazia conteúdo antigo. */
+let staleWarned = false;
+function staleListWarn() {
+  setSyncStatus('☁ Recarregue a página do Giraffe (F5) — este computador está vendo uma versão antiga da equipe', 'warn');
+  if (!staleWarned) { staleWarned = true; toast('O Giraffe está mostrando a este computador uma versão mais antiga do que a que ele já tem. Nada foi alterado. Recarregue a página do Giraffe (F5) para receber as alterações mais novas.', true); }
+}
+const knownTeamAt = () => Math.max(syncState.remoteAt || 0, syncState.seenAt || 0);
 function readBlockedMsg() { return 'Este computador não está conseguindo baixar a versão da equipe (erro do Giraffe ao baixar anexos). Para não apagar o trabalho dos outros, o envio fica bloqueado aqui até o recebimento funcionar.'; }
 const newRev = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 /* Trava de escrita: antes de gravar o arquivo da equipe, o computador “reserva a vez” num anexo pequeno,
@@ -5401,15 +5411,20 @@ async function releaseLock(nonce) {
 let syncOk = false, syncState = { base: {}, remoteRev: null, remoteAt: 0, lastPush: 0 }, syncBusy = false, syncAuto = true;
 let syncPushTimer = 0, syncPollTimer = 0, syncAtts = [], syncUser = null, syncShownToast = false;
 const partHash = p => p === undefined ? null : (() => { const s = JSON.stringify(p); return hashStr(s) + ':' + s.length; })();
+const uniqIds = a => { const s = new Set(); return (a || []).filter(x => { if (s.has(x)) return false; s.add(x); return true; }); };
+/* Folha listada duas vezes (mesmo id) — sobra de junções antigas: só a primeira conta; os elementos da repetida (cópias) são descartados */
 function splitBySheet(sheets, objsAbs) {
-  const rects = rectsFor(sheets), per = {}; sheets.forEach(sh => { per[sh.id] = []; });
+  const rects = rectsFor(sheets), per = {}, first = {}; sheets.forEach(sh => { per[sh.id] = []; });
+  rects.forEach((q, i) => { if (!(q.id in first)) first[q.id] = i; });
   for (const o of objsAbs || []) {
     const c = serCenter(o); let r = rects.find(q => c.x >= q.x && c.x <= q.x + q.w && c.y >= q.y && c.y <= q.y + q.h);
     if (!r) { let bd = Infinity; rects.forEach(q => { const dx = Math.max(q.x - c.x, 0, c.x - q.x - q.w), dy = Math.max(q.y - c.y, 0, c.y - q.y - q.h), dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; r = q; } }); }
+    if (r && rects.indexOf(r) !== first[r.id]) continue;
     if (r) per[r.id].push({ ...o, left: (o.left || 0) - r.x, top: (o.top || 0) - r.y, kvSheet: r.id });
   }
   return per;
 }
+const hasDupSheets = list => { const s = new Set(); return (list || []).some(x => { if (s.has(x.id)) return true; s.add(x.id); return false; }); };
 async function buildSyncParts() {
   const s = snapshot(), d = s.doc;
   await imagesToAssets([s.objects, ...(d.templates || []).map(t => t.objects || []), ...(d.pres || []).map(p => p.objects || [])]);
@@ -5425,7 +5440,7 @@ function snapToParts(s) {
   parts.presorder = presList.map(p => p.id);
   for (const p of presList) {
     const live = p.id === act, sheets = live ? d.sheets : (p.sheets || []), per = splitBySheet(sheets, live ? s.objects : p.objects);
-    parts['pres:' + p.id] = { name: p.name, sheetOrder: sheets.map(x => x.id) };
+    parts['pres:' + p.id] = { name: p.name, sheetOrder: uniqIds(sheets.map(x => x.id)) };
     sheets.forEach(sh => { parts['sheet:' + p.id + ':' + sh.id] = { meta: sh, objects: per[sh.id] }; });
   }
   return parts;
@@ -5469,7 +5484,7 @@ function partsToSnap(parts, localDoc) {
   const act = order.includes(localDoc.presActive) ? localDoc.presActive : order[0];
   let objects = [];
   d.pres = order.map(pid => {
-    const pm = parts['pres:' + pid], shParts = (pm.sheetOrder || []).map(sid => parts['sheet:' + pid + ':' + sid]).filter(Boolean);
+    const pm = parts['pres:' + pid], shParts = uniqIds(pm.sheetOrder || []).map(sid => parts['sheet:' + pid + ':' + sid]).filter(Boolean);
     const sheets = shParts.map(x => JSON.parse(JSON.stringify(x.meta))), rects = rectsFor(sheets), abs = [];
     shParts.forEach((x, i) => (x.objects || []).forEach(o => abs.push({ ...JSON.parse(JSON.stringify(o)), left: (o.left || 0) + rects[i].x, top: (o.top || 0) + rects[i].y })));
     if (pid === act) { d.sheets = sheets.length ? sheets : [newSheet()]; d.active = d.sheets.find(x => x.id === localDoc.active) ? localDoc.active : d.sheets[0].id; objects = abs; return { id: pid, name: pm.name, updated: Date.now() }; }
@@ -5479,7 +5494,7 @@ function partsToSnap(parts, localDoc) {
   return { doc: d, objects };
 }
 function mergeOrder(a, b) {
-  const out = [...b];
+  const out = uniqIds(b); a = uniqIds(a);
   a.forEach((id, i) => { if (out.includes(id)) return; const prev = a.slice(0, i).reverse().find(x => out.includes(x)); out.splice(prev ? out.indexOf(prev) + 1 : 0, 0, id); });
   return out;
 }
@@ -5523,7 +5538,7 @@ async function resolveConflicts(conflicts, local, remote, result, who) {
     const here = `neste computador (${fmtWhen(conflictCtx.localAt)})`, there = `por ${who} (${fmtWhen(conflictCtx.remoteAt)})`;
     const ask = (!L || !R)
       ? await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi ${L ? 'excluída ' + there + ' e alterada ' + here : 'alterada ' + there + ' e excluída ' + here}. O que fazer?`, [{ label: 'Manter a folha', value: 'keep', primary: true }, { label: 'Excluir', value: 'drop' }], allLabel)
-      : await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi alterada ${here} e também ${there}. “Manter as duas” não perde nada.`, [{ label: 'Manter as duas', value: 'both', primary: true }, { label: 'Usar a deste computador', value: 'mine' }, { label: `Usar a de ${who}`, value: 'theirs' }], allLabel);
+      : await askChoice(`${lab[0].toUpperCase() + lab.slice(1)} foi alterada ${here} e também ${there}. “Manter as duas” não perde nada.`, [{ label: 'Manter as duas', value: 'both', primary: true }, { label: 'Usar a deste computador (descarta a outra)', value: 'mine' }, { label: `Usar a de ${who} (descarta a daqui)`, value: 'theirs' }], allLabel);
     v = allLabel ? ask.value : ask;
     if (allLabel && ask.all) { if (L && R) allEdit = v; else allDel = v; }
     }
@@ -5744,6 +5759,12 @@ async function syncPull(opts = {}) {
     if (m.project && String(m.project) !== String(projNum())) throw new Error(`o arquivo da equipe é do projeto ${m.project}, mas o app está no projeto ${projNum()} — recarregue o painel`);
     /* Cabeçalho e arquivo da equipe com versões diferentes. Normalmente é um envio em andamento (espera alguns segundos).
        Se persistir (dois envios se sobrepuseram e o par ficou desencontrado), usa o arquivo como verdade e regrava o par certo. */
+    /* versão mais antiga do que a que este computador já recebeu/enviou: é leitura atrasada — ignora */
+    /* leitura atrasada = o CABEÇALHO é mais antigo do que o que já se conhece (ou, sem cabeçalho, o arquivo).
+       Cabeçalho atual com arquivo mais antigo é outro caso (par desencontrado), tratado logo abaixo. */
+    if (head && head.savedAt && knownTeamAt() && head.savedAt < knownTeamAt() - 2000) { staleListWarn(); return false; }
+    if (!head && m.savedAt && knownTeamAt() && m.savedAt < knownTeamAt() - 2000) { staleListWarn(); return false; }
+    if (head && head.rev === m.rev && m.savedAt && knownTeamAt() && m.savedAt < knownTeamAt() - 2000) { staleListWarn(); return false; }
     let repairPair = false;
     if (head && head.rev && m.rev && head.rev !== m.rev) {
       const age = Date.now() - (head.savedAt || 0);
@@ -5765,7 +5786,7 @@ async function syncPull(opts = {}) {
       Object.keys(Lx).filter(k => k.startsWith('pres:') && !(k in R)).forEach(k => {
         const pid = k.slice(5), to = presName[Lx[k].name]; if (!to) return;
         (Lx[k].sheetOrder || []).forEach(sid => { const sk = 'sheet:' + pid + ':' + sid; if (Lx[sk]) { Lx['sheet:' + to + ':' + sid] = Lx[sk]; delete Lx[sk]; } });
-        Lx['pres:' + to] = { ...(R['pres:' + to] || {}), sheetOrder: [...((R['pres:' + to] || {}).sheetOrder || []), ...(Lx[k].sheetOrder || [])] };
+        Lx['pres:' + to] = { ...(R['pres:' + to] || {}), sheetOrder: uniqIds([...((R['pres:' + to] || {}).sheetOrder || []), ...(Lx[k].sheetOrder || [])]) };
         delete Lx[k]; Lx.presorder = (Lx.presorder || []).filter(x => x !== pid);
       });
       Object.keys(Lx).filter(k => k.startsWith('sheet:') && !(k in R) && !((Lx[k].objects || []).length)).forEach(k => delete Lx[k]);
@@ -5805,7 +5826,8 @@ async function syncPull(opts = {}) {
       await storeSave();
     }
     syncState.base = Object.fromEntries(Object.entries(R).map(([k, v]) => [k, partHash(v)]));
-    syncState.remoteRev = repairPair ? head.rev : (m.rev || (head && head.rev) || null); syncState.remoteAt = m.savedAt || 0; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
+    syncState.remoteRev = repairPair ? head.rev : (m.rev || (head && head.rev) || null); syncState.remoteAt = m.savedAt || 0;
+    syncState.seenAt = Math.max(syncState.seenAt || 0, m.savedAt || 0, (head && head.savedAt) || 0); staleWarned = false; syncState.lastSync = Date.now(); syncState.pendingConflict = false; $('#sync-pull').classList.remove('has-changes');
     await saveSyncState();
     if (repairPair && !opts.underLock) setTimeout(() => syncPush({ repair: true }), 1500);   // regrava cabeçalho + arquivo coerentes
     if (recovered) toast(`${recovered} folha(s) que estavam numa cópia separada do arquivo da equipe foram recuperadas e serão enviadas.`, true);
@@ -5854,6 +5876,7 @@ async function syncPushRun(opts = {}) {
       const cur = attByName(SYNC_FILE);
       if (cur && syncState.readFailing) throw new Error(readBlockedMsg());
       const head = await readHeadStrict();   // erro aqui cancela o envio
+      if (head && head.savedAt && knownTeamAt() && head.savedAt < knownTeamAt() - 2000) { staleListWarn(); throw new Error('a lista de anexos deste computador está desatualizada — recarregue a página do Giraffe (F5)'); }
       if (cur && !head) { const m0 = await fetchJsonAtt(cur); if (!m0 || !m0.parts) throw new Error(readBlockedMsg()); if ((m0.savedAt || 0) !== (syncState.remoteAt || 0)) { syncBusy = false; continue; } }
       if (cur && !syncState.remoteRev) throw new Error(readBlockedMsg());   // nunca recebeu a versão da equipe neste computador
       if (head && head.rev && head.rev !== syncState.remoteRev) { syncBusy = false; continue; }   // alguém enviou nesse meio-tempo: recebe de novo antes
@@ -5868,7 +5891,7 @@ async function syncPushRun(opts = {}) {
       await uploadRaw(HEAD_FILE, JSON.stringify({ rev, savedAt: m.savedAt, device: deviceId, by: u.email, byName: u.name }));
       await refreshAtts();
       syncState.base = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, partHash(v)]));
-      syncState.remoteRev = rev; syncState.remoteAt = m.savedAt; syncState.lastPush = Date.now(); syncState.lastSync = Date.now();
+      syncState.remoteRev = rev; syncState.remoteAt = m.savedAt; syncState.seenAt = Math.max(syncState.seenAt || 0, m.savedAt); syncState.lastPush = Date.now(); syncState.lastSync = Date.now();
       await saveSyncState();
       if (opts.manual) toast(`Alterações enviadas para o projeto no Giraffe (${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}).`);
       return true;
@@ -5920,9 +5943,9 @@ async function syncInit(opened) {
       } else {
         syncShownToast = true;
         askBar(`Este computador tem ${n} alteração(ões) feitas em ${fmtWhen(localT0)} que não foram enviadas, e a equipe tem uma versão mais nova (${whoOf(head)}, ${fmtWhen(head.savedAt)}). O que fazer?`, [
-          { label: 'Manter as duas', primary: true, fn: () => syncKeepBoth() },
-          { label: 'Usar a da equipe', fn: () => syncForceRemote() },
-          { label: 'Enviar a deste computador', fn: () => syncPush({ manual: true }) }]);
+          { label: 'Manter as duas (cópias lado a lado)', primary: true, fn: () => syncKeepBoth() },
+          { label: 'Usar a da equipe (descarta as daqui)', fn: () => syncForceRemote() },
+          { label: 'Enviar a deste computador (vale a daqui)', fn: () => syncPush({ manual: true }) }]);
       }
     }
   } catch (e) {}
