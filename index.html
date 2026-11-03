@@ -690,6 +690,15 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         </div>
       </section>
 
+      <section class="section" id="sec-axo" hidden>
+        <h2>Vista da Axonometria</h2>
+        <p class="hint" id="axo-obj-info"></p>
+        <label class="check"><input type="checkbox" id="axo-obj-auto"> Atualizar automaticamente</label>
+        <div class="btn-grid">
+          <button class="btn" id="axo-obj-update">Atualizar agora</button>
+          <button class="btn" id="axo-obj-unlink">Desvincular</button>
+        </div>
+      </section>
       <section class="section" id="sec-svgcolors" hidden>
         <h2>Cores do desenho</h2>
         <p class="hint">Cada cor presente no ícone, SVG ou grupo. Troque uma para mudar todas as partes que a usam.</p>
@@ -918,6 +927,17 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <!-- IMAGENS: pasta + Giraffe -->
     <div class="panel" role="tabpanel" id="panel-links" aria-labelledby="tab-links" hidden>
       <section class="section">
+        <h2>Vistas da Axonometria</h2>
+        <p class="hint" id="axo-status">Vistas publicadas pela KV Axonometria, como desenho vetorial (com encaixe nos vértices e arestas).</p>
+        <div class="btn-grid">
+          <button class="btn" id="axo-refresh">Listar vistas</button>
+          <button class="btn" id="axo-check">Verificar atualizações</button>
+        </div>
+        <ul class="list" id="axo-list"></ul>
+        <label class="check"><input type="checkbox" id="axo-auto-new" checked> Novas vistas inseridas com atualização automática</label>
+        <p class="info"><strong>Automática</strong>: a cada 45 s o app confere se a vista foi republicada pela Axonometria e troca o desenho, mantendo largura, posição e rotação. <strong>Fixa</strong>: só avisa que existe versão nova. Para editar as partes, selecione a vista e use <strong>Desvincular</strong>.</p>
+      </section>
+      <section class="section">
         <h2>Vistas do Giraffe</h2>
         <p class="hint" id="gv-status">Disponível quando o app está aberto como painel no Giraffe.</p>
         <div class="btn-grid">
@@ -1114,7 +1134,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V88 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V89 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1173,7 +1193,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V88 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V89 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1189,7 +1209,7 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvAxo','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
@@ -2089,6 +2109,7 @@ function buildSnapCache(exclude) {
     }
     /* vértices só de formas vetoriais; texto, imagem e ícone usam os cantos do limite visível (os da caixa de seleção atrapalhavam) */
     if (o.type === 'kvtext' || o.type === 'image' || o.kvIcon) [[br.left, br.top], [br.left + br.width, br.top], [br.left, br.top + br.height], [br.left + br.width, br.top + br.height]].forEach(q => pts.push({ x: q[0], y: q[1] }));
+    else if (o.kvAxo && o.kvAxo.id && typeof axoSnapPts === 'function') axoSnapPts(o).forEach(p => pts.push(p));
     else if (!o.group) vertsOf(o).forEach(p => pts.push({ x: p.x, y: p.y }));
     pts.push({ x: br.left + br.width / 2, y: br.top + br.height / 2 });
   });
@@ -8052,6 +8073,152 @@ function applyTheme() {
 }
 $('#cmd-theme').onclick = () => { themePref = { auto: 'light', light: 'dark', dark: 'auto' }[themePref]; try { localStorage.setItem('kv-pranchas-theme', themePref); } catch (e) {} applyTheme(); };
 mq.addEventListener ? mq.addEventListener('change', applyTheme) : mq.addListener(applyTheme);
+
+/* ---------------- Vistas da KV Axonometria (publicadas nos anexos do projeto) ----------------
+   Índice kv-axono-views.json { views:[{ id, name, rev, savedAt, savedBy, w, h, att }] } e cada vista em
+   kv-axono-view-<id>.json { id, name, rev, svg, … }. Na folha a vista é um grupo vetorial com kvAxo = { id, name, rev, auto }.
+   Atualização: automática (troca o conteúdo mantendo largura, posição e rotação) ou fixa (só avisa). */
+const AXO_INDEX = 'kv-axono-views.json';
+let axoIndex = null, axoTimer = null, axoBusy = false;
+function axoLog(m) { try { gvLog('[Axonometria] ' + m); } catch (e) {} }
+const axoWhen = t => t ? new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+async function axoLoadIndex() {
+  await refreshAtts(); const a = attByName(AXO_INDEX);
+  if (!a) { axoIndex = { views: [] }; return axoIndex; }
+  const d = await fetchJsonAtt(a); axoIndex = d && Array.isArray(d.views) ? d : { views: [] }; return axoIndex;
+}
+async function axoLoadView(e) {
+  const a = attByName(e.att);
+  if (!a) throw new Error(`o arquivo da vista “${e.name}” ainda não aparece neste computador — recarregue a página do Giraffe (F5)`);
+  const d = await fetchJsonAtt(a); if (!d || !d.svg) throw new Error('vista sem desenho'); return d;
+}
+function axoListRender() {
+  const ul = $('#axo-list'); if (!ul) return; ul.innerHTML = '';
+  const vs = (axoIndex && axoIndex.views) || [];
+  $('#axo-status').textContent = !axoIndex ? 'Clique em Listar vistas.' : vs.length ? `${vs.length} vista(s) publicada(s) pela KV Axonometria.` : 'Nenhuma vista publicada. Na KV Axonometria, use Exportar › Publicar para o KV Pranchas.';
+  vs.forEach(e => {
+    const li = document.createElement('li');
+    li.innerHTML = `<button class="name" aria-label="Inserir a vista ${escapeHtml(e.name)}">${svgIcon('camera')}<span>${escapeHtml(e.name)}<small style="display:block;opacity:.7">${escapeHtml([e.savedBy, axoWhen(e.savedAt)].filter(Boolean).join(' · '))}</small></span></button>
+      <button class="icon-btn" aria-label="Inserir a vista ${escapeHtml(e.name)} na folha ativa" title="Inserir">${svgIcon('plus')}</button>`;
+    li.children[0].onclick = li.children[1].onclick = () => axoInsert(e);
+    ul.appendChild(li);
+  });
+}
+async function axoRefreshList() {
+  try { status('Lendo vistas da Axonometria…'); await axoLoadIndex(); axoListRender(); }
+  catch (err) { $('#axo-status').textContent = 'Indisponível: ' + err.message; axoLog(err.message); }
+  finally { status('Pronto'); }
+}
+function axoGroup(svg) {
+  return new Promise(res => fabric.loadSVGFromString(svg, (objs, opts) => {
+    objs = (objs || []).filter(Boolean); if (!objs.length) { res(null); return; }
+    const g = fabric.util.groupSVGElements(objs, opts); res(g.type === 'group' ? g : new fabric.Group([g]));
+  }));
+}
+async function axoInsertData(d, auto) {
+  const g = await axoGroup(d.svg); if (!g) throw new Error('o desenho publicado não tem elementos vetoriais');
+  const ia = innerArea(), k = Math.min(ia.width * 0.8 / g.width, ia.height * 0.8 / g.height);
+  g.scale(k); const c = viewCenter(); g.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center');
+  g.kvSvg = true; g.objectCaching = true;
+  g.kvAxo = { id: d.id, name: d.name, rev: d.rev, auto: !!auto, savedAt: d.savedAt, savedBy: d.savedBy };
+  g.kvName = 'Axonometria · ' + d.name;
+  addUser(g, 'Axonometria', true); syncAxoAuto();
+  return g;
+}
+async function axoInsert(e) {
+  status(`Inserindo ${e.name}…`);
+  try { const d = await axoLoadView(e); await axoInsertData(d, $('#axo-auto-new').checked); toast(`${e.name} inserida na folha ${sheetIndex(activeSheet().id) + 1}.`); }
+  catch (err) { toast('Falha ao inserir: ' + err.message, true); axoLog(err.message); }
+  finally { status('Pronto'); }
+}
+const axoObjs = () => canvas.getObjects().filter(o => o.kvAxo && o.kvAxo.id && !o.kvTemp);
+/* troca o conteúdo mantendo largura na folha, centro, rotação, espelhamento, estado e nome */
+async function axoReplace(old, d) {
+  const g = await axoGroup(d.svg); if (!g) return false;
+  const c = old.getCenterPoint(), w = old.getScaledWidth();
+  g.scale(w / g.width); g.set({ angle: old.angle || 0, flipX: !!old.flipX, flipY: !!old.flipY, opacity: old.opacity ?? 1 });
+  g.setPositionByOrigin(c, 'center', 'center');
+  PROPS.forEach(p => { if (p !== 'kvAxo' && old[p] !== undefined) g[p] = old[p]; });
+  g.kvSvg = true; g.objectCaching = true;
+  g.kvAxo = { ...old.kvAxo, name: d.name, rev: d.rev, savedAt: d.savedAt, savedBy: d.savedBy, newRev: null, newAt: null, newBy: null, missing: false };
+  const wasActive = canvas.getActiveObject() === old, idx = canvas.getObjects().indexOf(old);
+  canvas.remove(old); canvas.insertAt(g, idx); g.setCoords(); applyObjState(g);
+  if (wasActive) canvas.setActiveObject(g);
+  invalidateSnap();
+  return true;
+}
+/* auto: troca as automáticas; fixas só ganham o aviso. only = forçar uma vista específica (botão Atualizar agora) */
+async function axoCheck(manual, only) {
+  if (axoBusy) return; const objs = only ? [only] : axoObjs();
+  if (!objs.length) { if (manual) toast('Nenhuma vista da Axonometria nas folhas.'); return; }
+  axoBusy = true;
+  try {
+    await axoLoadIndex(); let n = 0, pend = 0, miss = 0;
+    for (const o of objs) {
+      const e = axoIndex.views.find(v => v.id === o.kvAxo.id);
+      if (!e) { o.kvAxo.missing = true; miss++; continue; }
+      o.kvAxo.missing = false;
+      if (e.rev === o.kvAxo.rev && !only) { o.kvAxo.newRev = null; continue; }
+      if (only || o.kvAxo.auto) { const d = await axoLoadView(e); if (await axoReplace(o, d)) n++; }
+      else { o.kvAxo.newRev = e.rev; o.kvAxo.newAt = e.savedAt; o.kvAxo.newBy = e.savedBy; pend++; }
+    }
+    if (n) { commit(); canvas.requestRenderAll(); toast(`${n} vista(s) da Axonometria atualizada(s). Posição, largura e rotação foram mantidas.`); }
+    else if (manual) toast(pend ? `${pend} vista(s) fixa(s) têm versão nova — selecione e use “Atualizar agora”.` : miss ? `${miss} vista(s) não estão mais publicadas na Axonometria.` : 'As vistas da Axonometria já estão atualizadas.');
+    if (pend && !manual && !axoCheck._warned) { axoCheck._warned = true; toast(`${pend} vista(s) fixa(s) da Axonometria têm versão nova.`); }
+    axoListRender(); refreshPanel();
+  } catch (err) { if (manual) toast('Falha ao verificar as vistas: ' + err.message, true); axoLog(err.message); }
+  finally { axoBusy = false; }
+}
+function syncAxoAuto() {
+  const any = inIframe && axoObjs().length > 0;
+  if (any && !axoTimer) { axoTimer = setInterval(() => { if (!document.hidden) axoCheck(false); }, 45000); setTimeout(() => axoCheck(false), 3000); }
+  if (!any && axoTimer) { clearInterval(axoTimer); axoTimer = null; }
+}
+/* Encaixe: vértices e pontos médios das arestas do desenho da vista (calculados uma vez, acompanham mover/escalar/girar) */
+function axoSnapPts(o) {
+  const M = o.calcTransformMatrix(), key = M.map(v => v.toFixed(5)).join(',');
+  if (o._axoSnap && o._axoSnap.key === key) return o._axoSnap.pts;
+  if (!o._axoLocal) {
+    const inv = fabric.util.invertTransform(M), seen = new Set(), loc = [];
+    const add = sp => { const q = fabric.util.transformPoint(sp, inv), k = Math.round(q.x * 2) + ',' + Math.round(q.y * 2); if (!seen.has(k) && loc.length < 60000) { seen.add(k); loc.push(q); } };
+    (o.getObjects ? o.getObjects() : []).forEach(ch => {
+      if (!ch.path || !ch.visible) return;
+      const CM = ch.calcTransformMatrix(), off = ch.pathOffset || { x: 0, y: 0 }, T = (x, y) => fabric.util.transformPoint({ x: x - off.x, y: y - off.y }, CM);
+      let start = null, prev = null;
+      ch.path.forEach(cmd => {
+        const c0 = cmd[0];
+        if (c0 === 'Z' || c0 === 'z') { if (prev && start) add(T((prev.x + start.x) / 2, (prev.y + start.y) / 2)); prev = start; return; }
+        if (cmd.length < 3) return; const p = { x: cmd[cmd.length - 2], y: cmd[cmd.length - 1] };
+        add(T(p.x, p.y)); if (c0 === 'M') start = p; else if (prev && (c0 === 'L' || c0 === 'l')) add(T((prev.x + p.x) / 2, (prev.y + p.y) / 2));
+        prev = p;
+      });
+    });
+    o._axoLocal = loc;
+  }
+  const pts = o._axoLocal.map(q => fabric.util.transformPoint(q, M)); o._axoSnap = { key, pts }; return pts;
+}
+/* painel do objeto */
+function refreshAxoPanel() {
+  const a = canvas.getActiveObject(), on = !!(a && a.kvAxo && a.kvAxo.id && canvas.getActiveObjects().length === 1);
+  show('#sec-axo', on); if (!on) return;
+  const X = a.kvAxo;
+  $('#axo-obj-info').textContent = `“${X.name}” · publicada ${[X.savedBy, axoWhen(X.savedAt)].filter(Boolean).join(', ')}` + (X.missing ? ' · não está mais publicada na Axonometria' : X.newRev ? ` · há versão nova (${[X.newBy, axoWhen(X.newAt)].filter(Boolean).join(', ')})` : '');
+  $('#axo-obj-auto').checked = !!X.auto;
+}
+const _axoRefreshPanel = refreshPanel; refreshPanel = function () { _axoRefreshPanel.apply(this, arguments); try { refreshAxoPanel(); } catch (e) {} };
+const _axoSyncGv = syncGvAuto; syncGvAuto = function () { _axoSyncGv.apply(this, arguments); syncAxoAuto(); };
+$('#axo-refresh').onclick = axoRefreshList;
+$('#axo-check').onclick = () => axoCheck(true);
+$('#axo-obj-auto').onchange = e => { const a = canvas.getActiveObject(); if (!a || !a.kvAxo) return; a.kvAxo = { ...a.kvAxo, auto: e.target.checked }; commit(); syncAxoAuto(); if (e.target.checked) axoCheck(false); };
+$('#axo-obj-update').onclick = () => { const a = canvas.getActiveObject(); if (a && a.kvAxo) axoCheck(true, a); };
+$('#axo-obj-unlink').onclick = () => {
+  const a = canvas.getActiveObject(); if (!a || !a.kvAxo) return;
+  a.kvAxo = null; a.kvName = (a.kvName || 'Vista').replace(/^Axonometria · /, '') + ' (desvinculada)';
+  if (a.type === 'group') { a.toActiveSelection(); canvas.requestRenderAll(); }
+  commit(); refreshPanel(); syncAxoAuto();
+  toast('Vista desvinculada: as partes agora são objetos comuns do Pranchas, editáveis, e não recebem mais atualizações.');
+};
+window.__kvAxoTest = { axoInsertData, axoReplace, axoSnapPts, axoObjs }; // diagnóstico/testes
 
 /* ---------------- Inicialização ---------------- */
 applyTheme();
