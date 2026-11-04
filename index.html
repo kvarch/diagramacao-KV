@@ -476,6 +476,12 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <input type="number" id="c-head" min="0.5" step="0.5" title="Tamanho da ponta (mm)"><span class="unit">mm</span>
     <label class="sr-only" for="c-hang">Ângulo da ponta em graus</label><input type="number" id="c-hang" min="5" max="80" step="1" title="Ângulo da ponta (°) — entre a linha e cada lado da seta; vazio = padrão do tipo"><span class="unit">°</span>
   </div>
+  <div class="cg" id="cg-xt" hidden>
+    <span class="cg-label">Valores</span>
+    <span class="unit">∠</span><label class="sr-only" for="xt-ang">Ângulo em graus</label><input type="number" id="xt-ang" step="1" style="width:64px" title="Ângulo (°) — anti-horário, 0° = horizontal para a direita. Enter aplica"><span class="unit">°</span>
+    <span class="xt-len" hidden><span class="unit">C</span><label class="sr-only" for="xt-len">Comprimento em milímetros</label><input type="number" id="xt-len" step="1" min="0" style="width:64px" title="Comprimento do 1º lado (mm). Enter aplica"><span class="unit">mm</span></span>
+    <span class="xt-len" hidden><span class="unit">L</span><label class="sr-only" for="xt-wid">Largura em milímetros</label><input type="number" id="xt-wid" step="1" style="width:64px" title="Largura (mm; negativo = para o outro lado). Enter aplica"><span class="unit">mm</span></span>
+  </div>
   <div class="cg" id="cg-fill">
     <span class="cg-label" id="lb-fill">Preench.</span>
     <input type="color" id="c-fill" aria-labelledby="lb-fill" title="Cor do preenchimento">
@@ -604,6 +610,9 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn" id="c-z-up" aria-label="Subir na folha" title="Subir (Page Up)"><span data-icon="up"></span></button>
     <button class="icon-btn" id="c-z-down" aria-label="Descer na folha" title="Descer (Page Down)"><span data-icon="down"></span></button>
     <button class="icon-btn" id="c-z-bottom" aria-label="Enviar para o fundo da folha" title="Fundo (End)"><span data-icon="toBottom"></span></button>
+    <button class="icon-btn" id="c-rotpt" aria-label="Girar em torno de um ponto (O)" title="Girar em torno de um ponto (O): clique o centro, a referência e o destino — ou digite o ângulo"><span data-icon="rotatePt"></span></button>
+    <button class="icon-btn" id="c-group" aria-label="Agrupar (Ctrl+G)" title="Agrupar (Ctrl+G)"><span data-icon="groupSm"></span></button>
+    <button class="icon-btn" id="c-ungroup" aria-label="Desagrupar (Ctrl+Shift+G)" title="Desagrupar (Ctrl+Shift+G)"><span data-icon="ungroup"></span></button>
     <button class="icon-btn" id="c-below" aria-pressed="false" aria-label="Colocar abaixo do modelo de fundo" title="Abaixo do modelo de fundo (ex.: imagem sob o título do modelo)" hidden><span data-icon="belowTpl"></span></button>
   </div>
   <div class="cg" id="cg-bool" hidden>
@@ -643,7 +652,10 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn tool" data-tool="arrow" aria-label="Seta indicativa (A)" title="Seta (A)" aria-pressed="false"><span data-icon="arrow"></span></button>
     <button class="icon-btn tool" data-tool="polygon" aria-label="Polígono (G)" title="Polígono (G) — Enter ou duplo clique fecha" aria-pressed="false"><span data-icon="polygon"></span></button>
     <button class="icon-btn tool" data-tool="rect" aria-label="Retângulo (R)" title="Retângulo (R) — Shift = quadrado" aria-pressed="false"><span data-icon="square"></span></button>
+    <button class="icon-btn tool" data-tool="rrect" aria-label="Retângulo girado (W)" title="Retângulo girado (W) — 2 cliques definem um lado (ou ângulo e comprimento digitados), o 3º a largura" aria-pressed="false"><span data-icon="rotRect"></span></button>
     <button class="icon-btn tool" data-tool="ellipse" aria-label="Elipse (E)" title="Elipse (E) — Shift = círculo" aria-pressed="false"><span data-icon="circle"></span></button>
+    <button class="icon-btn tool" data-tool="trim" aria-label="Aparar (X)" title="Aparar (X) — clique no trecho da linha a remover, entre cruzamentos" aria-pressed="false"><span data-icon="trimTool"></span></button>
+    <button class="icon-btn tool" data-tool="aguide" aria-label="Guia inclinada (J)" title="Guia inclinada (J) — clique um ponto e a direção, ou digite o ângulo" aria-pressed="false"><span data-icon="aguide"></span></button>
     <button class="icon-btn tool" data-tool="measure" aria-label="Medir distância (D)" title="Medir (D) — mm no papel e metros na escala da imagem/folha" aria-pressed="false"><span data-icon="measure"></span></button>
     <button class="icon-btn" id="tool-shapes" aria-label="Formas prontas (F)" title="Formas prontas (F) — setas, polígonos, estrelas…" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" aria-controls="shape-pop"><span data-icon="shapes"></span></button>
     <button class="icon-btn tool" data-tool="text" aria-label="Texto (T)" title="Texto (T)" aria-pressed="false"><span data-icon="type"></span></button>
@@ -1140,7 +1152,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V90 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V91 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1199,7 +1211,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V90 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V91 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1220,6 +1232,10 @@ const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvLocked','kvHidden',
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
 const ICONS = {
+  rotRect:'<path d="M4 15 13 4l7 6-9 11z"/>',
+  trimTool:'<path d="M4 20 20 4"/><path d="M4 8h7" stroke-dasharray="2 2"/><path d="M13 16h7"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>',
+  aguide:'<path d="M3 19 21 5" stroke-dasharray="3 2"/><circle cx="8" cy="15" r="1.6" fill="currentColor"/>',
+  rotatePt:'<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/>',
   filePlus:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/>',
   folderOpen:'<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
   save:'<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
@@ -1932,6 +1948,7 @@ function drawGuides(ctx) {
   const v = canvas.viewportTransform, z = v[0];
   ctx.save(); ctx.lineWidth = 1;
   doc.guides.forEach(g => {
+    if (g.o === 'a') return;   // guias inclinadas: desenhadas pelo módulo de ferramentas extras
     ctx.strokeStyle = (guideDrag && guideDrag.g === g) ? (g.snapped ? '#2fAF83' : '#ff5632') : BRAND;
     ctx.lineWidth = (guideDrag && guideDrag.g === g && g.snapped) ? 2 : 1;
     ctx.beginPath();
@@ -2056,7 +2073,10 @@ rulerV.addEventListener('pointerdown', e => startRulerGuide(e, 'v'));
 function hitGuide(e) {
   if (!doc.guides.length) return null;
   const v = canvas.viewportTransform, p = canvas.getPointer(e, true);
-  return doc.guides.find(g => g.o === 'v' ? Math.abs(g.p * v[0] + v[4] - p.x) < 5 : Math.abs(g.p * v[0] + v[5] - p.y) < 5) || null;
+  return doc.guides.find(g => {
+    if (g.o === 'a') { const d = agDir(g), X = g.x * v[0] + v[4], Y = g.y * v[0] + v[5]; return Math.abs((p.x - X) * d.y - (p.y - Y) * d.x) < 5; }
+    return g.o === 'v' ? Math.abs(g.p * v[0] + v[4] - p.x) < 5 : Math.abs(g.p * v[0] + v[5] - p.y) < 5;
+  }) || null;
 }
 
 /* ---------------- Encaixe (objetos, vértices, guias, folhas, grade) ---------------- */
@@ -2126,7 +2146,7 @@ function buildSnapCache(exclude) {
     [[ia.left, ia.top], [ia.left + ia.width, ia.top], [ia.left, ia.top + ia.height], [ia.left + ia.width, ia.top + ia.height]].forEach(q => pts.push({ x: q[0], y: q[1] }));
     safeRectsOf(P()[i], r).forEach(q => { xs.push(q.x, q.x + q.w); ys.push(q.y, q.y + q.h); [[q.x, q.y], [q.x + q.w, q.y], [q.x, q.y + q.h], [q.x + q.w, q.y + q.h]].forEach(c => pts.push({ x: c[0], y: c[1] })); });
   });
-  doc.guides.forEach(g => (g.o === 'v' ? xs : ys).push(g.p));
+  doc.guides.forEach(g => { if (g.o !== 'a') (g.o === 'v' ? xs : ys).push(g.p); });
   return { xs, ys, pts };
 }
 let drawCache = null, moveCache = null, snapSelf = null;
@@ -2140,6 +2160,7 @@ function snapPoint(p, e, extraPts) {
     let best = null, bd = th;
     drawCache.pts.concat(extraPts || []).forEach(q => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = q; } });
     if (best) return { x: best.x, y: best.y, kind: 'pt' };
+    { const ag = snapAngledGuides(p, th); if (ag) { snapLines = []; return ag; } }
     let bx = null, by = null, dx = th, dy = th;
     drawCache.xs.forEach(x => { const d = Math.abs(x - p.x); if (d < dx) { dx = d; bx = x; } });
     drawCache.ys.forEach(y => { const d = Math.abs(y - p.y); if (d < dy) { dy = d; by = y; } });
@@ -2472,7 +2493,7 @@ canvas.on('mouse:wheel', opt => {
 
 /* ---------------- Ferramentas ---------------- */
 let tool = 'select', drawState = null, spaceDown = false, panState = null, maskTarget = null, curCursor = '';
-const DRAW_TOOLS = ['dim', 'line', 'polyline', 'curve', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape', 'measure', 'pencil'];
+const DRAW_TOOLS = ['dim', 'line', 'polyline', 'curve', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape', 'measure', 'pencil', 'aguide', 'rrect', 'rotpt', 'trim'];
 
 /* ---------------- Biblioteca de formas prontas (polígonos editáveis) ---------------- */
 function ngon(n, rot, inner) {
@@ -2625,6 +2646,9 @@ function setTool(t) {
   };
   status(tips[t] || '');
   refreshCtx();
+  if (xt && xt.tool !== t) { if (xt.orig) xt.orig.forEach(([o, s]) => { o.set(s); o.setCoords(); }); xt = null; }
+  if (XT_TOOLS.includes(t) && (!xt || xt.tool !== t)) xt = { tool: t, pts: [], objs: null };
+  xtStatus();
 }
 $$('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
 
@@ -2908,7 +2932,7 @@ canvas.on('mouse:move', opt => {
   const sh = sheetAt(p), r = sheetRect(sh.id);
   $('#st-xy').textContent = `F${sheetIndex(sh.id) + 1}  X ${fmt(pt2mm(p.x - r.x))}  Y ${fmt(pt2mm(p.y - r.y))} mm`;
   if (panState) { canvas.relativePan(new fabric.Point(e.clientX - panState.x, e.clientY - panState.y)); panState = { x: e.clientX, y: e.clientY }; afterView(); return; }
-  if (guideDrag) { const g = guideDrag.g; g.p = snapGuide(g, g.o === 'v' ? p.x : p.y, e); canvas.requestRenderAll(); return; }
+  if (guideDrag) { const g = guideDrag.g; if (g.o === 'a') { const q = snapPoint(p, e); g.x = q.x; g.y = q.y; } else g.p = snapGuide(g, g.o === 'v' ? p.x : p.y, e); canvas.requestRenderAll(); return; }
   if (DRAW_TOOLS.includes(tool) && tool !== 'pencil') {
     let q = snapPoint(p, e, drawState && drawState.pts);
     if (drawState) {
@@ -2921,7 +2945,7 @@ canvas.on('mouse:move', opt => {
     drawPreview(); canvas.requestRenderAll();
   } else if (tool === 'select' && !canvas._currentTransform) {
     const g = hitGuide(e);
-    if (g) canvas.setCursor(g.o === 'v' ? 'ew-resize' : 'ns-resize'); else if (!opt.target) setCursorOnce('default');
+    if (g) canvas.setCursor(g.o === 'v' ? 'ew-resize' : g.o === 'a' ? 'move' : 'ns-resize'); else if (!opt.target) setCursorOnce('default');
   }
   scheduleRulers();
 });
@@ -2954,6 +2978,222 @@ function guardDrag(opt) {
   g.t.set(g.s); g.t.setCoords(); snapLines = []; return true;
 }
 canvas.on('mouse:up', () => { dragGuard = null; });
+
+/* ================= Ferramentas extras: guia inclinada, retângulo girado, girar por ponto, aparar, Alt+arrastar ================= */
+/* --- Guias inclinadas: { o:'a', x, y, ang } (ângulo no sentido do desenho: anti-horário, 0° = horizontal) --- */
+const agDir = g => { const a = g.ang * Math.PI / 180; return { x: Math.cos(a), y: -Math.sin(a) }; };
+function agProject(g, p) { const d = agDir(g), t = (p.x - g.x) * d.x + (p.y - g.y) * d.y; return { x: g.x + d.x * t, y: g.y + d.y * t }; }
+function guideLinesForIntersect() {
+  return doc.guides.map(g => g.o === 'a' ? { p: { x: g.x, y: g.y }, d: agDir(g) } : g.o === 'v' ? { p: { x: g.p, y: 0 }, d: { x: 0, y: 1 } } : { p: { x: 0, y: g.p }, d: { x: 1, y: 0 } });
+}
+function agIntersections() {
+  const L = guideLinesForIntersect(), out = [];
+  if (!doc.guides.some(g => g.o === 'a')) return out;
+  for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+    if (doc.guides[i].o !== 'a' && doc.guides[j].o !== 'a') continue;
+    const a = L[i], b = L[j], den = a.d.x * b.d.y - a.d.y * b.d.x; if (Math.abs(den) < 1e-9) continue;
+    const t = ((b.p.x - a.p.x) * b.d.y - (b.p.y - a.p.y) * b.d.x) / den; out.push({ x: a.p.x + a.d.x * t, y: a.p.y + a.d.y * t });
+  }
+  return out;
+}
+/* encaixe nas guias inclinadas (e nos cruzamentos delas) ao desenhar e editar vértices */
+function snapAngledGuides(p, th) {
+  let best = null, bd = th;
+  agIntersections().forEach(q => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = { x: q.x, y: q.y, kind: 'pt' }; } });
+  if (best) return best;
+  doc.guides.filter(g => g.o === 'a').forEach(g => { const q = agProject(g, p), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = { x: q.x, y: q.y, kind: 'guide' }; } });
+  return best;
+}
+function drawAngledGuide(ctx, g, color, width) {
+  const v = canvas.viewportTransform, z = v[0], d = agDir(g), X = g.x * z + v[4], Y = g.y * z + v[5], L = canvas.width + canvas.height;
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width || 1; ctx.beginPath(); ctx.moveTo(X - d.x * L, Y - d.y * L); ctx.lineTo(X + d.x * L, Y + d.y * L); ctx.stroke(); ctx.restore();
+}
+
+/* --- estado das ferramentas extras --- */
+var xt = null;   // { tool, pts:[], cur, objs, orig }
+var XT_TOOLS = ['aguide', 'rrect', 'rotpt', 'trim'];
+const xtField = id => { const v = parseFloat(($(id) || {}).value); return Number.isFinite(v) ? v : null; };
+function xtReset(keepTool) { if (xt && xt.tool === 'rotpt' && xt.orig) xt.orig.forEach(([o, s]) => { o.set(s); o.setCoords(); }); xt = keepTool && xt ? { tool: xt.tool, pts: [], objs: xt.tool === 'rotpt' ? null : xt.objs } : null; canvas.requestRenderAll(); xtStatus(); }
+function xtStatus() {
+  const t = tool, n = xt ? xt.pts.length : 0;
+  const msg = {
+    aguide: n ? 'Clique o segundo ponto da direção (Shift = 15°) ou digite o ângulo e Enter' : 'Guia inclinada: clique um ponto por onde ela passa',
+    rrect: n === 0 ? 'Retângulo girado: clique o 1º vértice' : n === 1 ? 'Clique o 2º vértice (Shift = 15°) — ou digite ângulo e comprimento e Enter' : 'Mova para definir a largura e clique — ou digite a largura e Enter',
+    rotpt: !xt || !xt.objs ? 'Selecione elementos antes de girar' : n === 0 ? 'Girar: clique o ponto de giro' : n === 1 ? 'Clique um ponto de referência (direção inicial) — ou digite o ângulo e Enter' : 'Mova e clique para girar (Shift = 15°)',
+    trim: 'Aparar: clique na parte da linha a remover (entre cruzamentos) · Esc sai'
+  }[t];
+  if (msg) status(msg);
+  if ($('#cg-xt')) { show('#cg-xt', XT_TOOLS.includes(t) && t !== 'trim'); $$('#cg-xt .xt-len').forEach(el => { el.hidden = t !== 'rrect'; }); }
+}
+function startRotateAround() {
+  const objs = canvas.getActiveObjects().filter(o => !o.kvTemp && !isLk(o));
+  if (!objs.length) { toast('Selecione os elementos que quer girar.'); return; }
+  canvas.discardActiveObject(); setTool('rotpt'); xt = { tool: 'rotpt', pts: [], objs };
+  canvas.requestRenderAll(); xtStatus();
+}
+const angOf = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
+function rotateObjs(pivot, rad) {
+  xt.orig.forEach(([o, s]) => {
+    o.set(s); const c = o.getCenterPoint(), nc = fabric.util.rotatePoint(new fabric.Point(c.x, c.y), new fabric.Point(pivot.x, pivot.y), rad);
+    o.set('angle', (s.angle || 0) + rad * 180 / Math.PI); o.setPositionByOrigin(nc, 'center', 'center'); o.setCoords();
+  });
+  canvas.requestRenderAll();
+}
+function finishRotate() { const objs = xt.objs; xt.orig = null; xt = { tool: 'rotpt', pts: [], objs: null }; commit(); setTool('select'); if (objs.length) reselect(objs); toast('Giro aplicado.'); }
+/* retângulo girado a partir de dois vértices e da largura */
+function makeRotRect(p1, p2, w) {
+  const L = Math.hypot(p2.x - p1.x, p2.y - p1.y); if (L * canvas.getZoom() < 3 || Math.abs(w) * canvas.getZoom() < 3) return null;
+  const ux = (p2.x - p1.x) / L, uy = (p2.y - p1.y) / L, nx = -uy, ny = ux;
+  const c = { x: p1.x + ux * L / 2 + nx * w / 2, y: p1.y + uy * L / 2 + ny * w / 2 };
+  const r = new fabric.Rect({ width: L, height: Math.abs(w), angle: Math.atan2(uy, ux) * 180 / Math.PI, ...styleFor('closed') });
+  r.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center'); r.setCoords();
+  addUser(r, 'Retângulo', true); commit(); return r;
+}
+function rrectPreview() {
+  const p = xt.pts, cur = xt.cur; if (!cur) return null;
+  if (p.length === 1) return [p[0], cur];
+  if (p.length === 2) { const L = Math.hypot(p[1].x - p[0].x, p[1].y - p[0].y) || 1, ux = (p[1].x - p[0].x) / L, uy = (p[1].y - p[0].y) / L, nx = -uy, ny = ux, w = (cur.x - p[0].x) * nx + (cur.y - p[0].y) * ny; return [p[0], p[1], { x: p[1].x + nx * w, y: p[1].y + ny * w }, { x: p[0].x + nx * w, y: p[0].y + ny * w }, p[0]]; }
+  return null;
+}
+function rrectWidth(cur) { const p = xt.pts, L = Math.hypot(p[1].x - p[0].x, p[1].y - p[0].y) || 1, nx = -(p[1].y - p[0].y) / L, ny = (p[1].x - p[0].x) / L; return (cur.x - p[0].x) * nx + (cur.y - p[0].y) * ny; }
+/* Enter com valores digitados */
+function xtEnter() {
+  if (!xt) return false;
+  const ang = xtField('#xt-ang'), len = xtField('#xt-len'), wid = xtField('#xt-wid');
+  if (xt.tool === 'aguide' && xt.pts.length === 1 && ang !== null) { doc.guides.push({ o: 'a', x: xt.pts[0].x, y: xt.pts[0].y, ang }); commit(); xt.pts = []; canvas.requestRenderAll(); xtStatus(); return true; }
+  if (xt.tool === 'rrect' && xt.pts.length === 1 && ang !== null && len > 0) { const a = -ang * Math.PI / 180, L = mm2pt(len); xt.pts.push({ x: xt.pts[0].x + Math.cos(a) * L, y: xt.pts[0].y + Math.sin(a) * L }); canvas.requestRenderAll(); xtStatus(); return true; }
+  if (xt.tool === 'rrect' && xt.pts.length === 2 && wid !== null && wid !== 0) { makeRotRect(xt.pts[0], xt.pts[1], -mm2pt(wid)); xt.pts = []; canvas.requestRenderAll(); xtStatus(); return true; }
+  if (xt.tool === 'rotpt' && xt.objs && xt.pts.length >= 1 && ang !== null) { if (!xt.orig) xt.orig = xt.objs.map(o => [o, { left: o.left, top: o.top, angle: o.angle }]); rotateObjs(xt.pts[0], -ang * Math.PI / 180); finishRotate(); return true; }
+  return false;
+}
+
+/* --- Aparar (trim): remove o trecho de linha/polilinha/contorno entre dois cruzamentos --- */
+const trimmable = o => !o.kvTemp && !isLk(o) && o.visible !== false && (o.type === 'kvarrow' || o.type === 'kvpolyline' || o.type === 'polyline' || o.type === 'polygon' || o.type === 'rect');
+function trimPts(o) {
+  if (o.type === 'rect') { const c = o.getCoords(true); return { pts: c.map(p => ({ x: p.x, y: p.y })), closed: true }; }
+  const v = vertsOf(o); return { pts: v.map(p => ({ x: p.x, y: p.y })), closed: o.type === 'polygon' || (o.type === 'kvpolyline' && !!o.closed) };
+}
+function segsOf(o) { const { pts, closed } = trimPts(o), s = []; for (let i = 0; i < pts.length - 1; i++) s.push([pts[i], pts[i + 1]]); if (closed && pts.length > 2) s.push([pts[pts.length - 1], pts[0]]); return s; }
+function segInter(a, b, c, d) {
+  const r = { x: b.x - a.x, y: b.y - a.y }, s = { x: d.x - c.x, y: d.y - c.y }, den = r.x * s.y - r.y * s.x; if (Math.abs(den) < 1e-9) return null;
+  const t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / den, u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / den;
+  return t > 1e-6 && t < 1 - 1e-6 && u >= -1e-6 && u <= 1 + 1e-6 ? t : null;
+}
+function trimHit(p) {
+  const th = 8 / canvas.getZoom(); let best = null;
+  userObjects().filter(trimmable).forEach(o => {
+    const { pts, closed } = trimPts(o), n = closed ? pts.length : pts.length - 1;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)), d = Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y);
+      if (d < th && (!best || d < best.d)) best = { o, i, t, d, a, b, pts, closed };
+    }
+  });
+  if (!best) return null;
+  /* cruzamentos deste trecho com todos os outros (inclusive guias e outros trechos do mesmo elemento) */
+  const ts = [];
+  userObjects().filter(o => !o.kvTemp && o.visible !== false && (trimmable(o) || o.type === 'kvcurve')).forEach(o => segsOf(o).forEach(([c, d], j) => {
+    if (o === best.o && (j === best.i)) return;
+    const t = segInter(best.a, best.b, c, d); if (t !== null) ts.push(t);
+  }));
+  guideLinesForIntersect().forEach(L => { const big = 1e6, t = segInter(best.a, best.b, { x: L.p.x - L.d.x * big, y: L.p.y - L.d.y * big }, { x: L.p.x + L.d.x * big, y: L.p.y + L.d.y * big }); if (t !== null) ts.push(t); });
+  const lo = Math.max(0, ...ts.filter(t => t < best.t)), hi = Math.min(1, ...ts.filter(t => t > best.t));
+  const P = t => ({ x: best.a.x + (best.b.x - best.a.x) * t, y: best.a.y + (best.b.y - best.a.y) * t });
+  return { ...best, lo, hi, A: P(lo), B: P(hi) };
+}
+function trimApply(h) {
+  const o = h.o, pts = h.pts, i = h.i, parts = [];
+  if (!h.closed) {
+    const first = pts.slice(0, i + 1).concat(h.lo > 0 ? [h.A] : []), second = (h.hi < 1 ? [h.B] : []).concat(pts.slice(i + 1));
+    if (first.length >= 2) parts.push(first); if (second.length >= 2) parts.push(second);
+  } else {
+    const n = pts.length, ring = []; ring.push(h.B); for (let k = 1; k <= n; k++) ring.push(pts[(i + k) % n]);
+    ring.length = n; ring.push(pts[i]); if (h.lo > 0) ring.push(h.A);
+    const clean = ring.filter((q, k) => k === 0 || Math.hypot(q.x - ring[k - 1].x, q.y - ring[k - 1].y) > 1e-6);
+    if (clean.length >= 2) parts.push(clean);
+  }
+  const st = { stroke: o.stroke, strokeWidth: o.strokeWidth, strokeDashArray: o.strokeDashArray ? o.strokeDashArray.slice() : null, strokeUniform: o.strokeUniform, opacity: o.opacity, kvDash: o.kvDash, kvDashK: o.kvDashK, kvGapK: o.kvGapK, strokeLineCap: o.strokeLineCap, strokeLineJoin: o.strokeLineJoin, fill: '' };
+  const idx = canvas.getObjects().indexOf(o), made = [];
+  parts.forEach((pl, k) => {
+    let n;
+    if (pl.length === 2 && o.type === 'kvarrow') n = new fabric.Kvarrow([pl[0].x, pl[0].y, pl[1].x, pl[1].y], { ...st, headSize: o.headSize, headAngle: o.headAngle, arrowStart: k === 0 && h.lo > 0 ? o.arrowStart : (k === 0 && !h.lo ? 'none' : 'none'), arrowEnd: k === parts.length - 1 && h.hi < 1 ? o.arrowEnd : 'none' });
+    else n = new fabric.Kvpolyline(pl.map(q => ({ x: q.x, y: q.y })), { ...st, headSize: o.headSize, headAngle: o.headAngle, arrowStart: 'none', arrowEnd: 'none' });
+    n.kvId = uid(); n.kvName = (o.kvName || 'Linha') + (parts.length > 1 ? ` (${k + 1})` : '');
+    { n.setCoords(); const got = vertsOf(n)[0]; if (got) { n.set({ left: n.left + (pl[0].x - got.x), top: n.top + (pl[0].y - got.y) }); n.setCoords(); } }   // sem deslocamento pela espessura do traço
+    canvas.insertAt(n, idx + k); applyObjState(n); made.push(n);
+  });
+  canvas.remove(o); raiseChrome(); canvas.requestRenderAll(); commit(); scheduleLayers();
+  return made;
+}
+
+/* --- eventos --- */
+canvas.on('mouse:down', opt => {
+  if (!XT_TOOLS.includes(tool) || spaceDown || (opt.e && opt.e.button !== 0)) return;
+  const e = opt.e, raw = canvas.getPointer(e);
+  if (!xt || xt.tool !== tool) xt = { tool, pts: [], objs: xt && xt.objs };
+  if (tool === 'trim') { const h = trimHit(raw); if (h) trimApply(h); else toast('Clique sobre uma linha, polilinha, polígono ou retângulo.'); xt.hover = null; return; }
+  let p = snapPoint(raw, e, xt.pts); const ag = !p.kind ? snapAngledGuides(raw, 10 / canvas.getZoom()) : null; if (ag) p = ag;
+  if (xt.pts.length && p.kind !== 'pt') p = constrain(xt.pts[xt.pts.length - 1], p, e);
+  if (tool === 'aguide') {
+    if (!xt.pts.length) { xt.pts.push(p); }
+    else { const a = xt.pts[0]; if (Math.hypot(p.x - a.x, p.y - a.y) * canvas.getZoom() > 3) { doc.guides.push({ o: 'a', x: a.x, y: a.y, ang: Math.round(-angOf(a, p) * 180 / Math.PI * 100) / 100 }); commit(); } xt.pts = []; }
+  } else if (tool === 'rrect') {
+    if (xt.pts.length < 2) xt.pts.push(p);
+    else { makeRotRect(xt.pts[0], xt.pts[1], rrectWidth(p)); xt.pts = []; }
+  } else if (tool === 'rotpt') {
+    if (!xt.objs) { toast('Selecione os elementos e use “Girar em torno de um ponto”.'); setTool('select'); return; }
+    if (xt.pts.length < 2) { xt.pts.push(p); if (xt.pts.length === 2) xt.orig = xt.objs.map(o => [o, { left: o.left, top: o.top, angle: o.angle }]); }
+    else finishRotate();
+  }
+  canvas.requestRenderAll(); xtStatus();
+});
+canvas.on('mouse:move', opt => {
+  if (!XT_TOOLS.includes(tool) || !xt) { if (XT_TOOLS.includes(tool)) xt = { tool, pts: [], objs: null }; else return; }
+  const e = opt.e, raw = canvas.getPointer(e);
+  if (tool === 'trim') { xt.hover = trimHit(raw); canvas.requestRenderAll(); return; }
+  let p = snapPoint(raw, e, xt.pts); const ag = !p.kind ? snapAngledGuides(raw, 10 / canvas.getZoom()) : null; if (ag) p = ag;
+  if (xt.pts.length && p.kind !== 'pt' && !(tool === 'rrect' && xt.pts.length === 2)) p = constrain(xt.pts[xt.pts.length - 1], p, e);
+  xt.cur = p;
+  if (tool === 'rotpt' && xt.pts.length === 2 && xt.orig) {
+    let d = angOf(xt.pts[0], p) - angOf(xt.pts[0], xt.pts[1]); if (e.shiftKey) d = Math.round(d / (Math.PI / 12)) * (Math.PI / 12);
+    rotateObjs(xt.pts[0], d); status(`Girar: ${(-d * 180 / Math.PI).toFixed(1)}° · clique para aplicar · Esc cancela`);
+  }
+  canvas.requestRenderAll();
+});
+canvas.on('after:render', ({ ctx } = {}) => {
+  if (!ctx || exporting) return;
+  doc.guides.forEach(g => { if (g.o === 'a') drawAngledGuide(ctx, g, (guideDrag && guideDrag.g === g) ? '#ff5632' : BRAND, 1); });
+  if (!xt || xt.tool !== tool) return;
+  const v = canvas.viewportTransform, S = q => [q.x * v[0] + v[4], q.y * v[3] + v[5]];
+  ctx.save(); ctx.strokeStyle = '#ff5632'; ctx.fillStyle = '#ff5632'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+  const poly = (pts, close) => { if (!pts || pts.length < 2) return; ctx.beginPath(); ctx.moveTo(...S(pts[0])); pts.slice(1).forEach(q => ctx.lineTo(...S(q))); if (close) ctx.closePath(); ctx.stroke(); };
+  if (tool === 'aguide' && xt.pts.length && xt.cur) { const a = xt.pts[0]; if (Math.hypot(xt.cur.x - a.x, xt.cur.y - a.y) > 0) drawAngledGuide(ctx, { x: a.x, y: a.y, ang: -angOf(a, xt.cur) * 180 / Math.PI }, '#ff5632', 1); }
+  if (tool === 'rrect') { const pr = rrectPreview(); if (pr) poly(pr, false); if (xt.pts.length === 2 && xt.cur) { const w = rrectWidth(xt.cur); status(`Largura ${Math.abs(pt2mm(w)).toFixed(1)} mm · clique para concluir`); } else if (xt.pts.length === 1 && xt.cur) status(`Comprimento ${pt2mm(Math.hypot(xt.cur.x - xt.pts[0].x, xt.cur.y - xt.pts[0].y)).toFixed(1)} mm · ${(-angOf(xt.pts[0], xt.cur) * 180 / Math.PI).toFixed(1)}°`); }
+  if (tool === 'rotpt' && xt.pts.length) { ctx.setLineDash([]); const c = S(xt.pts[0]); ctx.beginPath(); ctx.arc(c[0], c[1], 5, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([5, 4]); if (xt.pts[1]) poly([xt.pts[0], xt.pts[1]]); if (xt.cur) poly([xt.pts[0], xt.cur]); }
+  if (tool === 'trim' && xt.hover) { ctx.setLineDash([]); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,86,50,.85)'; poly([xt.hover.A, xt.hover.B]); }
+  if (xt.pts.length) { ctx.setLineDash([]); xt.pts.forEach(q => { const s = S(q); ctx.fillRect(s[0] - 3, s[1] - 3, 6, 6); }); }
+  ctx.restore();
+});
+
+/* --- Alt + arrastar: deixa uma cópia no lugar e leva o original --- */
+let altDup = false;
+canvas.on('object:moving', opt => {
+  const e = opt.e, t = opt.target, tr = opt.transform;
+  if (altDup || !e || !e.altKey || !t || t.kvTemp || isLk(t) || !tr || !tr.original) return;
+  altDup = true;
+  const objs = t.type === 'activeSelection' ? t.getObjects().slice() : [t];
+  const idxs = objs.map(o => canvas.getObjects().indexOf(o));
+  const M = t.type === 'activeSelection' ? fabric.util.composeMatrix({ translateX: tr.original.left + (t.width * t.scaleX) / 2, translateY: tr.original.top + (t.height * t.scaleY) / 2, angle: t.angle, scaleX: t.scaleX, scaleY: t.scaleY }) : null;
+  objs.forEach((o, k) => o.clone(c => {
+    if (M) { const q = fabric.util.transformPoint(new fabric.Point(o.left, o.top), M); const ctr = fabric.util.transformPoint(o.getCenterPoint(), M); c.set({ angle: (o.angle || 0) + (t.angle || 0) }); c.setPositionByOrigin(ctr, 'center', 'center'); }
+    else c.set({ left: tr.original.left, top: tr.original.top });
+    c.kvId = uid(); c.kvName = (o.kvName || 'Elemento') + ' (cópia)'; if (c.type === 'image') c.objectCaching = false;
+    canvas.insertAt(c, Math.max(0, idxs[k])); applyObjState(c); c.setCoords(); canvas.requestRenderAll();
+  }, PROPS));
+  status('Alt: cópia deixada no lugar — solte o Alt para voltar a encaixar');
+});
+canvas.on('mouse:up', () => { if (altDup) { altDup = false; setTimeout(() => { commit(); scheduleLayers(); }, 50); } });
+
 canvas.on('mouse:dblclick', opt => {
   if (drawState && drawState.pts) { finishDraw(); return; }
   if (tool === 'select') { const g = hitGuide(opt.e); if (g) { doc.guides.splice(doc.guides.indexOf(g), 1); guideDrag = null; invalidateSnap(); canvas.requestRenderAll(); commit(); toast('Guia removida.'); return; } }
@@ -7167,6 +7407,8 @@ function groupSel() {
 function ungroupSel() { const a = canvas.getActiveObject(); if (!a || a.type !== 'group') return; a.toActiveSelection(); canvas.requestRenderAll(); commit(); refreshPanel(); }
 $('#obj-dup').onclick = duplicate; $('#obj-lock').onclick = toggleLock; $('#obj-del').onclick = deleteSel;
 $('#obj-group').onclick = groupSel; $('#obj-ungroup').onclick = ungroupSel;
+$('#c-group').onclick = groupSel; $('#c-ungroup').onclick = ungroupSel; $('#c-rotpt').onclick = startRotateAround;
+['#xt-ang', '#xt-len', '#xt-wid'].forEach(id => $(id).addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (!xtEnter()) toast(xt && xt.pts.length ? 'Valor incompleto.' : 'Clique o primeiro ponto antes de digitar os valores.'); } }));
 
 /* A folha ativa acompanha o elemento selecionado: copiar e colar cai na folha em que você está trabalhando */
 function followSelectionSheet() {
@@ -8151,7 +8393,7 @@ tabs.forEach((t, i) => {
 });
 
 const typing = e => { const t = e.target, a = canvas.getActiveObject(); return (a && a.isEditing) || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable; };
-const KEYTOOLS = { k: 'dim', u: 'curve', p: 'pencil', d: 'measure', f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
+const KEYTOOLS = { j: 'aguide', w: 'rrect', x: 'trim', k: 'dim', u: 'curve', p: 'pencil', d: 'measure', f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
 document.addEventListener('keydown', e => {
   if (typing(e)) return;
   const k = e.key, mod = e.ctrlKey || e.metaKey;
@@ -8170,7 +8412,14 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (cropState) { if (k === 'Enter') { e.preventDefault(); applyCrop(); } if (k === 'Escape') exitCrop(); return; }
-  if (k === 'Escape') { if (drawState) cancelDraw(); else if (editingPoly) togglePolyEdit(false); else if (tool !== 'select') setTool('select'); else { canvas.discardActiveObject(); canvas.requestRenderAll(); } return; }
+  if (k === 'Escape') {
+    /* Esc sai do comando e volta para Selecionar (polilinha/polígono/curva em andamento são concluídos, não perdidos) */
+    if (xt && XT_TOOLS.includes(tool)) { xtReset(false); setTool('select'); return; }
+    if (drawState) { const s = drawState; if (s.pts && (((s.type === 'polyline' || s.type === 'curve') && s.pts.length >= 2) || (s.type === 'polygon' && s.pts.length >= 3))) finishDraw(); else cancelDraw(); setTool('select'); }
+    else if (editingPoly) togglePolyEdit(false); else if (tool !== 'select') setTool('select'); else { canvas.discardActiveObject(); canvas.requestRenderAll(); }
+    return;
+  }
+  if (k === 'Enter' && xt && XT_TOOLS.includes(tool) && xtEnter()) { e.preventDefault(); return; }
   if (k === 'Enter' && drawState && drawState.pts) { e.preventDefault(); finishDraw(); return; }
   if (k === 'Backspace' && drawState && drawState.pts) { drawState.pts.pop(); if (!drawState.pts.length) cancelDraw(); else drawPreview(); return; }
   if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); deleteSel(); return; }
@@ -8196,6 +8445,7 @@ document.addEventListener('keydown', e => {
   if (e.shiftKey && lk === 'v') return mirrorSel('v');
   if (lk === 'i') return $('#in-image').click();
   if (lk === 'c') return enterCrop(activeImage());
+  if (lk === 'o') return startRotateAround();
   const t = KEYTOOLS[lk]; if (t) setTool(t);
 });
 document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; setCursorOnce(tool === 'pan' ? 'grab' : DRAW_TOOLS.includes(tool) ? 'crosshair' : 'default'); } });
