@@ -482,6 +482,12 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn" id="c-fill-none" aria-pressed="false" aria-label="Sem preenchimento" title="Sem preenchimento"><span data-icon="slash"></span></button>
     <label class="sr-only" for="c-fill-a">Opacidade do preenchimento em porcentagem</label>
     <input type="number" id="c-fill-a" class="fill-alpha" min="0" max="100" step="5" title="Opacidade do preenchimento (%)"><span class="unit fill-alpha">%</span>
+    <label class="sr-only" for="c-hatch">Padrão do preenchimento</label>
+    <select id="c-hatch" title="Padrão do preenchimento: sólido ou hachura vetorial" style="width:150px"><option value="">Sólido</option></select>
+    <span class="hatch-opt" hidden><span class="unit" title="Ângulo">∠</span><label class="sr-only" for="c-hang2">Ângulo da hachura em graus</label><input type="number" id="c-hang2" min="-180" max="180" step="5" style="width:56px" title="Ângulo da hachura (°)"><span class="unit">°</span></span>
+    <span class="hatch-opt" hidden><span class="unit" title="Espaçamento">⇹</span><label class="sr-only" for="c-hsp">Espaçamento da hachura em milímetros</label><input type="number" id="c-hsp" min="0.3" max="100" step="0.5" style="width:56px" title="Espaçamento da hachura (mm)"><span class="unit">mm</span></span>
+    <span class="hatch-opt" hidden><span class="unit" title="Espessura da linha">≡</span><label class="sr-only" for="c-hlw">Espessura da linha da hachura em milímetros</label><input type="number" id="c-hlw" min="0.05" max="5" step="0.05" style="width:56px" title="Espessura da linha da hachura (mm) — nos pontos, é o diâmetro"><span class="unit">mm</span></span>
+    <span class="hatch-opt" hidden><input type="color" id="c-hbg" title="Fundo da hachura"><button class="icon-btn" id="c-hbg-none" aria-pressed="true" aria-label="Hachura sem fundo" title="Sem fundo (transparente)"><span data-icon="slash"></span></button></span>
   </div>
   <div class="cg" id="cg-dim" hidden>
     <span class="cg-label">Cota</span>
@@ -1134,7 +1140,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V89 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V90 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1193,7 +1199,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V89 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V90 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1209,7 +1215,7 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvAxo','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
@@ -2730,7 +2736,118 @@ function createText(p) {
   canvas.setActiveObject(t); t.enterEditing(); t.selectAll(); canvas.requestRenderAll(); refreshCtx();
 }
 const counters = {};
+
+/* ================= Hachuras vetoriais (preenchimento por padrão) =================
+   kvHatch = { type, ang (°), sp (pt), lw (pt), bg (cor ou '') }. A cor e a opacidade da hachura são as do preenchimento.
+   Espaçamento e espessura são medidas da folha: não mudam ao redimensionar a forma. Saem como vetor no PDF/SVG. */
+const HATCHES = {
+  lines:    { label: 'Linhas paralelas', ang: 45, sp: 2, lw: 0.18 },
+  cross:    { label: 'Cruzado', ang: 45, sp: 2.5, lw: 0.18 },
+  grid:     { label: 'Quadriculado', ang: 0, sp: 3, lw: 0.18 },
+  dashes:   { label: 'Tracejado (aterro)', ang: 0, sp: 2, lw: 0.18 },
+  dots:     { label: 'Pontos (areia)', ang: 0, sp: 1.5, lw: 0.35 },
+  brick:    { label: 'Tijolo / alvenaria', ang: 0, sp: 2.5, lw: 0.18 },
+  concrete: { label: 'Concreto', ang: 0, sp: 4, lw: 0.18 },
+  earth:    { label: 'Terra / solo', ang: 45, sp: 3, lw: 0.18 },
+  zigzag:   { label: 'Isolamento (ziguezague)', ang: 0, sp: 3, lw: 0.18 },
+  water:    { label: 'Água (ondas)', ang: 0, sp: 3, lw: 0.18 }
+};
+const hasHatch = o => !!(o && o.kvHatch && o.kvHatch.type && HATCHES[o.kvHatch.type]);
+const hatchable = o => !!o && !noFill(o) && !isText(o) && !isDim(o) && o.type !== 'group' && !o.kvIcon;
+function hatchRng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+/* geometria da hachura no espaço local do objeto (centro na origem): segmentos, polilinhas abertas, triângulos e pontos */
+const hatchCache = new Map();
+function hatchGeom(o) {
+  const h = o.kvHatch, k = ((Math.abs(o.scaleX) || 1) + (Math.abs(o.scaleY) || 1)) / 2, w = o.width + 2, hh = o.height + 2;
+  const key = [h.type, h.ang, h.sp, h.lw, w.toFixed(1), hh.toFixed(1), k.toFixed(4)].join('|');
+  if (hatchCache.has(key)) return hatchCache.get(key);
+  let s = Math.max(0.3, h.sp) / k; const R = Math.hypot(w, hh) / 2 + s, segs = [], polys = [], tris = [], dots = [];
+  /* limite de segurança: formas enormes com espaçamento minúsculo */
+  const est = (2 * R / s) * (2 * R / s); if (est > 60000 && ['dots', 'concrete', 'brick', 'dashes', 'earth'].includes(h.type)) s *= Math.sqrt(est / 60000);
+  if ((2 * R / s) > 4000) s = 2 * R / 4000;
+  const rot = (deg) => { const a = deg * Math.PI / 180, c = Math.cos(a), si = Math.sin(a); return (x, y) => [x * c - y * si, x * si + y * c]; };
+  const A = -(h.ang || 0), T = rot(A);   // ângulo no sentido usual do desenho (45° = subindo para a direita)
+  const family = (deg) => { const t2 = rot(deg); for (let y = -R; y <= R; y += s) { segs.push([...t2(-R, y), ...t2(R, y)]); } };
+  if (h.type === 'lines') family(A);
+  else if (h.type === 'cross') { family(A); family(A + 90); }
+  else if (h.type === 'grid') { family(A); family(A + 90); }
+  else if (h.type === 'dashes') {
+    let row = 0; for (let y = -R; y <= R; y += s, row++) for (let x = -R + (row % 2) * s; x <= R; x += 2 * s) segs.push([...T(x, y), ...T(x + s, y)]);
+  } else if (h.type === 'dots') {
+    const r = Math.max(0.05, h.lw / 2) / k; let row = 0;
+    for (let y = -R; y <= R; y += s, row++) for (let x = -R + (row % 2) * s / 2; x <= R; x += s) dots.push([...T(x, y), r]);
+  } else if (h.type === 'brick') {
+    let row = 0; for (let y = -R; y <= R; y += s, row++) { segs.push([...T(-R, y), ...T(R, y)]); for (let x = -R + (row % 2) * s; x <= R; x += 2 * s) segs.push([...T(x, y), ...T(x, y + s)]); }
+  } else if (h.type === 'concrete') {
+    const rnd = hatchRng(Math.round(h.sp * 1000) + 7), r = Math.max(0.05, h.lw * 0.9) / k;
+    for (let y = -R; y <= R; y += s) for (let x = -R; x <= R; x += s) {
+      const cx = x + rnd() * s, cy = y + rnd() * s, sz = s * (0.18 + rnd() * 0.14), a0 = rnd() * Math.PI * 2;
+      tris.push([0, 1, 2].map(i => { const a = a0 + i * 2.1 + rnd() * 0.5; return [cx + Math.cos(a) * sz, cy + Math.sin(a) * sz]; }));
+      for (let n = 0; n < 3; n++) dots.push([x + rnd() * s, y + rnd() * s, r]);
+    }
+  } else if (h.type === 'earth') {
+    family(A); const r = Math.max(0.05, h.lw * 0.8) / k, rnd = hatchRng(11), T2 = rot(A);
+    for (let y = -R + s / 2; y <= R; y += s) for (let x = -R; x <= R; x += s) dots.push([...T2(x + rnd() * s, y + (rnd() - 0.5) * s * 0.3), r]);
+  } else if (h.type === 'zigzag') {
+    for (let y = -R; y <= R; y += s) { const pl = []; for (let x = -R, i = 0; x <= R + s; x += s / 2, i++) pl.push(T(x, y + (i % 2 ? s * 0.8 : 0))); polys.push(pl); }
+  } else if (h.type === 'water') {
+    for (let y = -R; y <= R; y += s) { const pl = []; for (let x = -R; x <= R + s; x += s / 8) pl.push(T(x, y + Math.sin(x / s * Math.PI) * s * 0.18)); polys.push(pl); }
+  }
+  const g = { segs, polys, tris, dots, lw: Math.max(0.05, h.lw) / k };
+  if (hatchCache.size > 200) hatchCache.clear();
+  hatchCache.set(key, g); return g;
+}
+function hatchPath2D(g) {
+  const p = new Path2D(), f = new Path2D();
+  g.segs.forEach(s => { p.moveTo(s[0], s[1]); p.lineTo(s[2], s[3]); });
+  g.polys.forEach(pl => { p.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => p.lineTo(q[0], q[1])); });
+  g.tris.forEach(t => { p.moveTo(t[0][0], t[0][1]); p.lineTo(t[1][0], t[1][1]); p.lineTo(t[2][0], t[2][1]); p.closePath(); });
+  g.dots.forEach(d => { f.moveTo(d[0] + d[2], d[1]); f.arc(d[0], d[1], d[2], 0, Math.PI * 2); });
+  return { p, f };
+}
+/* na tela e nos PDFs como imagem: desenha dentro do contorno da forma, sem mexer no caminho que o Fabric usa para o traço */
+const _origRenderFill = fabric.Object.prototype._renderFill;
+fabric.Object.prototype._renderFill = function (ctx) {
+  if (!hasHatch(this)) return _origRenderFill.call(this, ctx);
+  const rule = this.fillRule === 'evenodd' ? 'evenodd' : 'nonzero', h = this.kvHatch;
+  ctx.save();
+  if (h.bg) { ctx.fillStyle = h.bg; ctx.fill(rule); }
+  ctx.clip(rule);
+  const g = hatchGeom(this), { p, f } = hatchPath2D(g), col = this.fill && this.fill !== 'transparent' ? this.fill : 'rgba(0,0,0,1)';
+  ctx.setLineDash([]); ctx.lineWidth = g.lw; ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+  ctx.stroke(p); if (g.dots.length) ctx.fill(f);
+  ctx.restore();
+};
+/* no PDF vetorial e no SVG: a hachura vira linhas/pontos de verdade, recortados pelo contorno da forma */
+function hatchSVG(o) {
+  const g = hatchGeom(o), id = 'kvh' + uid(), h = o.kvHatch;
+  const shape = [].concat(o._toSVG()).join('').replace('COMMON_PARTS', o.fillRule === 'evenodd' ? ' clip-rule="evenodd" ' : ' ');
+  const col = new fabric.Color(o.fill && o.fill !== 'transparent' ? o.fill : 'rgba(0,0,0,1)'), f = n => +n.toFixed(3);
+  let d = '';
+  g.segs.forEach(s => { d += `M${f(s[0])} ${f(s[1])}L${f(s[2])} ${f(s[3])}`; });
+  g.polys.forEach(pl => { d += 'M' + pl.map(q => `${f(q[0])} ${f(q[1])}`).join('L'); });
+  g.tris.forEach(t => { d += `M${f(t[0][0])} ${f(t[0][1])}L${f(t[1][0])} ${f(t[1][1])}L${f(t[2][0])} ${f(t[2][1])}Z`; });
+  let dd = ''; g.dots.forEach(p => { const r = f(p[2]); dd += `M${f(p[0] - r)} ${f(p[1])}a${r} ${r} 0 1 0 ${f(2 * r)} 0a${r} ${r} 0 1 0 ${f(-2 * r)} 0`; });
+  const bg = h.bg ? new fabric.Color(h.bg) : null;
+  return `<g ${o.getSvgTransform()}><clipPath id="${id}">${shape}</clipPath><g clip-path="url(#${id})">` +
+    (bg ? `<rect x="${f(-o.width)}" y="${f(-o.height)}" width="${f(o.width * 2)}" height="${f(o.height * 2)}" style="fill:${bg.toRgb()};fill-opacity:${bg.getAlpha()};stroke:none"/>` : '') +
+    (d ? `<path d="${d}" style="fill:none;stroke:${col.toRgb()};stroke-opacity:${col.getAlpha()};stroke-width:${f(g.lw)};stroke-linecap:butt;stroke-linejoin:miter"/>` : '') +
+    (dd ? `<path d="${dd}" style="fill:${col.toRgb()};fill-opacity:${col.getAlpha()};stroke:none"/>` : '') + `</g></g>\n`;
+}
+['Rect', 'Ellipse', 'Circle', 'Triangle', 'Polygon', 'Polyline', 'Path', 'Kvpolyline', 'Kvcurve'].forEach(cls => {
+  const P = fabric[cls] && fabric[cls].prototype; if (!P) return;
+  const orig = P.toSVG;
+  P.toSVG = function (reviver) {
+    if (!hasHatch(this) || this.__kvHatchSVG) return orig.call(this, reviver);   // classes que chamam a da classe-mãe: hachura uma vez só
+    const f0 = this.fill; this.fill = ''; this.__kvHatchSVG = true;
+    let base; try { base = orig.call(this, reviver); } finally { this.fill = f0; this.__kvHatchSVG = false; }
+    return hatchSVG(this) + base;
+  };
+});
+
+let defHatch = null;   // padrão de hachura para os próximos desenhos
 function addUser(obj, base, select) {
+  if (defHatch && !obj.kvHatch && hatchable(obj) && obj.fill && obj.fill !== 'transparent') obj.kvHatch = { ...defHatch };
   const sh = sheetOf(obj);
   const n = userObjects().filter(o => sheetOf(o).id === sh.id && (o.kvName || '').startsWith(base + ' ')).length + 1;
   obj.set({ kvId: uid(), kvName: obj.kvName || `${base} ${n}` });
@@ -6525,6 +6642,10 @@ function refreshCtx() {
   setVal('#c-width', Math.round(src.strokeMm * 100) / 100); setVal('#c-dash', src.dash);
   setVal('#c-dk', src.dk); setVal('#c-gk', src.gk); $$('.dash-k').forEach(el => { el.hidden = !src.dash || src.dash === 'solid'; });
   setVal('#c-fill', src.fill.hex); setPressed($('#c-fill-none'), src.fill.none); setVal('#c-fill-a', Math.round(src.fill.a * 100));
+  { const ho = t.length ? (t.find(hasHatch) || null) : null, hv = t.length ? (ho ? ho.kvHatch : null) : defHatch, hOk = !t.length || t.some(hatchable);
+    show('#c-hatch', hOk); setVal('#c-hatch', hv ? hv.type : '');
+    $$('.hatch-opt').forEach(el => { el.hidden = !hv || !hOk; });
+    if (hv) { setVal('#c-hang2', Math.round(hv.ang * 10) / 10); setVal('#c-hsp', r1(pt2mm(hv.sp))); setVal('#c-hlw', Math.round(pt2mm(hv.lw) * 100) / 100); setPressed($('#c-hbg-none'), !hv.bg); if (hv.bg) setVal('#c-hbg', colorParts(hv.bg).hex); } }
   setVal('#c-op', Math.round(src.opacity * 100)); setVal('#c-op-n', Math.round(src.opacity * 100));
   setVal('#c-head', Math.round(src.headMm * 10) / 10); setVal('#c-start', src.aStart); setVal('#c-end', src.aEnd);
   { const ho = first ? t.find(hasHeads) : null, hv = ho ? ho.headAngle : defStyle.headAngle, typ = src.aEnd !== 'none' ? src.aEnd : src.aStart; setVal('#c-hang', hv > 0 ? hv : ''); $('#c-hang').placeholder = /45/.test(typ) ? '45' : (typ === 'triangle' || typ === 'open') ? '24' : '—'; }
@@ -6721,6 +6842,30 @@ onChange('#c-width', () => applyStyle('width'), 'input');
 onChange('#c-dash', () => { applyStyle('dash'); $$('.dash-k').forEach(el => { el.hidden = $('#c-dash').value === 'solid'; }); });
 onChange('#c-dk', () => applyStyle('dashk'), 'input'); onChange('#c-gk', () => applyStyle('dashk'), 'input');
 $('#c-dk-reset').onclick = () => { setVal('#c-dk', 1); setVal('#c-gk', 1); applyStyle('dashk'); };
+$('#c-hatch').innerHTML = '<option value="">Sólido</option>' + Object.entries(HATCHES).map(([k, h]) => `<option value="${k}">${h.label}</option>`).join('');
+function readHatchUI(typeChanged) {
+  const type = $('#c-hatch').value; if (!type) return null;
+  const d = HATCHES[type];
+  if (typeChanged) { $('#c-hang2').value = d.ang; $('#c-hsp').value = d.sp; $('#c-hlw').value = d.lw; }
+  const bgNone = $('#c-hbg-none').getAttribute('aria-pressed') === 'true';
+  return { type, ang: parseFloat($('#c-hang2').value) || 0, sp: mm2pt(clamp(parseFloat($('#c-hsp').value) || d.sp, 0.3, 100)), lw: mm2pt(clamp(parseFloat($('#c-hlw').value) || d.lw, 0.05, 5)), bg: bgNone ? '' : rgba($('#c-hbg').value, 1) };
+}
+function applyHatch(typeChanged) {
+  const hv = readHatchUI(typeChanged);
+  $$('.hatch-opt').forEach(el => { el.hidden = !hv; });
+  const t = targets().filter(hatchable);
+  if (!t.length) { defHatch = hv; return; }
+  t.forEach(o => {
+    if (hv && (!o.fill || o.fill === 'transparent' || o.fill === '')) o.set('fill', rgba($('#c-fill').value, (clamp(+$('#c-fill-a').value || 100, 0, 100) / 100) || 1));
+    o.kvHatch = hv ? { ...hv } : null; o.dirty = true;
+  });
+  if (hv) { setPressed($('#c-fill-none'), false); }
+  canvas.requestRenderAll(); commit();
+}
+$('#c-hatch').addEventListener('change', () => applyHatch(true));
+['#c-hang2', '#c-hsp', '#c-hlw'].forEach(id => onChange(id, () => applyHatch(false)));
+onChange('#c-hbg', () => { setPressed($('#c-hbg-none'), false); applyHatch(false); }, 'input');
+$('#c-hbg-none').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyHatch(false); };
 onChange('#c-fill', () => { setPressed($('#c-fill-none'), false); if (+$('#c-fill-a').value === 0) $('#c-fill-a').value = 100; applyStyle('fill'); }, 'input');
 $('#c-fill-none').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyStyle('fill'); };
 onChange('#c-fill-a', () => { setPressed($('#c-fill-none'), false); applyStyle('fill'); }, 'input');
