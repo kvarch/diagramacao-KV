@@ -596,6 +596,9 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <span class="unit sym-scale">1:</span><label class="sr-only" for="s-n">Escala numérica</label><input type="number" id="s-n" class="sym-scale" min="1" step="50" title="Escala (desativada quando vinculada à vista)">
     <label class="sr-only" for="s-len">Comprimento total em metros</label><input type="number" id="s-len" class="sym-scale" min="0" step="10" title="Comprimento total (m) — vazio = automático"><span class="unit sym-scale">m</span>
     <label class="sr-only" for="s-div">Divisões</label><input type="number" id="s-div" class="sym-scale" min="1" max="10" step="1" title="Divisões">
+    <span class="sym-level" hidden><label class="sr-only" for="s-val">Valor do nível</label><input type="text" id="s-val" style="width:84px" placeholder="+0,00" title="Valor do nível (texto livre, ex.: +3,00 · −1,50 · N.A. +2,30) — Enter aplica"></span>
+    <span class="sym-level" hidden><label class="sr-only" for="s-note">Observação do nível</label><input type="text" id="s-note" style="width:96px" placeholder="observação" title="Observação acima do valor (opcional, ex.: PISO ACABADO, LAJE)"></span>
+    <span class="sym-level" hidden><span class="unit" title="Tamanho do símbolo">⌀</span><label class="sr-only" for="s-lsize">Tamanho do símbolo em milímetros</label><input type="number" id="s-lsize" min="1" max="60" step="0.5" style="width:56px" title="Tamanho do símbolo (mm)"><span class="unit">mm</span></span>
     <button class="icon-btn" id="s-link" aria-pressed="true" aria-label="Vinculado à vista — clique para desvincular" title="Vinculado à vista (clique para desvincular)"><span data-icon="link"></span></button>
   </div>
   <div class="cg" id="cg-vertex" hidden>
@@ -610,6 +613,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn" id="c-z-up" aria-label="Subir na folha" title="Subir (Page Up)"><span data-icon="up"></span></button>
     <button class="icon-btn" id="c-z-down" aria-label="Descer na folha" title="Descer (Page Down)"><span data-icon="down"></span></button>
     <button class="icon-btn" id="c-z-bottom" aria-label="Enviar para o fundo da folha" title="Fundo (End)"><span data-icon="toBottom"></span></button>
+    <button class="icon-btn" id="c-sty-copy" aria-label="Copiar estilo (Ctrl+Alt+C)" title="Copiar estilo (Ctrl+Alt+C): cores, traço, tipo de linha, hachura, pontas, texto"><span data-icon="styleCopy"></span></button>
+    <button class="icon-btn" id="c-sty-paste" aria-label="Colar estilo (Ctrl+Alt+V)" title="Colar estilo (Ctrl+Alt+V) nos elementos selecionados" disabled><span data-icon="stylePaste"></span></button>
     <button class="icon-btn" id="c-rotpt" aria-label="Girar em torno de um ponto (O)" title="Girar em torno de um ponto (O): clique o centro, a referência e o destino — ou digite o ângulo"><span data-icon="rotatePt"></span></button>
     <button class="icon-btn" id="c-group" aria-label="Agrupar (Ctrl+G)" title="Agrupar (Ctrl+G)"><span data-icon="groupSm"></span></button>
     <button class="icon-btn" id="c-ungroup" aria-label="Desagrupar (Ctrl+Shift+G)" title="Desagrupar (Ctrl+Shift+G)"><span data-icon="ungroup"></span></button>
@@ -665,6 +670,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn tool" data-tool="mask" aria-label="Máscara de corte poligonal (M)" title="Máscara poligonal (M) — selecione uma imagem" aria-pressed="false"><span data-icon="crop"></span></button>
     <span class="hsep" aria-hidden="true"></span>
     <button class="icon-btn" id="tool-north" aria-label="Inserir indicação de norte" title="Símbolos de norte" aria-haspopup="menu" aria-expanded="false" aria-controls="sym-pop"><span data-icon="north"></span></button>
+    <button class="icon-btn" id="tool-level" aria-label="Inserir símbolo de nível" title="Nível — planta e corte" aria-haspopup="menu" aria-expanded="false" aria-controls="sym-pop"><span data-icon="levelMark"></span></button>
     <button class="icon-btn" id="tool-scalebar" aria-label="Inserir escala gráfica" title="Escalas gráficas" aria-haspopup="menu" aria-expanded="false" aria-controls="sym-pop"><span data-icon="ruler"></span></button>
   </nav>
 
@@ -1152,7 +1158,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V91 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V93 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1165,6 +1171,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="sym-grid" id="sym-north-grid"></div>
   <p class="shape-pop-h" style="margin-top:12px">Escala gráfica</p>
   <div class="sym-grid" id="sym-scale-grid"></div>
+  <p class="shape-pop-h" style="margin-top:12px">Nível (planta e corte)</p>
+  <div class="sym-grid" id="sym-level-grid"></div>
   <p class="info" id="sym-hint"></p>
 </div>
 <div class="color-pop" id="color-pop" role="dialog" aria-label="Escolher cor" hidden>
@@ -1211,7 +1219,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V91 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V93 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1232,6 +1240,9 @@ const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvLocked','kvHidden',
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
 const ICONS = {
+  styleCopy:'<path d="M5 3h10v6H5z"/><path d="M10 9v4"/><path d="M8 13h4v8H8z"/><path d="M15 6h3v4h-8"/>',
+  stylePaste:'<path d="M5 3h10v6H5z"/><path d="M10 9v4"/><path d="M8 13h4v8H8z"/><path d="m15 17 2 2 4-4"/>',
+  levelMark:'<path d="M3 19h18"/><path d="M8 9h8l-4 10z"/><path d="M8 9h0"/><path d="M12 9h8"/>',
   rotRect:'<path d="M4 15 13 4l7 6-9 11z"/>',
   trimTool:'<path d="M4 20 20 4"/><path d="M4 8h7" stroke-dasharray="2 2"/><path d="M13 16h7"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>',
   aguide:'<path d="M3 19 21 5" stroke-dasharray="3 2"/><circle cx="8" cy="15" r="1.6" fill="currentColor"/>',
@@ -4540,9 +4551,51 @@ const SCALE_STYLES = [['ticksLine', 'Linha com marcas'], ['stepped', 'Degraus'],
 const LEGACY_SYM = { classic: 'arrowCircle', triangle: 'triN', circle: 'arrowCircle', star4: 'construct', rose8: 'construct', minimal: 'arrowSmall', alt: 'barAltSub', double: 'barDouble', line: 'ticksLine' };
 const SYM_DEF = {
   north: { kind: 'north', style: 'crossN', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', sizeMm: 18, label: true, link: null },
-  scale: { kind: 'scale', style: 'barAltSub', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', N: 1000, lengthM: 0, div: 4, heightMm: 2.2, fontPt: 6.5, title: true, link: null }
+  scale: { kind: 'scale', style: 'barAltSub', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', N: 1000, lengthM: 0, div: 4, heightMm: 2.2, fontPt: 6.5, title: true, link: null },
+  level: { kind: 'level', style: 'planQuad', c1: 'rgba(0,0,0,1)', c2: 'rgba(255,255,255,1)', sizeMm: 4, fontPt: 10, value: '+0,00', note: '', lineMm: null, link: null }
 };
-const lastSym = { north: { ...SYM_DEF.north }, scale: { ...SYM_DEF.scale } };
+/* Nível: em planta (círculo dividido) e em corte (triângulo sobre a linha de nível), com o valor como texto integrado */
+const LEVEL_STYLES = [['planQuad', 'Planta · círculo com quadrantes'], ['planCross', 'Planta · círculo com cruz'], ['planBox', 'Planta · valor em retângulo'], ['secHalf', 'Corte · triângulo meio cheio'], ['secFull', 'Corte · triângulo cheio'], ['secOpen', 'Corte · triângulo vazado']];
+function levelItems(p) {
+  const it = [], c1 = p.c1, c2 = p.c2, O = { objectCaching: false }, S = mm2pt(p.sizeMm || 4), R = S / 2;
+  const sw = p.lineMm > 0 ? mm2pt(p.lineMm) : Math.max(mm2pt(0.1), S * 0.035), fs = p.fontPt || 7, gap = S * 0.35;
+  const val = String(p.value ?? '').trim() || '+0,00', note = String(p.note || '').trim();
+  const txt = (t, x, y, o = {}) => { const T = new fabric.Text(t, { left: x, top: y, fontSize: fs, fontFamily: 'Hind', fill: c1, originX: 'left', originY: 'bottom', ...O, ...o }); it.push(T); return T; };
+  const line = (x1, y1, x2, y2) => it.push(new fabric.Line([x1, y1, x2, y2], { stroke: c1, strokeWidth: sw, strokeLineCap: 'butt', ...O }));
+  if (p.style && p.style.startsWith('plan')) {
+    if (p.style === 'planBox') {
+      const T = new fabric.Text(val, { fontSize: fs, fontFamily: 'Hind', fontWeight: 600, fill: c1, originX: 'center', originY: 'center', left: 0, top: 0, ...O });
+      const w = T.width + fs * 0.9, h = fs * 1.5;
+      it.push(new fabric.Rect({ left: -w / 2, top: -h / 2, width: w, height: h, fill: c2, stroke: c1, strokeWidth: sw, ...O })); it.push(T);
+      if (note) txt(note, -w / 2, -h / 2 - fs * 0.15, { fontSize: fs * 0.8 });
+      return it;
+    }
+    it.push(new fabric.Circle({ left: -R, top: -R, radius: R, fill: c2, stroke: c1, strokeWidth: sw, ...O }));
+    if (p.style === 'planQuad') {
+      it.push(new fabric.Path(`M 0 0 L ${R} 0 A ${R} ${R} 0 0 0 0 ${-R} Z`, { fill: c1, stroke: null, strokeWidth: 0, ...O }));
+      it.push(new fabric.Path(`M 0 0 L ${-R} 0 A ${R} ${R} 0 0 0 0 ${R} Z`, { fill: c1, stroke: null, strokeWidth: 0, ...O }));
+    }
+    /* referência KV: eixos passam além do círculo; o horizontal segue à direita como linha de base do valor */
+    const ext = R * 0.95, tx = R + gap, ty = -sw * 1.2 - fs * 0.04;
+    const T = new fabric.Text(val, { fontSize: fs, fontFamily: 'Hind', fill: c1, originX: 'left', originY: 'bottom', left: tx, top: ty, ...O });
+    const N = note ? new fabric.Text(note, { fontSize: fs * 0.75, fontFamily: 'Hind', fill: c1, originX: 'left', originY: 'bottom', left: tx, top: ty - fs * 1.02, ...O }) : null;
+    const xEnd = tx + Math.max(T.width, N ? N.width : 0) + gap * 0.4;
+    line(-R - ext, 0, xEnd, 0); line(0, -R - ext, 0, R + ext);
+    it.push(T); if (N) it.push(N);
+    return it;
+  }
+  /* corte: vértice do triângulo na linha de nível (y = 0); valor sobre o traço, à direita */
+  const H = S * 0.87, a = S / 2, T0 = new fabric.Text(val, { fontSize: fs, fontFamily: 'Hind', fontWeight: 600, ...O }), L = Math.max(T0.width, note ? T0.width : 0) + gap * 2;
+  line(-a * 1.8, 0, a * 1.8, 0);
+  const tri = [{ x: -a, y: -H }, { x: a, y: -H }, { x: 0, y: 0 }];
+  it.push(new fabric.Polygon(tri, { fill: p.style === 'secFull' ? c1 : c2, stroke: c1, strokeWidth: sw, strokeLineJoin: 'miter', ...O }));
+  if (p.style === 'secHalf') it.push(new fabric.Polygon([{ x: -a, y: -H }, { x: 0, y: -H }, { x: 0, y: 0 }], { fill: c1, stroke: null, strokeWidth: 0, ...O }));
+  line(0, -H, a + L, -H);
+  txt(val, a + gap * 0.6, -H - sw - fs * 0.08, { fontWeight: 600 });
+  if (note) txt(note, a + gap * 0.6, -H - sw - fs * 1.15, { fontSize: fs * 0.8 });
+  return it;
+}
+const lastSym = { north: { ...SYM_DEF.north }, scale: { ...SYM_DEF.scale }, level: { ...SYM_DEF.level } };
 const PT_M = 0.0254 / 72;   // metros de papel por pt
 
 /* Georreferência de imagens: kvGeo = { mpp (m por px natural), bearing (°), source, approx } */
@@ -4691,22 +4744,24 @@ function buildSymbolGroup(p) {
   if (LEGACY_SYM[p.style]) p.style = LEGACY_SYM[p.style];
   let items;
   if (p.kind === 'north') items = northItems(p);
+  else if (p.kind === 'level') items = levelItems(p);
   else {
     const img = imgById(p.link), N = imageN(img) || p.N || 1000;
     p.N = Math.round(N);
     const r = scaleItems(p, N); items = r.items; p._total = r.total;
   }
   const g = new fabric.Group(items, { kvSym: p, objectCaching: false });
-  if (p.kind === 'north') g.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false, mtr: !p.link });
+  if (p.kind === 'north' || p.kind === 'level') g.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false, mtr: p.kind === 'level' || !p.link });
   if (p.kind === 'north' && p.link) g.lockRotation = true;
   return g;
 }
-function symbolName(p) { return p.kind === 'north' ? 'Norte' : `Escala gráfica`; }
+function symbolName(p) { return p.kind === 'north' ? 'Norte' : p.kind === 'level' ? 'Nível ' + (p.value || '') : `Escala gráfica`; }
 
 function insertSymbol(kind, style) {
   const a = canvas.getActiveObject();
   const img = a && a.type === 'image' ? a : (a && a.type === 'activeSelection' ? a.getObjects().find(o => o.type === 'image') : null);
   const p = JSON.parse(JSON.stringify(lastSym[kind])); p.kind = kind; if (style) p.style = style; p.link = null;
+  if (kind === 'level') { const g = buildSymbolGroup(p), c = viewCenter(); g.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center'); addUser(g, symbolName(p), true); status('Nível inserido — edite o valor no campo “Valor” da barra superior'); setTimeout(() => { const v = $('#s-val'); if (v) { v.focus(); v.select(); } }, 80); return; }
   if (img && img.kvGeo) p.link = img.kvId;
   if (kind === 'scale' && !p.link) p.N = +activeSheet().stamp.escala || p.N || 1000;
   const g = buildSymbolGroup(p);
@@ -4728,10 +4783,11 @@ function rebuildSymbol(old, patch, keepSel = true) {
   const g = buildSymbolGroup(p);
   const img = imgById(p.link);
   g.set({
-    scaleX: p.kind === 'north' ? old.scaleX : 1, scaleY: p.kind === 'north' ? old.scaleY : 1,
+    scaleX: p.kind === 'north' || p.kind === 'level' ? old.scaleX : 1, scaleY: p.kind === 'north' || p.kind === 'level' ? old.scaleY : 1,
     angle: p.kind === 'north' && img && img.kvGeo ? northAngleFor(img) : old.angle,
     opacity: old.opacity, kvId: old.kvId, kvName: old.kvName, kvLocked: old.kvLocked, kvHidden: old.kvHidden
   });
+  if (p.kind === 'level' && old.kvName && /^Nível/.test(old.kvName)) g.kvName = symbolName(p);
   g.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center');
   restoring = true; canvas.remove(old); canvas.insertAt(g, idx); restoring = false;
   applyObjState(g);
@@ -4764,7 +4820,19 @@ function symTarget() { const a = canvas.getActiveObject(); return a && a.kvSym ?
 function refreshSymUI() {
   const g = symTarget(); show('#cg-symbol', !!g); show('#sec-symbol', !!g);
   if (!g) return;
-  const p = g.kvSym, north = p.kind === 'north', img = imgById(p.link);
+  const p = g.kvSym, north = p.kind === 'north', level = p.kind === 'level', img = imgById(p.link);
+  $$('.sym-level').forEach(el => { el.hidden = !level; });
+  if (level) {
+    const sel = $('#s-style'); if (sel.dataset.kind !== 'level') { sel.innerHTML = LEVEL_STYLES.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); sel.dataset.kind = 'level'; }
+    setVal('#s-style', p.style); setVal('#s-c1', colorParts(p.c1).hex); setVal('#s-c2', colorParts(p.c2).hex);
+    $$('.sym-scale, .sym-north').forEach(el => { el.hidden = true; }); $('#s-link').hidden = true;
+    if (document.activeElement !== $('#s-val')) setVal('#s-val', p.value || ''); if (document.activeElement !== $('#s-note')) setVal('#s-note', p.note || '');
+    setVal('#s-lsize', r1((p.sizeMm || 4) * Math.abs(g.scaleX)));
+    setVal('#s-lw', p.lineMm > 0 ? p.lineMm : ''); $('#s-lw').placeholder = 'auto';
+    setVal('#s-fs', p.fontPt); $('#s-fs').placeholder = '';
+    $('#s-link-info').textContent = 'Nível: edite o valor e a observação; o tamanho do símbolo e do texto não mudam ao trocar o estilo.';
+    return;
+  }
   const sel = $('#s-style'), opts = north ? NORTH_STYLES : SCALE_STYLES;
   if (sel.dataset.kind !== p.kind) { sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); sel.dataset.kind = p.kind; }
   setVal('#s-style', p.style); setVal('#s-c1', colorParts(p.c1).hex); setVal('#s-c2', colorParts(p.c2).hex);
@@ -4785,12 +4853,12 @@ function refreshSymUI() {
 function symPatch(patch, styleKeys = true) {
   const g = symTarget(); if (!g) return;
   const ng = rebuildSymbol(g, patch);
-  if (styleKeys) { const k = ng.kvSym.kind; ['style', 'c1', 'c2', 'div', 'heightMm', 'fontPt', 'title', 'labels', 'label', 'sizeMm', 'lineMm', 'labelPt'].forEach(x => { if (x in patch) lastSym[k][x] = patch[x]; }); }
+  if (styleKeys) { const k = ng.kvSym.kind; ['style', 'c1', 'c2', 'div', 'heightMm', 'fontPt', 'title', 'labels', 'label', 'sizeMm', 'lineMm', 'labelPt', 'note'].forEach(x => { if (x in patch && lastSym[k]) lastSym[k][x] = patch[x]; }); }
   commit(); refreshPanel();
 }
 $('#s-style').addEventListener('change', e => symPatch({ style: e.target.value }));
 $('#s-lw').addEventListener('change', e => { const v = parseFloat(e.target.value); symPatch({ lineMm: v > 0 ? clamp(v, 0.05, 10) : null }); });
-$('#s-fs').addEventListener('change', e => { const g = symTarget(); if (!g) return; const v = parseFloat(e.target.value); if (g.kvSym.kind === 'north') symPatch({ labelPt: v > 0 ? clamp(v, 3, 200) : null }); else if (v > 0) symPatch({ fontPt: clamp(v, 3, 72) }); });
+$('#s-fs').addEventListener('change', e => { const g = symTarget(); if (!g) return; const v = parseFloat(e.target.value); if (g.kvSym.kind === 'level') { if (v > 0) symPatch({ fontPt: clamp(v, 3, 72) }); return; } if (g.kvSym.kind === 'north') symPatch({ labelPt: v > 0 ? clamp(v, 3, 200) : null }); else if (v > 0) symPatch({ fontPt: clamp(v, 3, 72) }); });
 $('#s-ttoggle').onclick = () => { const g = symTarget(); if (!g || g.kvSym.kind !== 'scale') return; symPatch({ title: !g.kvSym.title }); };
 $('#s-ltoggle').onclick = () => { const g = symTarget(); if (!g || g.kvSym.kind !== 'scale') return; symPatch({ labels: g.kvSym.labels === false }); };
 $('#s-ntoggle').onclick = () => { const g = symTarget(); if (!g || g.kvSym.kind !== 'north') return; symPatch({ label: !g.kvSym.label }); };
@@ -4804,6 +4872,13 @@ $('#s-font').addEventListener('change', e => symPatch({ fontPt: clamp(parseFloat
 $('#s-title').addEventListener('change', e => symPatch({ title: e.target.checked }));
 $('#s-label').addEventListener('change', e => symPatch({ label: e.target.checked }));
 $('#s-size').addEventListener('change', e => { const g = symTarget(); if (!g) return; g.set({ scaleX: 1, scaleY: 1 }); symPatch({ sizeMm: clamp(parseFloat(e.target.value) || 18, 3, 300) }); });
+$('#s-val').addEventListener('change', e => symPatch({ value: e.target.value }, false));
+$('#s-val').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } e.stopPropagation(); });
+$('#s-note').addEventListener('change', e => symPatch({ note: e.target.value }, false));
+$('#s-note').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } e.stopPropagation(); });
+$('#s-lsize').addEventListener('change', e => { const g = symTarget(); if (!g) return; g.set({ scaleX: 1, scaleY: 1 }); symPatch({ sizeMm: clamp(parseFloat(e.target.value) || 4, 1, 60) }); });
+/* duplo clique num nível leva direto ao campo do valor */
+canvas.on('mouse:dblclick', opt => { const t = opt.target; if (t && t.kvSym && t.kvSym.kind === 'level') { canvas.setActiveObject(t); refreshPanel(); setTimeout(() => { $('#s-val').focus(); $('#s-val').select(); }, 50); } });
 $('#s-link').onclick = () => { const g = symTarget(); if (!g) return; const p = g.kvSym; symPatch({ link: null, N: p.N }, false); toast('Vínculo removido: o símbolo mantém os valores atuais.'); };
 
 /* Calibração de escala/norte da imagem (aba Objeto) */
@@ -4836,19 +4911,20 @@ $('#c-add-scale').onclick = $('#im-add-scale').onclick = () => insertSymbol('sca
 (function buildSymMenu() {
   const pop = $('#sym-pop');
   const tile = (kind, style, label) => {
-    const p = { ...SYM_DEF[kind], style, N: 1000, sizeMm: 14 };
+    const p = { ...SYM_DEF[kind], style, N: 1000, sizeMm: kind === 'level' ? 6 : 14, fontPt: kind === 'level' ? 9 : SYM_DEF[kind].fontPt };
     const g = buildSymbolGroup(p), bb = g.getBoundingRect(true, true), pad = 4;
     const svg = `<svg viewBox="${bb.left - pad} ${bb.top - pad} ${bb.width + pad * 2} ${bb.height + pad * 2}" aria-hidden="true" preserveAspectRatio="xMidYMid meet">${g.toSVG()}</svg>`;
     const b = document.createElement('button'); b.className = 'sym-tile'; b.setAttribute('role', 'menuitem'); b.title = label;
-    b.setAttribute('aria-label', (kind === 'north' ? 'Norte: ' : 'Escala: ') + label);
+    b.setAttribute('aria-label', (kind === 'north' ? 'Norte: ' : kind === 'level' ? 'Nível: ' : 'Escala: ') + label);
     b.innerHTML = svg + `<span>${label}</span>`;
     b.onclick = () => { closeSym(); lastSym[kind].style = style; insertSymbol(kind, style); };
     return b;
   };
   NORTH_STYLES.forEach(([s, l]) => $('#sym-north-grid').appendChild(tile('north', s, l)));
   SCALE_STYLES.forEach(([s, l]) => $('#sym-scale-grid').appendChild(tile('scale', s, l)));
+  LEVEL_STYLES.forEach(([s, l]) => $('#sym-level-grid').appendChild(tile('level', s, l)));
   let opener = null;
-  window.closeSym = () => { pop.hidden = true; [$('#tool-north'), $('#tool-scalebar')].forEach(b => b.setAttribute('aria-expanded', 'false')); };
+  window.closeSym = () => { pop.hidden = true; [$('#tool-north'), $('#tool-scalebar'), $('#tool-level')].forEach(b => b && b.setAttribute('aria-expanded', 'false')); };
   const open = (btn, section) => {
     if (!pop.hidden && opener === btn) { closeSym(); return; }
     opener = btn; pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
@@ -4861,7 +4937,8 @@ $('#c-add-scale').onclick = $('#im-add-scale').onclick = () => insertSymbol('sca
   };
   $('#tool-north').onclick = e => { e.stopPropagation(); open($('#tool-north'), '#sym-north-grid'); };
   $('#tool-scalebar').onclick = e => { e.stopPropagation(); open($('#tool-scalebar'), '#sym-scale-grid'); };
-  document.addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#tool-north,#tool-scalebar')) closeSym(); });
+  $('#tool-level').onclick = e => { e.stopPropagation(); open($('#tool-level'), '#sym-level-grid'); };
+  document.addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#tool-north,#tool-scalebar,#tool-level')) closeSym(); });
   pop.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSym(); opener && opener.focus(); } e.stopPropagation(); });
 })();
 
@@ -7331,10 +7408,28 @@ function moveInSheet(o, dir) {
   if (!nb) return false;
   canvas.moveTo(o, nb.k); return true;
 }
+/* Vários elementos: cada um anda uma posição (ou vai ao topo/fundo) mantendo a ordem relativa entre eles */
+function zorderMulti(objs, fn) {
+  const all = () => canvas.getObjects(), set = new Set(objs);
+  const sorted = (desc) => objs.slice().sort((a, b) => desc ? all().indexOf(b) - all().indexOf(a) : all().indexOf(a) - all().indexOf(b));
+  let moved = false;
+  if (fn === 'bringForward' || fn === 'sendBackwards') {
+    const up = fn === 'bringForward';
+    sorted(up).forEach(o => {
+      const sid = sheetOf(o).id, i = all().indexOf(o);
+      const same = all().map((x, k) => ({ x, k })).filter(e => !e.x.kvRole && !e.x.kvTemp && !set.has(e.x) && sheetOf(e.x).id === sid);
+      const nb = up ? same.find(e => e.k > i) : same.filter(e => e.k < i).pop();
+      if (nb) { canvas.moveTo(o, nb.k); moved = true; }
+    });
+  } else if (fn === 'bringToFront') { sorted(false).forEach(o => canvas.bringToFront(o)); moved = true; }
+  else { sorted(true).forEach(o => canvas.sendToBack(o)); moved = true; }
+  return moved;
+}
 function zorder(fn, target) {
   const a = target || canvas.getActiveObject(); if (!a || a.kvTemp) return;
   let moved = true;
-  if ((fn === 'bringForward' || fn === 'sendBackwards') && a.type !== 'activeSelection') moved = moveInSheet(a, fn === 'bringForward' ? 1 : -1);
+  if (a.type === 'activeSelection') { const objs = a.getObjects().slice(); canvas.discardActiveObject(); moved = zorderMulti(objs, fn); canvas.setActiveObject(new fabric.ActiveSelection(objs, { canvas })); }
+  else if (fn === 'bringForward' || fn === 'sendBackwards') moved = moveInSheet(a, fn === 'bringForward' ? 1 : -1);
   else canvas[fn](a);
   if (!moved) { status(fn === 'bringForward' ? 'Já é o elemento do topo desta folha' : 'Já é o elemento do fundo desta folha'); return; }
   raiseChrome(); canvas.requestRenderAll(); commit(); scheduleLayers();
@@ -7405,6 +7500,37 @@ function groupSel() {
   canvas.requestRenderAll(); commit(); refreshPanel();
 }
 function ungroupSel() { const a = canvas.getActiveObject(); if (!a || a.type !== 'group') return; a.toActiveSelection(); canvas.requestRenderAll(); commit(); refreshPanel(); }
+/* Copiar / colar estilo (cor, traço, tipo de linha, hachura, pontas, texto, caixa…) — Ctrl+Alt+C / Ctrl+Alt+V */
+let styleClip = null;
+const STY_STROKE = ['stroke', 'strokeWidth', 'strokeDashArray', 'kvDash', 'kvDashK', 'kvGapK', 'strokeUniform', 'strokeLineCap', 'strokeLineJoin'];
+const STY_FILL = ['fill', 'kvHatch'];
+const STY_HEADS = ['headSize', 'headAngle', 'arrowStart', 'arrowEnd'];
+const STY_TEXT = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fill', 'textAlign', 'lineHeight', 'charSpacing', 'underline', 'linethrough', 'paraSpace', 'boxFill', 'boxStroke', 'boxStrokeWidth', 'boxDash', 'boxPad', 'boxShape', 'boxSize'];
+const styleKeysFor = o => isText(o) ? STY_TEXT : o.kvIcon ? ['boxFill', 'boxStroke', 'boxStrokeWidth', 'boxDash', 'boxPad', 'boxShape', 'boxSize'] : (o.type === 'image' || o.kvSym || o.type === 'group') ? [] : [...STY_STROKE, ...(noFill(o) ? [] : STY_FILL), ...(hasHeads(o) ? STY_HEADS : [])];
+function copyStyle() {
+  const a = canvas.getActiveObjects().filter(o => !o.kvTemp)[0]; if (!a) { toast('Selecione o elemento de onde copiar o estilo.'); return; }
+  const keys = [...new Set([...STY_STROKE, ...STY_FILL, ...STY_HEADS, ...STY_TEXT, 'opacity'])];
+  styleClip = { from: a.type, text: isText(a), data: Object.fromEntries(keys.filter(k => a[k] !== undefined).map(k => [k, JSON.parse(JSON.stringify(a[k] ?? null))])) };
+  setPressed($('#c-sty-paste'), false); $('#c-sty-paste').disabled = false;
+  toast(`Estilo copiado de “${a.kvName || TYPE_LABEL[a.type] || 'elemento'}”. Selecione outros elementos e use Colar estilo (Ctrl+Alt+V).`);
+}
+function pasteStyle() {
+  if (!styleClip) { toast('Copie um estilo primeiro (Ctrl+Alt+C).'); return; }
+  const t = canvas.getActiveObjects().filter(o => !o.kvTemp && !isLk(o)); if (!t.length) { toast('Selecione os elementos que vão receber o estilo.'); return; }
+  let n = 0;
+  t.forEach(o => {
+    const keys = styleKeysFor(o).concat('opacity'), d = styleClip.data, patch = {};
+    keys.forEach(k => { if (k in d) { if (k === 'fill' && isText(o) !== styleClip.text) return; patch[k] = JSON.parse(JSON.stringify(d[k])); } });
+    if (!Object.keys(patch).length) return;
+    const hadHatch = 'kvHatch' in patch, kv = patch.kvHatch; delete patch.kvHatch;
+    o.set(patch); if (hadHatch) o.kvHatch = kv ? { ...kv } : null;
+    if (o.initDimensions) o.initDimensions();
+    o.dirty = true; o.setCoords(); n++;
+  });
+  canvas.requestRenderAll(); if (n) commit(); refreshPanel();
+  toast(n ? `Estilo aplicado em ${n} elemento(s).` : 'Os elementos selecionados não aceitam esse estilo.');
+}
+$('#c-sty-copy').onclick = copyStyle; $('#c-sty-paste').onclick = pasteStyle;
 $('#obj-dup').onclick = duplicate; $('#obj-lock').onclick = toggleLock; $('#obj-del').onclick = deleteSel;
 $('#obj-group').onclick = groupSel; $('#obj-ungroup').onclick = ungroupSel;
 $('#c-group').onclick = groupSel; $('#c-ungroup').onclick = ungroupSel; $('#c-rotpt').onclick = startRotateAround;
@@ -7473,6 +7599,7 @@ function focusLayersOnActive(force) {
 function scrollLayersToActive() {
   const h = $('#layer-list .layer-sheet.active'); if (h) h.scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
+let layerAnchor = null;
 function renderLayers() {
   const root = $('#layer-list');
   if (editingIn(root)) return;
@@ -7517,9 +7644,22 @@ function renderLayers() {
       const [bE, bN, bU, bD, bL] = li.children;
       bE.onclick = () => { o.kvHidden = !o.kvHidden; applyObjState(o); if (!o.visible && canvas.getActiveObjects().includes(o)) canvas.discardActiveObject(); canvas.requestRenderAll(); commit(); scheduleLayers(); };
       bL.onclick = () => { if (canvas.getActiveObjects().includes(o)) canvas.discardActiveObject(); setLocked(o, !o.kvLocked); canvas.requestRenderAll(); commit(); scheduleLayers(); refreshPanel(); };
-      bU.onclick = () => zorder('bringForward', o);
-      bD.onclick = () => zorder('sendBackwards', o);
-      clickOrDbl(bN, () => { if (!o.visible) { toast('Elemento oculto — mostre-o para selecionar.'); return; } setActiveSheet(s.id); canvas.setActiveObject(o); canvas.requestRenderAll(); refreshPanel(); }, () => inlineRename(bN, nm, v => { o.kvName = v; commit(); }));
+      bU.onclick = () => { const sel = canvas.getActiveObjects(); zorder('bringForward', sel.length > 1 && sel.includes(o) ? null : o); };
+      bD.onclick = () => { const sel = canvas.getActiveObjects(); zorder('sendBackwards', sel.length > 1 && sel.includes(o) ? null : o); };
+      let mods = null; bN.addEventListener('pointerdown', ev => { mods = { add: ev.ctrlKey || ev.metaKey, range: ev.shiftKey }; });
+      clickOrDbl(bN, () => {
+        if (!o.visible) { toast('Elemento oculto — mostre-o para selecionar.'); return; }
+        setActiveSheet(s.id);
+        /* Ctrl/Cmd+clique adiciona ou tira da seleção; Shift+clique seleciona o intervalo na mesma folha */
+        const cur = canvas.getActiveObjects().filter(x => !x.kvTemp);
+        let list = [o];
+        if (mods && mods.add) list = cur.includes(o) ? cur.filter(x => x !== o) : cur.concat(o);
+        else if (mods && mods.range && layerAnchor && objs.includes(layerAnchor)) { const a = objs.indexOf(layerAnchor), b = objs.indexOf(o); list = objs.slice(Math.min(a, b), Math.max(a, b) + 1).filter(x => x.visible && !isLk(x)); }
+        if (!(mods && mods.range)) layerAnchor = o;
+        canvas.discardActiveObject();
+        if (list.length === 1) canvas.setActiveObject(list[0]); else if (list.length > 1) canvas.setActiveObject(new fabric.ActiveSelection(list, { canvas }));
+        canvas.requestRenderAll(); refreshPanel(); renderLayersActive();
+      }, () => inlineRename(bN, nm, v => { o.kvName = v; commit(); }));
       li.addEventListener('dragstart', e => { dragObj = o; li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', o.kvId); });
       li.addEventListener('dragend', () => { dragObj = null; li.classList.remove('dragging'); $$('.drop-above,.drop-below').forEach(x => x.classList.remove('drop-above', 'drop-below')); });
       li.addEventListener('dragover', e => {
@@ -8404,6 +8544,8 @@ document.addEventListener('keydown', e => {
     else if (lk === 'y' || (lk === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
     else if (lk === 's') { e.preventDefault(); saveProject(); }
     else if (lk === 'o') { e.preventDefault(); $('#in-project').click(); }
+    else if (lk === 'c' && e.altKey) { e.preventDefault(); copyStyle(); }
+    else if (lk === 'v' && e.altKey) { e.preventDefault(); pasteStyle(); }
     else if (lk === 'c') copySel();
     else if (lk === 'v') pasteClip(e.shiftKey);
     else if (lk === 'd') { e.preventDefault(); duplicate(); }
