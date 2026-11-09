@@ -1160,7 +1160,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V94 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V95 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1221,7 +1221,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V94 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V95 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1611,15 +1611,22 @@ fabric.Kvarrow.fromObject = function (o, cb) {
 };
 fabric.KvArrow = fabric.Kvarrow;
 /* Desenho das pontas compartilhado (linhas e polilinhas) */
+/* prolonga as extremidades livres de uma polilinha [[x,y],…] em “e” (para o contorno fechar as pontas) */
+function extEnds(pl, e) {
+  const P = pl.map(q => [q[0], q[1]]), n = P.length; if (n < 2) return P;
+  const mv = (i, j) => { const dx = P[i][0] - P[j][0], dy = P[i][1] - P[j][1], d = Math.hypot(dx, dy) || 1; P[i][0] += dx / d * e; P[i][1] += dy / d * e; };
+  mv(0, 1); mv(n - 1, n - 2); return P;
+}
 function drawHeads(obj, ctx, heads) {
   if (!obj.stroke) return;
   const k = obj.strokeUniform ? 2 / (Math.abs(obj.scaleX) + Math.abs(obj.scaleY)) : 1;
   ctx.save(); ctx.setLineDash([]); ctx.fillStyle = obj.stroke; ctx.strokeStyle = obj.stroke; ctx.lineWidth = obj.strokeWidth * k; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
   heads.forEach(h => {
     h.polys.forEach(pl => { ctx.beginPath(); ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.closePath(); ctx.fill(); if (obj.__kvOutlinePass) { const lw = ctx.lineWidth; ctx.lineWidth = obj.__kvOutlinePass * k; ctx.miterLimit = 10; ctx.stroke(); ctx.lineWidth = lw; } });
-    h.lines.forEach(l => { ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
+    const ex = (obj.__kvOutlinePass || 0) / 2 * k;   // contorno: as pontas livres das hastes também ganham borda
+    h.lines.forEach(l0 => { const l = ex ? extEnds([[l0[0], l0[1]], [l0[2], l0[3]]], ex).flat() : l0; ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
     h.dots.forEach(d => { ctx.beginPath(); ctx.arc(d[0], d[1], d[2] + (obj.__kvOutlinePass || 0) / 2, 0, Math.PI * 2); ctx.fill(); });
-    (h.paths || []).forEach(pl => { ctx.beginPath(); ctx.miterLimit = 10; ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.stroke(); });
+    (h.paths || []).forEach(p0 => { const pl = ex ? extEnds(p0, ex) : p0; ctx.beginPath(); ctx.miterLimit = 10; ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.stroke(); });
   });
   ctx.restore();
 }
@@ -1629,9 +1636,10 @@ function headsSVG(obj, heads) {
   let out = '';
   heads.forEach(h => {
     h.polys.forEach(pl => { out += `<polygon ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:${col};fill-opacity:${a};${obj.__kvOutlinePass ? `stroke:${col};stroke-opacity:${a};stroke-width:__OLW__;stroke-linejoin:miter;stroke-miterlimit:10` : 'stroke:none'};opacity:${obj.opacity}"/>\n`; });
-    h.lines.forEach(l => { out += `<line ${tr} x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" style="stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};opacity:${obj.opacity}"/>\n`; });
+    const ex = (obj.__kvOutlinePass || 0) / 2;
+    h.lines.forEach(l0 => { const l = ex ? extEnds([[l0[0], l0[1]], [l0[2], l0[3]]], ex).flat() : l0; out += `<line ${tr} x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" style="stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};opacity:${obj.opacity}"/>\n`; });
     h.dots.forEach(d => { out += `<circle ${tr} cx="${d[0]}" cy="${d[1]}" r="${d[2] + (obj.__kvOutlinePass || 0) / 2}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
-    (h.paths || []).forEach(pl => { out += `<polyline ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:none;stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};stroke-linejoin:miter;stroke-miterlimit:10;opacity:${obj.opacity}"/>\n`; });
+    (h.paths || []).forEach(p0 => { const pl = ex ? extEnds(p0, ex) : p0; out += `<polyline ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:none;stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};stroke-linejoin:miter;stroke-miterlimit:10;opacity:${obj.opacity}"/>\n`; });
   });
   return out;
 }
@@ -1674,7 +1682,12 @@ fabric.Kvpolyline = fabric.util.createClass(fabric.Polyline, {
   },
   toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { headSize: this.headSize, headAngle: this.headAngle || null, arrowStart: this.arrowStart, arrowEnd: this.arrowEnd }); },
   /* o Fabric usa o nome do tipo como tag SVG (“<kvpolyline>”), que nenhum leitor reconhece: grava como <polyline> */
-  _toSVG() { const m = fabric.Polyline.prototype._toSVG.call(this); m[0] = '<polyline '; return m; },
+  _toSVG() {
+    /* como na tela: a haste termina onde a ponta começa (antes, no PDF, a haste atravessava a ponta das setas abertas) */
+    const orig = this.points;
+    try { if (this.points.length >= 2) { const { pts } = this._polyHeads(); this.points = pts.map(q => ({ x: q.x + this.pathOffset.x, y: q.y + this.pathOffset.y })); } const m = fabric.Polyline.prototype._toSVG.call(this); m[0] = '<polyline '; return m; }
+    finally { this.points = orig; }
+  },
   toSVG(reviver) { const { s, e } = this._polyHeads(); return this.callSuper('toSVG', reviver) + headsSVG(this, [s, e]); }
 });
 fabric.Kvpolyline.fromObject = function (o, cb) { return fabric.Object._fromObject('Kvpolyline', o, cb, 'points'); };
