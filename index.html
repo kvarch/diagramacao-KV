@@ -456,6 +456,8 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <select id="c-dash" title="Tipo de traço"></select>
     <span class="unit dash-k" title="Comprimento dos traços">▬×</span><label class="sr-only" for="c-dk">Comprimento dos traços (multiplicador)</label><input type="number" id="c-dk" class="dash-k" min="0.1" max="20" step="0.25" value="1" title="Comprimento dos traços (× o padrão)">
     <span class="unit dash-k" title="Espaço entre traços">␣×</span><label class="sr-only" for="c-gk">Espaço entre traços (multiplicador)</label><input type="number" id="c-gk" class="dash-k" min="0.1" max="20" step="0.25" value="1" title="Espaço entre traços (× o padrão)">
+    <span class="ol-opt" hidden><span class="unit" title="Contorno da linha">▭</span><button class="icon-btn" id="c-ol" aria-pressed="false" aria-label="Contorno da linha" title="Contorno: borda própria em volta da linha (ex.: seta branca com borda preta)"><span data-icon="outlineLine"></span></button>
+    <input type="color" id="c-ol-c" title="Cor do contorno" hidden><label class="sr-only" for="c-ol-w">Espessura do contorno em milímetros</label><input type="number" id="c-ol-w" min="0.05" max="10" step="0.05" style="width:56px" title="Espessura do contorno de cada lado (mm)" hidden><span class="unit ol-w" hidden>mm</span></span>
     <button class="icon-btn dash-k" id="c-dk-reset" aria-label="Voltar traço e espaço ao padrão" title="Voltar ao padrão (1×)"><span data-icon="undo"></span></button>
   </div>
   <div class="cg" id="cg-arrow" hidden>
@@ -1158,7 +1160,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V93 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V94 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1219,7 +1221,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V93 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V94 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1235,11 +1237,12 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvOutline','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
 const ICONS = {
+  outlineLine:'<path d="M4 20 18 6" stroke-width="6"/><path d="M4 20 18 6" stroke="var(--md-sys-color-surface, #fff)" stroke-width="3"/>',
   styleCopy:'<path d="M5 3h10v6H5z"/><path d="M10 9v4"/><path d="M8 13h4v8H8z"/><path d="M15 6h3v4h-8"/>',
   stylePaste:'<path d="M5 3h10v6H5z"/><path d="M10 9v4"/><path d="M8 13h4v8H8z"/><path d="m15 17 2 2 4-4"/>',
   levelMark:'<path d="M3 19h18"/><path d="M8 9h8l-4 10z"/><path d="M8 9h0"/><path d="M12 9h8"/>',
@@ -1547,13 +1550,13 @@ fabric.Kvarrow = fabric.util.createClass(fabric.Line, {
   },
   _geom() {
     const p = this.calcLinePoints(), ang = Math.atan2(p.y2 - p.y1, p.x2 - p.x1);
-    const L = Math.max(this.headSize, this.strokeWidth * 3);
+    const L = Math.max(this.headSize, (this.__geomSW || this.strokeWidth) * 3);
     return { p, ang, L };
   },
   _head(type, x, y, ang, L) {
     const cos = Math.cos(ang), sin = Math.sin(ang), out = { cut: 0, polys: [], lines: [], dots: [], paths: [] };
     /* seta aberta: as duas hastes são um único traço com canto em quina (sem falha na ponta); recua para a quina cair na extremidade */
-    const openHead = (len, halfW) => { const sw = this.strokeWidth || 1, off = (sw / 2) / Math.sin(Math.atan2(halfW, len)), tx = x - cos * off, ty = y - sin * off, bx = tx - cos * len, by = ty - sin * len, nx = -sin * halfW, ny = cos * halfW; out.paths.push([[bx + nx, by + ny], [tx, ty], [bx - nx, by - ny]]); out.cut = off; };
+    const openHead = (len, halfW) => { const sw = this.__geomSW || this.strokeWidth || 1, off = (sw / 2) / Math.sin(Math.atan2(halfW, len)), tx = x - cos * off, ty = y - sin * off, bx = tx - cos * len, by = ty - sin * len, nx = -sin * halfW, ny = cos * halfW; out.paths.push([[bx + nx, by + ny], [tx, ty], [bx - nx, by - ny]]); out.cut = off; };
     const ha = this.headAngle > 0 ? Math.tan(clamp(this.headAngle, 5, 80) * Math.PI / 180) : null;   // ângulo definido pelo usuário (tangente)
     if (type === 'triangle') {
       const W = ha ? L * ha : L * 0.42, bx = x - cos * L, by = y - sin * L, nx = -sin * W, ny = cos * W;
@@ -1613,9 +1616,9 @@ function drawHeads(obj, ctx, heads) {
   const k = obj.strokeUniform ? 2 / (Math.abs(obj.scaleX) + Math.abs(obj.scaleY)) : 1;
   ctx.save(); ctx.setLineDash([]); ctx.fillStyle = obj.stroke; ctx.strokeStyle = obj.stroke; ctx.lineWidth = obj.strokeWidth * k; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
   heads.forEach(h => {
-    h.polys.forEach(pl => { ctx.beginPath(); ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.closePath(); ctx.fill(); });
+    h.polys.forEach(pl => { ctx.beginPath(); ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.closePath(); ctx.fill(); if (obj.__kvOutlinePass) { const lw = ctx.lineWidth; ctx.lineWidth = obj.__kvOutlinePass * k; ctx.miterLimit = 10; ctx.stroke(); ctx.lineWidth = lw; } });
     h.lines.forEach(l => { ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
-    h.dots.forEach(d => { ctx.beginPath(); ctx.arc(d[0], d[1], d[2], 0, Math.PI * 2); ctx.fill(); });
+    h.dots.forEach(d => { ctx.beginPath(); ctx.arc(d[0], d[1], d[2] + (obj.__kvOutlinePass || 0) / 2, 0, Math.PI * 2); ctx.fill(); });
     (h.paths || []).forEach(pl => { ctx.beginPath(); ctx.miterLimit = 10; ctx.moveTo(pl[0][0], pl[0][1]); pl.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.stroke(); });
   });
   ctx.restore();
@@ -1625,9 +1628,9 @@ function headsSVG(obj, heads) {
   const c = new fabric.Color(obj.stroke), col = c.toRgb(), a = c.getAlpha(), tr = obj.getSvgTransform();
   let out = '';
   heads.forEach(h => {
-    h.polys.forEach(pl => { out += `<polygon ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
+    h.polys.forEach(pl => { out += `<polygon ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:${col};fill-opacity:${a};${obj.__kvOutlinePass ? `stroke:${col};stroke-opacity:${a};stroke-width:__OLW__;stroke-linejoin:miter;stroke-miterlimit:10` : 'stroke:none'};opacity:${obj.opacity}"/>\n`; });
     h.lines.forEach(l => { out += `<line ${tr} x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" style="stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};opacity:${obj.opacity}"/>\n`; });
-    h.dots.forEach(d => { out += `<circle ${tr} cx="${d[0]}" cy="${d[1]}" r="${d[2]}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
+    h.dots.forEach(d => { out += `<circle ${tr} cx="${d[0]}" cy="${d[1]}" r="${d[2] + (obj.__kvOutlinePass || 0) / 2}" style="fill:${col};fill-opacity:${a};stroke:none;opacity:${obj.opacity}"/>\n`; });
     (h.paths || []).forEach(pl => { out += `<polyline ${tr} points="${pl.map(q => q[0].toFixed(3) + ',' + q[1].toFixed(3)).join(' ')}" style="fill:none;stroke:${col};stroke-opacity:${a};stroke-width:${obj.strokeWidth};stroke-linejoin:miter;stroke-miterlimit:10;opacity:${obj.opacity}"/>\n`; });
   });
   return out;
@@ -1641,9 +1644,17 @@ fabric.Kvpolyline = fabric.util.createClass(fabric.Polyline, {
     this.callSuper('initialize', points, options);
     this.headSize = options.headSize || 10; this.arrowStart = options.arrowStart || 'none'; this.arrowEnd = options.arrowEnd || 'none';
   },
-  _localPts() { const x = this.pathOffset.x, y = this.pathOffset.y; return this.points.map(p => ({ x: p.x - x, y: p.y - y })); },
+  _localPts() {
+    const x = this.pathOffset.x, y = this.pathOffset.y, P = this.points.map(p => ({ x: p.x - x, y: p.y - y })), ex = this.__kvExtend, n = P.length;
+    if (ex > 0 && n >= 2 && !this.closed) {
+      const ext = (i, j) => { const d = Math.hypot(P[i].x - P[j].x, P[i].y - P[j].y) || 1; P[i].x += (P[i].x - P[j].x) / d * ex; P[i].y += (P[i].y - P[j].y) / d * ex; };
+      if (!this.arrowStart || this.arrowStart === 'none') ext(0, 1);
+      if (!this.arrowEnd || this.arrowEnd === 'none') ext(n - 1, n - 2);
+    }
+    return P;
+  },
   _polyHeads() {
-    const P0 = this._localPts(), n = P0.length, L = Math.max(this.headSize, this.strokeWidth * 3);
+    const P0 = this._localPts(), n = P0.length, L = Math.max(this.headSize, (this.__geomSW || this.strokeWidth) * 3);
     if (n < 2) return { pts: P0, s: { cut: 0, polys: [], lines: [], dots: [] }, e: { cut: 0, polys: [], lines: [], dots: [] } };
     const a0 = Math.atan2(P0[0].y - P0[1].y, P0[0].x - P0[1].x), a1 = Math.atan2(P0[n - 1].y - P0[n - 2].y, P0[n - 1].x - P0[n - 2].x);
     const H = fabric.Kvarrow.prototype._head;
@@ -1692,7 +1703,7 @@ fabric.Kvcurve = fabric.util.createClass(fabric.Kvpolyline, {
   _curveHeads() {
     const P = this._localPts(), segs = this._segsLocal(), E = { cut: 0, polys: [], lines: [], dots: [] };
     if (!segs.length || this.closed) return { segs, s: E, e: E };
-    const L = Math.max(this.headSize, this.strokeWidth * 3), H = fabric.Kvarrow.prototype._head;
+    const L = Math.max(this.headSize, (this.__geomSW || this.strokeWidth) * 3), H = fabric.Kvarrow.prototype._head;
     const f = segs[0], l = segs[segs.length - 1];
     const a0 = Math.atan2(f[0].y - (Math.hypot(f[1].x - f[0].x, f[1].y - f[0].y) > 1e-6 ? f[1].y : f[3].y), f[0].x - (Math.hypot(f[1].x - f[0].x, f[1].y - f[0].y) > 1e-6 ? f[1].x : f[3].x));
     const a1 = Math.atan2(l[3].y - (Math.hypot(l[3].x - l[2].x, l[3].y - l[2].y) > 1e-6 ? l[2].y : l[0].y), l[3].x - (Math.hypot(l[3].x - l[2].x, l[3].y - l[2].y) > 1e-6 ? l[2].x : l[0].x));
@@ -2881,6 +2892,39 @@ function hatchSVG(o) {
 });
 
 let defHatch = null;   // padrão de hachura para os próximos desenhos
+/* ================= Contorno de linhas (linha com borda): kvOutline = { c: cor, w: espessura em pt } =================
+   Desenha antes uma passada mais larga na cor do contorno (com as pontas) e por cima a linha normal. */
+const hasOutline = o => !!(o && o.kvOutline && o.kvOutline.w > 0 && o.stroke);
+function withOutlinePass(o, fn) {
+  const bk = o.__kvBakeK || 1, w = o.kvOutline.w / bk;
+  const save = { stroke: o.stroke, strokeWidth: o.strokeWidth, fill: o.fill, kvHatch: o.kvHatch, strokeLineCap: o.strokeLineCap };
+  o.__geomSW = o.strokeWidth; o.__kvOutlinePass = 2 * w; o.__kvExtend = w; o.__kvOutlineActive = true;
+  /* polilinha reta: as pontas estendidas entram nos próprios pontos (vale para a tela e para o SVG/PDF) */
+  if (o.type === 'kvpolyline' && o.points && !o.closed) { save.points = o.points; const L = o._localPts(); o.points = L.map(q => ({ x: q.x + o.pathOffset.x, y: q.y + o.pathOffset.y })); o.__kvExtend = 0; }
+  o.stroke = o.kvOutline.c || 'rgba(0,0,0,1)'; o.strokeWidth = o.strokeWidth + 2 * w; o.fill = ''; o.kvHatch = null;
+  try { return fn(); } finally { Object.assign(o, save); o.__geomSW = 0; o.__kvOutlinePass = 0; o.__kvExtend = 0; o.__kvOutlineActive = false; }
+}
+['Kvpolyline', 'Kvcurve', 'Kvarrow'].forEach(cls => {
+  const P = fabric[cls] && fabric[cls].prototype; if (!P) return;
+  if (Object.prototype.hasOwnProperty.call(P, '_render')) {
+    const r0 = P._render;
+    P._render = function (ctx) { if (hasOutline(this) && !this.__kvOutlineActive) withOutlinePass(this, () => r0.call(this, ctx)); return r0.call(this, ctx); };
+  }
+  if (Object.prototype.hasOwnProperty.call(P, 'toSVG')) {
+    const s0 = P.toSVG;
+    P.toSVG = function (reviver) {
+      if (!hasOutline(this) || this.__kvOutlineActive) return s0.call(this, reviver);
+      /* no SVG a espessura não pode mudar durante a passada (o Fabric recalcularia a posição): grava com a espessura normal e alarga depois */
+      const bk = this.__kvBakeK || 1, w = this.kvOutline.w / bk, sw0 = this.strokeWidth;
+      const under = withOutlinePass(this, () => { this.strokeWidth = sw0; return s0.call(this, reviver); })
+        .replace(/stroke-width:\s*([0-9.eE+-]+)/g, (m, v) => 'stroke-width:' + (parseFloat(v) + 2 * w)).replace(/__OLW__/g, String(2 * w));
+      return under + s0.call(this, reviver);
+    };
+  }
+});
+/* linha reta: no contorno, as pontas sem seta avançam a espessura do contorno */
+{ const KA = fabric.Kvarrow.prototype, c0 = KA.calcLinePoints;
+  KA.calcLinePoints = function () { const p = c0.call(this), ex = this.__kvExtend; if (!(ex > 0)) return p; const L = Math.hypot(p.x2 - p.x1, p.y2 - p.y1) || 1, ux = (p.x2 - p.x1) / L, uy = (p.y2 - p.y1) / L; const q = { ...p }; if (!this.arrowStart || this.arrowStart === 'none') { q.x1 -= ux * ex; q.y1 -= uy * ex; } if (!this.arrowEnd || this.arrowEnd === 'none') { q.x2 += ux * ex; q.y2 += uy * ex; } return q; }; }
 function addUser(obj, base, select) {
   if (defHatch && !obj.kvHatch && hatchable(obj) && obj.fill && obj.fill !== 'transparent') obj.kvHatch = { ...defHatch };
   const sh = sheetOf(obj);
@@ -7504,7 +7548,7 @@ function ungroupSel() { const a = canvas.getActiveObject(); if (!a || a.type !==
 let styleClip = null;
 const STY_STROKE = ['stroke', 'strokeWidth', 'strokeDashArray', 'kvDash', 'kvDashK', 'kvGapK', 'strokeUniform', 'strokeLineCap', 'strokeLineJoin'];
 const STY_FILL = ['fill', 'kvHatch'];
-const STY_HEADS = ['headSize', 'headAngle', 'arrowStart', 'arrowEnd'];
+const STY_HEADS = ['headSize', 'headAngle', 'arrowStart', 'arrowEnd', 'kvOutline'];
 const STY_TEXT = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fill', 'textAlign', 'lineHeight', 'charSpacing', 'underline', 'linethrough', 'paraSpace', 'boxFill', 'boxStroke', 'boxStrokeWidth', 'boxDash', 'boxPad', 'boxShape', 'boxSize'];
 const styleKeysFor = o => isText(o) ? STY_TEXT : o.kvIcon ? ['boxFill', 'boxStroke', 'boxStrokeWidth', 'boxDash', 'boxPad', 'boxShape', 'boxSize'] : (o.type === 'image' || o.kvSym || o.type === 'group') ? [] : [...STY_STROKE, ...(noFill(o) ? [] : STY_FILL), ...(hasHeads(o) ? STY_HEADS : [])];
 function copyStyle() {
@@ -7531,6 +7575,24 @@ function pasteStyle() {
   toast(n ? `Estilo aplicado em ${n} elemento(s).` : 'Os elementos selecionados não aceitam esse estilo.');
 }
 $('#c-sty-copy').onclick = copyStyle; $('#c-sty-paste').onclick = pasteStyle;
+const outlineable = o => o && (o.type === 'kvpolyline' || o.type === 'kvcurve' || o.type === 'kvarrow');
+function applyOutline(toggle) {
+  const t = targets().filter(outlineable); if (!t.length) return;
+  const on = toggle ? !t.some(hasOutline) : true;
+  const c = rgba($('#c-ol-c').value || '#000000', 1), w = mm2pt(clamp(parseFloat($('#c-ol-w').value) || 0.35, 0.05, 10));
+  t.forEach(o => { o.kvOutline = on ? { c, w } : null; o.dirty = true; });
+  canvas.requestRenderAll(); commit(); refreshOutlineUI();
+}
+function refreshOutlineUI() {
+  const t = targets().filter(outlineable), any = t.length > 0, o = t.find(hasOutline);
+  $$('.ol-opt').forEach(el => { el.hidden = !any; });
+  setPressed($('#c-ol'), !!o); $('#c-ol-c').hidden = !o; $('#c-ol-w').hidden = !o; $$('.ol-w').forEach(el => { el.hidden = !o; });
+  if (o) { if (document.activeElement !== $('#c-ol-c')) setVal('#c-ol-c', colorParts(o.kvOutline.c).hex); if (document.activeElement !== $('#c-ol-w')) setVal('#c-ol-w', Math.round(pt2mm(o.kvOutline.w) * 100) / 100); }
+}
+$('#c-ol').onclick = () => applyOutline(true);
+$('#c-ol-c').addEventListener('input', () => applyOutline(false));
+onChange('#c-ol-w', () => applyOutline(false));
+canvas.on('selection:created', refreshOutlineUI); canvas.on('selection:updated', refreshOutlineUI); canvas.on('selection:cleared', refreshOutlineUI);
 $('#obj-dup').onclick = duplicate; $('#obj-lock').onclick = toggleLock; $('#obj-del').onclick = deleteSel;
 $('#obj-group').onclick = groupSel; $('#obj-ungroup').onclick = ungroupSel;
 $('#c-group').onclick = groupSel; $('#c-ungroup').onclick = ungroupSel; $('#c-rotpt').onclick = startRotateAround;
@@ -8225,13 +8287,13 @@ function bakeUniformStrokes(sh) {
       fixDegenerateScale(o);
       const q = fabric.util.qrDecompose(o.calcTransformMatrix()), sxs = [Math.abs(q.scaleX), Math.abs(q.scaleY)].filter(v => v > 1e-6 && v < 1e4), k = sxs.length ? sxs.reduce((a, b) => a + b) / sxs.length : 1;
       saved.push([o, o.strokeUniform, o.strokeWidth, o.strokeDashArray]);
-      o.strokeUniform = false; o.strokeWidth = o.strokeWidth / k; if (o.strokeDashArray) o.strokeDashArray = o.strokeDashArray.map(v => v / k);
+      o.strokeUniform = false; o.strokeWidth = o.strokeWidth / k; o.__kvBakeK = k; if (o.strokeDashArray) o.strokeDashArray = o.strokeDashArray.map(v => v / k);
     }
     if (o._objects) o._objects.forEach(c => walk(c));
   };
   canvas.getObjects().filter(o => !o.kvRole && sheetOf(o).id === sh.id).forEach(o => walk(o));
   if (mode === 'sheets' && sh.template) { const g = tplGroupFor(sh, sheetIndex(sh.id)); if (g) walk(g); }
-  return () => saved.forEach(([o, u, w, d]) => { o.strokeUniform = u; o.strokeWidth = w; o.strokeDashArray = d; });
+  return () => saved.forEach(([o, u, w, d]) => { o.strokeUniform = u; o.strokeWidth = w; o.strokeDashArray = d; o.__kvBakeK = 0; });
 }
 /* Folha em modo imagem (reserva): blocos rasterizados na resolução escolhida */
 async function rasterSheetInto(pdf, sh, r, dpi, lossless) {
