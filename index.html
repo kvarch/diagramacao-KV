@@ -497,6 +497,13 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <span class="hatch-opt" hidden><span class="unit" title="Espessura da linha">≡</span><label class="sr-only" for="c-hlw">Espessura da linha da hachura em milímetros</label><input type="number" id="c-hlw" min="0.05" max="5" step="0.05" style="width:56px" title="Espessura da linha da hachura (mm) — nos pontos, é o diâmetro"><span class="unit">mm</span></span>
     <span class="hatch-opt" hidden><input type="color" id="c-hbg" title="Fundo da hachura"><button class="icon-btn" id="c-hbg-none" aria-pressed="true" aria-label="Hachura sem fundo" title="Sem fundo (transparente)"><span data-icon="slash"></span></button></span>
   </div>
+  <div class="cg" id="cg-call" hidden>
+    <span class="cg-label">Chamada</span>
+    <label class="sr-only" for="call-pos">Posição do texto em relação à linha</label>
+    <select id="call-pos" title="Posição do texto em relação à linha" style="width:210px"><option value="above">Texto sobre a linha</option><option value="below">Texto abaixo da linha</option><option value="middle">Texto no fim (a linha para antes dele)</option><option value="free">Texto livre (você posiciona)</option></select>
+    <span class="unit" title="Afastamento">⇹</span><label class="sr-only" for="call-gap">Afastamento do texto em milímetros</label><input type="number" id="call-gap" min="0" max="30" step="0.2" style="width:56px" title="Afastamento entre a linha e o texto (mm)"><span class="unit">mm</span>
+    <button class="btn" id="call-edit" title="Edita a linha (vértices) e o texto separadamente — duplo clique na chamada faz o mesmo" style="min-width:auto;padding:0 10px;letter-spacing:0">Editar linha / texto</button>
+  </div>
   <div class="cg" id="cg-dim" hidden>
     <span class="cg-label">Cota</span>
     <label class="sr-only" for="d-text">Texto da cota (vazio = automático)</label>
@@ -652,6 +659,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <button class="icon-btn tool" data-tool="pan" aria-label="Mover vista (H ou Espaço)" title="Mover vista (H / Espaço)" aria-pressed="false"><span data-icon="hand"></span></button>
     <span class="hsep" aria-hidden="true"></span>
     <button class="icon-btn tool" data-tool="line" aria-label="Linha (L)" title="Linha (L) — Shift restringe 15°" aria-pressed="false"><span data-icon="line"></span></button>
+    <button class="icon-btn tool" data-tool="callout" aria-label="Linha de chamada (Q)" title="Linha de chamada (Q) — clique o ponto a identificar e o fim da linha; duplo clique edita a linha e o texto" aria-pressed="false"><span data-icon="callout"></span></button>
     <button class="icon-btn tool" data-tool="polyline" aria-label="Polilinha (B)" title="Polilinha (B) — Enter ou duplo clique conclui" aria-pressed="false"><span data-icon="polyline"></span></button>
     <button class="icon-btn tool" data-tool="dim" aria-label="Cota linear (K)" title="Cota linear (K) — arraste entre dois pontos" aria-pressed="false"><span data-icon="dim"></span></button>
     <button class="icon-btn tool" data-tool="curve" aria-label="Curva suave (U)" title="Curva (U) — clique os pontos; clicar no 1º ponto fecha; Enter conclui" aria-pressed="false"><span data-icon="curve"></span></button>
@@ -1160,7 +1168,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V95 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V97 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1221,7 +1229,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V95 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V97 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1237,11 +1245,12 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvOutline','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvOutline','kvCall','kvNoFill','kvCallPart','kvCallId','kvCallMeta','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
 const ICONS = {
+  callout:'<path d="M4 4l6 7h9"/><path d="M4 4h3M4 4v3"/><path d="M12 8h7" stroke-width="1.2"/>',
   outlineLine:'<path d="M4 20 18 6" stroke-width="6"/><path d="M4 20 18 6" stroke="var(--md-sys-color-surface, #fff)" stroke-width="3"/>',
   styleCopy:'<path d="M5 3h10v6H5z"/><path d="M10 9v4"/><path d="M8 13h4v8H8z"/><path d="M15 6h3v4h-8"/>',
   stylePaste:'<path d="M5 3h10v6H5z"/><path d="M10 9v4"/><path d="M8 13h4v8H8z"/><path d="m15 17 2 2 4-4"/>',
@@ -2528,7 +2537,7 @@ canvas.on('mouse:wheel', opt => {
 
 /* ---------------- Ferramentas ---------------- */
 let tool = 'select', drawState = null, spaceDown = false, panState = null, maskTarget = null, curCursor = '';
-const DRAW_TOOLS = ['dim', 'line', 'polyline', 'curve', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape', 'measure', 'pencil', 'aguide', 'rrect', 'rotpt', 'trim'];
+const DRAW_TOOLS = ['dim', 'callout', 'line', 'polyline', 'curve', 'arrow', 'polygon', 'rect', 'ellipse', 'text', 'mask', 'shape', 'measure', 'pencil', 'aguide', 'rrect', 'rotpt', 'trim'];
 
 /* ---------------- Biblioteca de formas prontas (polígonos editáveis) ---------------- */
 function ngon(n, rot, inner) {
@@ -2649,6 +2658,7 @@ function makeShape(s, r) {
 }
 function setCursorOnce(c) { if (c !== curCursor) { curCursor = c; canvas.defaultCursor = c; canvas.setCursor(c); } }
 function setTool(t) {
+  if (calloutEdit && t !== 'select') exitCalloutEdit();
   if (cropState) applyCrop();
   if (t === 'mask') {
     const a = canvas.getActiveObject(), img = a && a.type === 'image' ? a : maskTarget;
@@ -2670,7 +2680,7 @@ function setTool(t) {
   canvas.requestRenderAll();
   const tips = {
     select: 'Selecionar · duplo clique recorta imagem ou edita vértices', pan: 'Arraste para mover a vista', line: 'Arraste para desenhar a linha',
-    polyline: 'Clique os vértices · Enter/duplo clique conclui · Backspace desfaz vértice', polygon: 'Clique os vértices · Enter/duplo clique fecha',
+    polyline: 'Clique os vértices · Enter/duplo clique conclui · Backspace desfaz vértice', callout: 'Linha de chamada: clique o ponto a identificar, depois o fim da linha (mais cliques = mais vértices) · Enter/duplo clique conclui', polygon: 'Clique os vértices · Enter/duplo clique fecha',
     arrow: 'Arraste da base até a ponta', rect: 'Arraste para desenhar', ellipse: 'Arraste para desenhar', text: 'Clique para inserir texto',
     mask: 'Clique os vértices da máscara · Enter conclui',
     dim: 'Cota: arraste de um ponto ao outro · encaixa em vértices e guias · Shift restringe 15°',
@@ -2727,7 +2737,7 @@ function drawPreview() {
     else {
       const pts = s.pts.concat([s.cur]);
       ctx.moveTo(pts[0].x, pts[0].y); pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-      if (s.type !== 'polyline') { ctx.closePath(); ctx.fill(); }
+      if (s.type !== 'polyline' && s.type !== 'callout') { ctx.closePath(); ctx.fill(); }
       ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = ctx.strokeStyle;
       const d = 3 / z; s.pts.forEach(p => ctx.fillRect(p.x - d, p.y - d, d * 2, d * 2));
     }
@@ -2767,6 +2777,12 @@ function finishDraw() {
     case 'ellipse': {
       const r = rectFrom(s.start, s.cur, s.e); if (r.w * z < 3 || r.h * z < 3) return;
       obj = new fabric.Ellipse({ left: r.x - sw / 2, top: r.y - sw / 2, rx: r.w / 2, ry: r.h / 2, ...styleFor('closed') }); name = 'Elipse'; break;
+    }
+    case 'callout': {
+      const pts = dedupe(s.pts); if (pts.length < 2) return;
+      const g = makeCallout(pts); addUser(g, 'Linha de chamada', true); invalidateSnap(); setTool('select');
+      setTimeout(() => enterCalloutEdit(g, null, 'text'), 40);   // já abre a edição do texto
+      return;
     }
     case 'polyline': {
       const pts = dedupe(s.pts); if (pts.length < 2) return;
@@ -2938,6 +2954,160 @@ function withOutlinePass(o, fn) {
 /* linha reta: no contorno, as pontas sem seta avançam a espessura do contorno */
 { const KA = fabric.Kvarrow.prototype, c0 = KA.calcLinePoints;
   KA.calcLinePoints = function () { const p = c0.call(this), ex = this.__kvExtend; if (!(ex > 0)) return p; const L = Math.hypot(p.x2 - p.x1, p.y2 - p.y1) || 1, ux = (p.x2 - p.x1) / L, uy = (p.y2 - p.y1) / L; const q = { ...p }; if (!this.arrowStart || this.arrowStart === 'none') { q.x1 -= ux * ex; q.y1 -= uy * ex; } if (!this.arrowEnd || this.arrowEnd === 'none') { q.x2 += ux * ex; q.y2 += uy * ex; } return q; }; }
+
+/* ================= Linha de chamada: polilinha + caixa de texto nativas, agrupadas =================
+   Fora da edição é um grupo (move, gira, copia, alinha). Duplo clique entra no modo de edição: a linha e o texto viram
+   elementos normais — clicar na linha edita vértices; clicar no texto edita o texto (com caixa, fonte, cor…).
+   A posição do texto acompanha a linha: acima, abaixo, no fim da linha (a linha para antes do texto) ou livre. */
+const CALL_DEF = { pos: 'above', gap: 1, fit: true };
+const defCallHead = { start: 'triangle', end: 'none' };
+let calloutEdit = null;   // { meta, leader, text, keep }
+const callParts = g => { const o = g.getObjects ? g.getObjects() : []; return { leader: o.find(x => x.kvCallPart === 'leader'), text: o.find(x => x.kvCallPart === 'text') }; };
+function fitTextW(t) { t.set('width', 1e4); t.initDimensions(); const w = Math.ceil(t.calcTextWidth()) + 1; t.set('width', Math.max(w, 2)); t.initDimensions(); }
+function textExtent(t) {
+  if (!t._hasBox || !t._hasBox()) return { hw: t.width / 2, hh: t.height / 2 };
+  if (t.boxShape === 'circle') { const R = t._circleR(); return { hw: R, hh: R }; }
+  const p = (t.boxPad || 0) + (t.boxStrokeWidth || 0) / 2; return { hw: t.width / 2 + p, hh: t.height / 2 + p };
+}
+/* posiciona o texto em relação à linha (coordenadas da prancha, com os dois elementos soltos) */
+function layoutCallout(leader, text, meta) {
+  const V = vertsOf(leader); if (!V || V.length < 2) return;
+  fitTextW(text);
+  if (meta.pos === 'free') return;
+  const n = V.length, ang = (text.angle || 0) * Math.PI / 180, ux = Math.cos(ang), uy = Math.sin(ang), vx = -uy, vy = ux;
+  const gap = mm2pt(meta.gap == null ? 1 : meta.gap), ext = textExtent(text), f = text.fontSize || 9;
+  let A = V[n - 2], E = V[n - 1], C;
+  if (meta.pos === 'middle') {
+    /* a linha termina e o texto começa logo depois, centrado na altura do fim da linha */
+    const s = ((E.x - A.x) * ux + (E.y - A.y) * uy) >= 0 ? 1 : -1, d = gap + ext.hw;
+    C = { x: E.x + s * ux * d, y: E.y + s * uy * d };
+  } else {
+    if (meta.fit !== false && editingPoly !== leader) {   // a “prateleira” se ajusta ao texto
+      const dx = E.x - A.x, dy = E.y - A.y, L0 = Math.hypot(dx, dy) || 1, len = 2 * ext.hw + f * 0.8;
+      const pts = V.map(p => ({ x: p.x, y: p.y })); pts[n - 1] = { x: A.x + dx / L0 * len, y: A.y + dy / L0 * len };
+      setPolyScenePoints(leader, pts);
+      const V2 = vertsOf(leader); A = V2[n - 2]; E = V2[n - 1];
+    }
+    const M = { x: (A.x + E.x) / 2, y: (A.y + E.y) / 2 }, d = gap + (leader.strokeWidth || 0) / 2 + ext.hh, sg = meta.pos === 'below' ? 1 : -1;
+    C = { x: M.x + sg * vx * d, y: M.y + sg * vy * d };
+  }
+  text.setPositionByOrigin(new fabric.Point(C.x, C.y), 'center', 'center'); text.setCoords(); text.dirty = true;
+}
+function calloutSig(g) {
+  const { leader, text } = callParts(g); if (!leader || !text) return '';
+  const r = v => Math.round(v * 100) / 100;
+  return JSON.stringify([g.kvCall, leader.points.map(p => [r(p.x), r(p.y)]), leader.strokeWidth, leader.arrowStart, leader.arrowEnd, leader.headSize, text.text, text.fontFamily, text.fontSize, text.fontWeight, text.fontStyle, text.underline, text.lineHeight, text.paraSpace, text.charSpacing, text.textAlign, text.boxFill, text.boxStroke, text.boxStrokeWidth, text.boxPad, text.boxShape, text.boxSize, JSON.stringify(text.styles || {})]);
+}
+function buildCalloutGroup(leader, text, meta, keep) {
+  [leader, text].forEach(o => { o.kvCallMeta = { ...meta }; o.kvCallId = keep.kvId; });
+  const g = new fabric.Group([leader, text], { objectCaching: false, subTargetCheck: false, kvCall: { ...meta }, kvId: keep.kvId, kvName: keep.kvName || undefined, kvLocked: keep.kvLocked, kvBelow: keep.kvBelow, kvHidden: keep.kvHidden, opacity: keep.opacity == null ? 1 : keep.opacity });
+  g.__callSig = calloutSig(g); return g;
+}
+/* desfaz o grupo em dois elementos soltos (mantém ordem, posição e estado) */
+function openCallout(g) {
+  const { leader, text } = callParts(g); if (!leader || !text) return null;
+  const idx = canvas.getObjects().indexOf(g), keep = { kvId: g.kvId, kvName: g.kvName, kvLocked: g.kvLocked, kvBelow: g.kvBelow, kvHidden: g.kvHidden, opacity: g.opacity };
+  const meta = { ...CALL_DEF, ...(g.kvCall || {}) }, wasActive = canvas.getActiveObject() === g;
+  if (wasActive) canvas.discardActiveObject();
+  restoring = true;
+  try {
+    g._restoreObjectsState(); const kids = g._objects.slice(); g._objects = []; canvas.remove(g);
+    kids.forEach((o, i) => { o.set({ selectable: true, evented: true, hasControls: true, lockMovementX: false, lockMovementY: false, lockRotation: false, lockScalingX: false, lockScalingY: false, visible: true }); canvas.insertAt(o, idx + i); o.setCoords(); o.dirty = true; });
+  } finally { restoring = false; }
+  return { meta, leader, text, keep, wasActive };
+}
+function closeCallout(e) {
+  const kids = [e.leader, e.text].filter(o => canvas.getObjects().includes(o));
+  if (editingPoly === e.leader) togglePolyEdit(false);
+  if (e.text.isEditing) e.text.exitEditing();
+  if (kids.length < 2) { kids.forEach(o => { delete o.kvCallPart; delete o.kvCallId; delete o.kvCallMeta; }); return null; }
+  const idx = Math.min(...kids.map(o => canvas.getObjects().indexOf(o)));
+  let g; restoring = true;
+  try { kids.forEach(o => canvas.remove(o)); g = buildCalloutGroup(e.leader, e.text, e.meta, e.keep); canvas.insertAt(g, idx); applyObjState(g); g.setCoords(); } finally { restoring = false; }
+  return g;
+}
+function rebuildCallout(g, mut) {
+  const e = openCallout(g); if (!e) return g;
+  if (mut) mut(e.meta, e.leader, e.text);
+  layoutCallout(e.leader, e.text, e.meta);
+  const ng = closeCallout(e) || g;
+  if (e.wasActive && ng) canvas.setActiveObject(ng);
+  return ng;
+}
+/* alterações feitas pelos controles (fonte, caixa, traço…) em elementos dentro do grupo: reposiciona o texto */
+function rebuildDirtyCallouts() {
+  if (calloutEdit || restoring) return false; let changed = false;
+  canvas.getObjects().filter(o => o.type === 'group' && o.kvCall).forEach(g => {
+    const s = calloutSig(g);
+    if (g.__callSig === undefined) { g.__callSig = s; return; }
+    if (s !== g.__callSig) { rebuildCallout(g); changed = true; }
+  });
+  return changed;
+}
+/* projeto salvo/desfeito no meio da edição: junta de novo a linha e o texto soltos */
+function regroupCalloutOrphans() {
+  if (calloutEdit) return;
+  const by = {}; canvas.getObjects().forEach(o => { if (o.kvCallPart && o.kvCallId) (by[o.kvCallId] = by[o.kvCallId] || []).push(o); });
+  Object.values(by).forEach(list => {
+    const leader = list.find(o => o.kvCallPart === 'leader'), text = list.find(o => o.kvCallPart === 'text');
+    if (!leader || !text) { list.forEach(o => { delete o.kvCallPart; delete o.kvCallId; delete o.kvCallMeta; }); return; }
+    closeCallout({ meta: { ...CALL_DEF, ...(leader.kvCallMeta || text.kvCallMeta || {}) }, leader, text, keep: { kvId: leader.kvCallId, kvName: 'Linha de chamada' } });
+  });
+}
+function makeCallout(pts) {
+  const id = uid(), meta = { ...CALL_DEF };
+  if (pts.length === 2) { const a = pts[0], b = pts[1], dir = b.x >= a.x ? 1 : -1; pts = [a, b, { x: b.x + dir * mm2pt(12), y: b.y }]; }   // prateleira horizontal para o texto
+  const leader = new fabric.Kvpolyline(pts, { ...styleFor('open'), headSize: mm2pt(defStyle.headMm), headAngle: defStyle.headAngle, arrowStart: defCallHead.start, arrowEnd: defCallHead.end, kvNoFill: true, kvCallPart: 'leader', kvId: uid(), kvName: 'Linha' });
+  const text = new fabric.Kvtext('Texto', { left: pts[0].x, top: pts[0].y, width: mm2pt(40), ...defText, kvCallPart: 'text', kvId: uid(), kvName: 'Texto', editingBorderColor: BRAND });
+  layoutCallout(leader, text, meta);
+  return buildCalloutGroup(leader, text, meta, { kvId: id });
+}
+/* ---- modo de edição ---- */
+function enterCalloutEdit(g, ev, focus) {
+  if (isLk(g)) { toast('Desbloqueie a chamada para editar.'); return; }
+  if (calloutEdit) exitCalloutEdit();
+  const e = openCallout(g); if (!e) return;
+  calloutEdit = e;
+  const p = ev ? canvas.getPointer(ev) : null, onText = focus === 'text' || (p && e.text.containsPoint(p, null, true));
+  canvas.setActiveObject(onText ? e.text : e.leader); canvas.requestRenderAll(); refreshPanel();
+  if (onText) { e.text.enterEditing(); e.text.selectAll(); } else togglePolyEdit(true);
+  status('Editando a chamada: clique na linha ou no texto · duplo clique edita vértices ou texto · Esc ou clique fora conclui');
+}
+function exitCalloutEdit() {
+  const e = calloutEdit; if (!e) return; calloutEdit = null;
+  canvas.discardActiveObject();
+  if (editingPoly) togglePolyEdit(false);
+  layoutCallout(e.leader, e.text, e.meta);
+  const g = closeCallout(e);
+  if (g) canvas.setActiveObject(g);
+  canvas.requestRenderAll(); commit(); refreshPanel(); status('Pronto');
+}
+function activeCallInfo() {
+  if (calloutEdit) return { meta: calloutEdit.meta };
+  const a = canvas.getActiveObject(); return a && a.type === 'group' && a.kvCall ? { meta: { ...CALL_DEF, ...a.kvCall }, g: a } : null;
+}
+function callApply(mut) {
+  if (calloutEdit) { mut(calloutEdit.meta); layoutCallout(calloutEdit.leader, calloutEdit.text, calloutEdit.meta); canvas.requestRenderAll(); commit(); refreshCtx(); return; }
+  const g = (activeCallInfo() || {}).g; if (!g) return;
+  rebuildCallout(g, mut); canvas.requestRenderAll(); commit(); refreshPanel();
+}
+canvas.on('mouse:down', opt => {
+  if (!calloutEdit || tool !== 'select') return;
+  const t = opt.target; if (t === calloutEdit.leader || t === calloutEdit.text) return;
+  exitCalloutEdit();
+});
+canvas.on('text:changed', e => { if (calloutEdit && e.target === calloutEdit.text) { layoutCallout(calloutEdit.leader, calloutEdit.text, calloutEdit.meta); canvas.requestRenderAll(); } });
+canvas.on('text:editing:exited', e => { if (calloutEdit && e.target === calloutEdit.text) { layoutCallout(calloutEdit.leader, calloutEdit.text, calloutEdit.meta); canvas.requestRenderAll(); } });
+canvas.on('object:modified', e => {
+  if (!calloutEdit) return;
+  if (e.target === calloutEdit.text) {
+    if (calloutEdit.meta.pos !== 'free' && e.transform && e.transform.action === 'drag') { calloutEdit.meta.pos = 'free'; toast('Texto movido: a posição passou para “Texto livre”.'); refreshCtx(); }   // só arrastar o texto vira “livre” (digitar não)
+  }
+  else if (e.target === calloutEdit.leader) { layoutCallout(calloutEdit.leader, calloutEdit.text, calloutEdit.meta); canvas.requestRenderAll(); }
+});
+$('#call-pos').addEventListener('change', e => callApply(m => { m.pos = e.target.value; }));
+$('#call-gap').addEventListener('change', e => callApply(m => { m.gap = clamp(parseFloat(e.target.value) || 0, 0, 30); }));
+$('#call-edit').onclick = () => { if (calloutEdit) exitCalloutEdit(); else { const i = activeCallInfo(); if (i && i.g) enterCalloutEdit(i.g, null); } };
 function addUser(obj, base, select) {
   if (defHatch && !obj.kvHatch && hatchable(obj) && obj.fill && obj.fill !== 'transparent') obj.kvHatch = { ...defHatch };
   const sh = sheetOf(obj);
@@ -2985,7 +3155,7 @@ canvas.on('mouse:down', opt => {
     case 'line': case 'arrow': case 'rect': case 'ellipse': case 'shape': case 'measure': case 'dim':
       if (tool === 'measure') lastMeasure = null;
       drawState = { type: tool, start: p, cur: p, e }; break;
-    case 'polyline': case 'polygon': case 'mask': case 'curve':
+    case 'polyline': case 'polygon': case 'mask': case 'curve': case 'callout':
       if (tool === 'curve' && drawState && drawState.pts.length >= 3 && Math.hypot(p.x - drawState.pts[0].x, p.y - drawState.pts[0].y) * canvas.getZoom() < 10) { drawState.closed = true; finishDraw(); return; }
       if (!drawState) drawState = { type: tool, pts: [p], cur: p };
       else { const last = drawState.pts[drawState.pts.length - 1]; if (p.kind !== 'pt') p = constrain(last, p, e); drawState.pts.push(p); }
@@ -3276,6 +3446,7 @@ canvas.on('mouse:dblclick', opt => {
   const t = opt.target;
   if (t.type === 'image') enterCrop(t);
   else if (t.type === 'kvdim') { canvas.setActiveObject(t); refreshPanel(); const f = $('#d-text'); f.focus(); f.select(); }
+  else if (t.type === 'group' && t.kvCall) { enterCalloutEdit(t, opt.e); }
   else if (isPoly(t)) { canvas.setActiveObject(t); togglePolyEdit(true); }
 });
 canvas.on('path:created', e => {
@@ -3766,6 +3937,7 @@ function allSer(snap) { const out = [snap.objects || []]; ((snap.doc && snap.doc
 function walkAll(snap, fn) { allSer(snap).forEach(list => walkSer(list, fn)); }
 function doCommit() {
   commitTimer = null;
+  if (rebuildDirtyCallouts()) { canvas.requestRenderAll(); refreshPanel(); }
   invalidateSnap();
   const str = JSON.stringify(snapshot());
   if (hist.stack[hist.idx] === str) return;
@@ -3836,6 +4008,7 @@ function fixDuplicateIds() {
   if (removed || renamed) { console.warn('[ids] duplicatas removidas:', removed, '· ids renovados:', renamed); setTimeout(() => { commit(); if (removed) toast(`${removed} elemento(s) duplicado(s) sobreposto(s) foram removidos.`); }, 300); }
 }
 function restore(snap) {
+  calloutEdit = null;
   if (snap && snap.doc && (hasDupSheets(snap.doc.sheets) || (snap.doc.pres || []).some(p => hasDupSheets(p.sheets)))) { console.warn('[folhas] folha repetida removida'); const clean = partsToSnap(snapToParts(snap), snap.doc); snap = { ...snap, doc: clean.doc, objects: clean.objects }; setTimeout(() => { commit(); toast('Uma folha que aparecia repetida (cópia com o mesmo identificador) foi corrigida.'); }, 400); }
   return new Promise(resolve => {
     restoring = true;
@@ -3849,7 +4022,7 @@ function restore(snap) {
     let list = snap.objects || [];
     if (mode === 'tpl') { presStore = list; list = templatesToLoad(); }
     enlivenOnto(list).then(() => {
-      if (mode !== 'tpl') fixDuplicateIds();
+      if (mode !== 'tpl') { fixDuplicateIds(); regroupCalloutOrphans(); }
       applySheetStates(); rebuildChrome(); syncDocUI(); renderSheetList(); if (typeof syncGvAuto === 'function') syncGvAuto();
       restoring = false; canvas.requestRenderAll(); scheduleLayers(); renderLinks(); refreshPanel();
       resolve();
@@ -6932,7 +7105,7 @@ const hasHeads = o => o.type === 'kvarrow' || o.type === 'kvdim' || o.type === '
 const CHAR_PROPS = ['fill', 'fontSize', 'fontWeight', 'fontStyle', 'underline', 'fontFamily', 'linethrough'];
 const editSel = () => { const a = canvas.getActiveObject(); return a && isText(a) && a.isEditing && a.selectionStart !== a.selectionEnd ? a : null; };
 const isLine = o => ['line', 'kvarrow'].includes(o.type);
-const noFill = o => isLine(o) || o.type === 'image' || !!o.kvSym;
+const noFill = o => isLine(o) || o.type === 'image' || !!o.kvSym || !!o.kvNoFill;   // kvNoFill: linha-guia da chamada (a cor de preenchimento vale só para o texto)
 const TYPE_LABEL = { line: 'Linha', kvarrow: 'Linha', polyline: 'Polilinha', polygon: 'Polígono', rect: 'Retângulo', ellipse: 'Elipse', textbox: 'Texto', kvtext: 'Texto', kvpolyline: 'Polilinha', kvcurve: 'Curva', kvdim: 'Cota', path: 'Traço livre', image: 'Imagem', group: 'Grupo', text: 'Texto' };
 const TYPE_ICON = { line: 'line', kvarrow: 'arrow', polyline: 'polyline', polygon: 'polygon', rect: 'square', ellipse: 'circle', textbox: 'type', kvtext: 'type', kvpolyline: 'polyline', kvcurve: 'curve', kvdim: 'dim', path: 'pencil', image: 'image', group: 'groupSm', text: 'type' };
 function targets() {
@@ -6954,7 +7127,7 @@ const setPressed = (el, v) => el.setAttribute('aria-pressed', String(!!v));
 const setVal = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
 
 function refreshCtx() {
-  const bar = ['#cg-dim', '#cg-box', '#cg-measure', '#cg-symbol', '#cg-vertex', '#cg-order', '#cg-crop', '#cg-stroke', '#cg-arrow', '#cg-fill', '#cg-text', '#cg-image', '#cg-opacity', '#cg-align'];
+  const bar = ['#cg-call', '#cg-dim', '#cg-box', '#cg-measure', '#cg-symbol', '#cg-vertex', '#cg-order', '#cg-crop', '#cg-stroke', '#cg-arrow', '#cg-fill', '#cg-text', '#cg-image', '#cg-opacity', '#cg-align'];
   if (cropState) { bar.forEach(s => show(s, s === '#cg-crop')); $('#ctx-info').textContent = 'Recorte: ■ vértice livre (Shift = arestas em paralelo) · ○ dimensiona pela aresta · duplo clique na borda cria · Alt+clique remove'; return; }
   const t = targets(), objs = canvas.getActiveObjects().filter(o => !o.kvTemp), first = t[0];
   let ctx;
@@ -6964,9 +7137,9 @@ function refreshCtx() {
   } else {
     const k = tool;
     ctx = {
-      stroke: ['line', 'polyline', 'curve', 'pencil', 'arrow', 'polygon', 'rect', 'ellipse', 'shape', 'select'].includes(k),
-      fill: ['polygon', 'rect', 'ellipse', 'shape', 'text', 'select'].includes(k),
-      arrow: k === 'arrow' || k === 'line' || k === 'polyline' || k === 'curve' || k === 'dim', text: k === 'text' || k === 'dim', image: false, align: false
+      stroke: ['line', 'polyline', 'curve', 'pencil', 'arrow', 'polygon', 'rect', 'ellipse', 'shape', 'select', 'callout'].includes(k),
+      fill: ['polygon', 'rect', 'ellipse', 'shape', 'text', 'select', 'callout'].includes(k),
+      arrow: k === 'arrow' || k === 'line' || k === 'polyline' || k === 'curve' || k === 'dim' || k === 'callout', text: k === 'text' || k === 'dim' || k === 'callout', image: false, align: false
     };
     if (k === 'dim') ctx.fill = true;
     if (k === 'measure') { ctx.stroke = ctx.fill = false; }
@@ -6993,6 +7166,7 @@ function refreshCtx() {
     setVal('#b-width', Math.round(pt2mm(bx.boxStrokeWidth || 0) * 100) / 100); setVal('#b-dash', bx.boxDash || 'solid'); setVal('#b-pad', r1(pt2mm(bx.boxPad || 0))); setPressed($('#b-circle'), bx.boxShape === 'circle');
     setVal('#b-size', bx.boxSize > 0 ? r1(pt2mm(bx.boxSize)) : ''); $('#b-size').placeholder = 'auto'; show('#b-size-wrap', !!bx.kvIcon || bx.boxShape === 'circle');
   }
+  { const ci = activeCallInfo(); show('#cg-call', !!ci); if (ci) { setVal('#call-pos', ci.meta.pos); setVal('#call-gap', ci.meta.gap == null ? 1 : ci.meta.gap); $('#call-edit').textContent = calloutEdit ? 'Concluir edição' : 'Editar linha / texto'; } }
   const single1 = objs.length === 1 ? objs[0] : null;
   show('#cg-measure', tool === 'measure' && !t.length);
   if (tool === 'measure') { const inf = lastMeasure ? measureInfo(lastMeasure.a, lastMeasure.b) : null; $('#m-result').textContent = inf ? `${fmt(inf.mm)} mm no papel${inf.real !== null ? ' · ' + fmtLen(inf.real) + ' (' + inf.sc.label + (inf.sc.approx ? ', aprox.' : '') + ')' : ' · sem escala definida'} · ${Math.round(inf.ang)}°` : 'Arraste para medir'; $('#m-dim').disabled = !inf; }
@@ -7009,8 +7183,8 @@ function refreshCtx() {
     headMm: pt2mm((t.find(hasHeads) || {}).headSize || mm2pt(defStyle.headMm)),
     aStart: (t.find(hasHeads) || {}).arrowStart || 'none', aEnd: (t.find(hasHeads) || {}).arrowEnd || 'none'
   } : {
-    stroke: colorParts(defStyle.stroke), fill: colorParts(tool === 'text' ? defText.fill : defStyle.fill), strokeMm: defStyle.strokeMm, dash: defStyle.dash, dk: defStyle.dashK || 1, gk: defStyle.gapK || 1,
-    opacity: defStyle.opacity, headMm: defStyle.headMm, aStart: ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineStart : defStyle.arrowStart, aEnd: ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineEnd : defStyle.arrowEnd
+    stroke: colorParts(defStyle.stroke), fill: colorParts(tool === 'text' || tool === 'callout' ? defText.fill : defStyle.fill), strokeMm: defStyle.strokeMm, dash: defStyle.dash, dk: defStyle.dashK || 1, gk: defStyle.gapK || 1,
+    opacity: defStyle.opacity, headMm: defStyle.headMm, aStart: tool === 'callout' ? defCallHead.start : ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineStart : defStyle.arrowStart, aEnd: tool === 'callout' ? defCallHead.end : ['line', 'polyline', 'curve'].includes(tool) ? defStyle.lineEnd : defStyle.arrowEnd
   };
   setVal('#c-stroke', src.stroke.hex); setPressed($('#c-stroke-none'), src.stroke.none);
   setVal('#c-width', Math.round(src.strokeMm * 100) / 100); setVal('#c-dash', src.dash);
@@ -7023,7 +7197,7 @@ function refreshCtx() {
   setVal('#c-op', Math.round(src.opacity * 100)); setVal('#c-op-n', Math.round(src.opacity * 100));
   setVal('#c-head', Math.round(src.headMm * 10) / 10); setVal('#c-start', src.aStart); setVal('#c-end', src.aEnd);
   { const ho = first ? t.find(hasHeads) : null, hv = ho ? ho.headAngle : defStyle.headAngle, typ = src.aEnd !== 'none' ? src.aEnd : src.aStart; setVal('#c-hang', hv > 0 ? hv : ''); $('#c-hang').placeholder = /45/.test(typ) ? '45' : (typ === 'triangle' || typ === 'open') ? '24' : '—'; }
-  let x = t.find(o => isText(o) || isDim(o)) || (tool === 'text' ? defText : !t.length && tool === 'dim' ? defDim : null);
+  let x = t.find(o => isText(o) || isDim(o)) || (tool === 'text' || (!t.length && tool === 'callout') ? defText : !t.length && tool === 'dim' ? defDim : null);
   const es = editSel();
   if (es) { const st = es.getSelectionStyles(es.selectionStart, es.selectionStart + 1, true)[0] || {}; x = { ...es, ...st, textAlign: es.textAlign, lineHeight: es.lineHeight, paraSpace: es.paraSpace }; setVal('#c-fill', colorParts(x.fill).hex); $('#ctx-info').textContent = 'Texto selecionado'; }
   if (x) {
@@ -7120,14 +7294,14 @@ function applyStyle(key) {
   }
   if (!t.length) {
     if (key === 'stroke') defStyle.stroke = sNone ? '' : rgba(sHex, 1);
-    if (key === 'fill') { if (tool === 'text') defText.fill = rgba(fHex, fA || 1); else defStyle.fill = fNone ? '' : rgba(fHex, fA); }
+    if (key === 'fill') { if (tool === 'text' || tool === 'callout') defText.fill = rgba(fHex, fA || 1); else defStyle.fill = fNone ? '' : rgba(fHex, fA); }
     if (key === 'width') defStyle.strokeMm = wMm;
     if (key === 'dash') defStyle.dash = dash;
     if (key === 'dashk') { defStyle.dashK = dk; defStyle.gapK = gk; }
     if (key === 'opacity') defStyle.opacity = op;
     if (key === 'head') defStyle.headMm = head;
     if (key === 'hangle') defStyle.headAngle = hAng;
-    if (key === 'arrow') { if (['line', 'polyline', 'curve'].includes(tool)) { defStyle.lineStart = aS; defStyle.lineEnd = aE; } else { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; } }
+    if (key === 'arrow') { if (tool === 'callout') { defCallHead.start = aS; defCallHead.end = aE; } else if (['line', 'polyline', 'curve'].includes(tool)) { defStyle.lineStart = aS; defStyle.lineEnd = aE; } else { defStyle.arrowStart = aS; defStyle.arrowEnd = aE; } }
     return;
   }
   t.forEach(o => {
@@ -8608,7 +8782,7 @@ tabs.forEach((t, i) => {
 });
 
 const typing = e => { const t = e.target, a = canvas.getActiveObject(); return (a && a.isEditing) || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable; };
-const KEYTOOLS = { j: 'aguide', w: 'rrect', x: 'trim', k: 'dim', u: 'curve', p: 'pencil', d: 'measure', f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
+const KEYTOOLS = { q: 'callout', j: 'aguide', w: 'rrect', x: 'trim', k: 'dim', u: 'curve', p: 'pencil', d: 'measure', f: 'shape', v: 'select', s: 'select', h: 'pan', l: 'line', b: 'polyline', a: 'arrow', g: 'polygon', r: 'rect', e: 'ellipse', t: 'text', m: 'mask' };
 document.addEventListener('keydown', e => {
   if (typing(e)) return;
   const k = e.key, mod = e.ctrlKey || e.metaKey;
@@ -8630,9 +8804,10 @@ document.addEventListener('keydown', e => {
   }
   if (cropState) { if (k === 'Enter') { e.preventDefault(); applyCrop(); } if (k === 'Escape') exitCrop(); return; }
   if (k === 'Escape') {
+    if (calloutEdit && !editingPoly && !(canvas.getActiveObject() && canvas.getActiveObject().isEditing)) { exitCalloutEdit(); return; }   // Esc conclui a edição da chamada
     /* Esc sai do comando e volta para Selecionar (polilinha/polígono/curva em andamento são concluídos, não perdidos) */
     if (xt && XT_TOOLS.includes(tool)) { xtReset(false); setTool('select'); return; }
-    if (drawState) { const s = drawState; if (s.pts && (((s.type === 'polyline' || s.type === 'curve') && s.pts.length >= 2) || (s.type === 'polygon' && s.pts.length >= 3))) finishDraw(); else cancelDraw(); setTool('select'); }
+    if (drawState) { const s = drawState; if (s.pts && (((s.type === 'polyline' || s.type === 'curve' || s.type === 'callout') && s.pts.length >= 2) || (s.type === 'polygon' && s.pts.length >= 3))) finishDraw(); else cancelDraw(); setTool('select'); }
     else if (editingPoly) togglePolyEdit(false); else if (tool !== 'select') setTool('select'); else { canvas.discardActiveObject(); canvas.requestRenderAll(); }
     return;
   }
