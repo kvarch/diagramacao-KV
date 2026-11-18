@@ -1179,7 +1179,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V100 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V101 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1240,7 +1240,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V100 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V101 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1860,7 +1860,11 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
   initDimensions() {
     if ((this.boxShape !== 'circle' && this.boxShape !== 'tag') || this.__kvFit) return this.callSuper('initDimensions');
     this.__kvFit = true;
-    try { this.width = 1e4; this.callSuper('initDimensions'); const w = Math.ceil(this.calcTextWidth()) + 1; this.width = Math.max(w, 1); this.callSuper('initDimensions'); }
+    /* a caixa cresce para o lado do alinhamento: à esquerda fica presa a borda esquerda, à direita a direita, centralizado cresce para os dois lados */
+    const ax = /right/.test(this.textAlign || '') ? 'right' : /center/.test(this.textAlign || '') ? 'center' : 'left';
+    let anchor = null;
+    try { if (this.canvas && this.__kvFitted && !restoring && Number.isFinite(this.width)) anchor = this.translateToOriginPoint(this.getCenterPoint(), ax, 'top'); } catch (e) {}
+    try { this.width = 1e4; this.callSuper('initDimensions'); const w = Math.ceil(this.calcTextWidth()) + 1; this.width = Math.max(w, 1); this.callSuper('initDimensions'); this.__kvFitted = true; if (anchor) { this.setPositionByOrigin(anchor, ax, 'top'); this.setCoords(); } }
     catch (e) { this.width = this.width > 5000 ? 200 : this.width; this.callSuper('initDimensions'); }   // ainda montando o texto (construtor): ajusta na próxima vez
     finally { this.__kvFit = false; }
     this.padding = this.boxShape === 'tag' ? (this.boxPad || 0) : this._circleR() - Math.min(this.width, this.height) / 2;
