@@ -1179,7 +1179,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V99 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V100 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1240,7 +1240,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V99 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V100 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1873,8 +1873,9 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
   },
   /* rótulo com ponta (balão): contorno único caixa + triângulo; tagFlipX/tagFlipY espelham só a ponta (o texto continua legível) */
   _tagPts() {
-    const r = this._boxRect(), th = r.h * 0.5, tb = r.h * 0.42, x0 = r.x + Math.min(r.w * 0.08, r.h * 0.35);
-    const P = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [x0 + tb, r.y + r.h], [x0, r.y + r.h + th], [x0, r.y + r.h], [r.x, r.y + r.h]];
+    /* a ponta nasce alinhada com a lateral da caixa (o lado esquerdo segue reto até a ponta) */
+    const r = this._boxRect(), th = r.h * 0.5, tb = r.h * 0.42;
+    const P = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x + tb, r.y + r.h], [r.x, r.y + r.h + th]];
     return P.map(([x, y]) => [this.tagFlipX ? -x : x, this.tagFlipY ? -y : y]);
   },
   _hasBox() { return !!(this.boxFill || (this.boxStroke && this.boxStrokeWidth > 0)); },
@@ -3149,9 +3150,9 @@ function insertLabel(pr) {
 }
 function labelTile(pr) {
   const b = document.createElement('button'); b.className = 'pict-tile'; b.title = pr.name; b.setAttribute('aria-label', 'Inserir rótulo: ' + pr.name);
-  const tail = pr.shape === 'tag' ? '<path d="M14 34 L14 44 L24 34 Z" fill="' + pr.boxFill.replace(/rgba\((\d+),(\d+),(\d+),[^)]+\)/, 'rgb($1,$2,$3)') + '" stroke="' + (pr.boxStroke ? '#000' : 'none') + '"/>' : '';
+  const tail = pr.shape === 'tag' ? '<path d="M8 34 L8 44 L18 34 Z" fill="' + pr.boxFill.replace(/rgba\((\d+),(\d+),(\d+),[^)]+\)/, 'rgb($1,$2,$3)') + '" stroke="' + (pr.boxStroke ? '#000' : 'none') + '"/>' : '';
   const bf = pr.boxFill.replace(/rgba\((\d+),(\d+),(\d+),[^)]+\)/, 'rgb($1,$2,$3)'), tf = pr.fill.replace(/rgba\((\d+),(\d+),(\d+),[^)]+\)/, 'rgb($1,$2,$3)');
-  b.innerHTML = `<svg viewBox="0 0 96 48" width="96" height="48" aria-hidden="true"><rect x="8" y="10" width="80" height="24" fill="${bf}" stroke="${pr.boxStroke ? '#000' : 'none'}"/>${tail}${pr.shape === 'tag' && pr.boxStroke ? '<path d="M14.5 33.5 L23.5 33.5" stroke="' + bf + '" stroke-width="1.5"/>' : ''}<text x="48" y="27" text-anchor="middle" font-family="Hind, sans-serif" font-size="12" font-weight="${pr.weight === 'bold' ? 700 : 400}" fill="${tf}">${pr.text}</text></svg><span>${escapeHtml(pr.name)}</span>`;
+  b.innerHTML = `<svg viewBox="0 0 96 48" width="96" height="48" aria-hidden="true"><rect x="8" y="10" width="80" height="24" fill="${bf}" stroke="${pr.boxStroke ? '#000' : 'none'}"/>${tail}${pr.shape === 'tag' && pr.boxStroke ? '<path d="M8.5 33.5 L17.5 33.5" stroke="' + bf + '" stroke-width="1.5"/>' : ''}<text x="48" y="27" text-anchor="middle" font-family="Hind, sans-serif" font-size="12" font-weight="${pr.weight === 'bold' ? 700 : 400}" fill="${tf}">${pr.text}</text></svg><span>${escapeHtml(pr.name)}</span>`;
   b.onclick = () => insertLabel(pr);
   return b;
 }
