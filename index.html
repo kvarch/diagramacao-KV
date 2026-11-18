@@ -536,6 +536,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
     <label class="sr-only" for="b-dash">Tipo de linha da moldura</label>
     <select id="b-dash" title="Tipo de linha da moldura"></select>
     <span class="vsep" aria-hidden="true"></span>
+    <button class="icon-btn" id="b-tag" aria-pressed="false" aria-label="Caixa com ponta (balão)" title="Caixa com ponta (rótulo em balão) — espelhar muda o lado da ponta"><span data-icon="tagBubble"></span></button>
     <button class="icon-btn" id="b-circle" aria-pressed="false" aria-label="Caixa circular" title="Caixa circular — o círculo envolve o texto; a margem controla o tamanho"><span data-icon="circle"></span></button>
     <span class="unit" title="Margem interna">⇲</span><label class="sr-only" for="b-pad">Margem interna em milímetros</label>
     <input type="number" id="b-pad" min="0" max="100" step="0.5" title="Margem interna entre texto e moldura (mm)"><span class="unit">mm</span>
@@ -1023,7 +1024,17 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 
     <!-- ÍCONES -->
     <div class="panel" role="tabpanel" id="panel-pict" aria-labelledby="tab-pict" hidden>
-      <section class="section">
+      <div class="seg" role="group" aria-label="Tipo de elemento" style="display:flex;margin:12px 16px 0">
+        <button class="btn" id="pk-pict" aria-pressed="true" style="flex:1">Pictogramas</button>
+        <button class="btn" id="pk-label" aria-pressed="false" style="flex:1">Rótulos</button>
+      </div>
+      <section class="section" id="sec-labels" hidden>
+        <h2>Rótulos</h2>
+        <p class="hint">Texto com caixa para identificar áreas e elementos. Clique para inserir e digite; depois ajuste texto (tamanho, cor, fonte) e caixa (cor, borda, margem, largura) pela barra superior. Espelhar muda o lado da ponta; também dá para girar e redimensionar.</p>
+        <div class="pict-grid" id="lb-grid"></div>
+        <p class="info">Em breve: biblioteca de símbolos nesta aba.</p>
+      </section>
+      <section class="section" id="sec-pict">
         <h2>Pictogramas</h2>
         <p class="hint">Escolha o acervo, o estilo e a categoria; depois busque em português ou inglês. Clique para inserir ou arraste para a folha.</p>
         <div class="field"><label for="pi-lib">Acervo</label><select id="pi-lib"></select></div>
@@ -1043,7 +1054,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
         <div class="pict-grid" id="pi-grid"></div>
         <button class="btn block" id="pi-more" hidden style="margin-top:8px">Mostrar mais</button>
       </section>
-      <section class="section">
+      <section class="section" id="sec-svg">
         <h2>SVG próprio</h2>
         <p class="hint">Importe arquivos SVG como vetor: depois de inseridos, dá para mudar tamanho, cores (cada cor do desenho separadamente, na aba Objeto), traço e transparência. Também é possível arrastar arquivos .svg para a folha.</p>
         <button class="btn primary block" id="pi-svg">Importar arquivo SVG</button>
@@ -1168,7 +1179,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V97 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V99 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1229,7 +1240,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V97 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V99 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -1245,11 +1256,12 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('pt-BR', { minimumFractionDig
 const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const BRAND = '#00ACCD';
 const GAP = mm2pt(30);
-const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvOutline','kvCall','kvNoFill','kvCallPart','kvCallId','kvCallMeta','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
+const PROPS = ['kvId','kvName','kvLink','kvAxo','kvHatch','kvOutline','kvCall','kvNoFill','kvCallPart','kvCallId','kvCallMeta','kvLocked','kvHidden','kvSym','kvGeo','kvBelow','kvIcon','kvSvg','kvPdf','kvLostSrc','kvDashK','kvGapK','headAngle','kvClipRings','kvBool','boxFill','boxStroke','boxStrokeWidth','boxDash','boxPad','boxShape','boxSize','tagFlipX','tagFlipY','kvDash','kvNatW','kvNatH','headSize','arrowStart','arrowEnd','selectable','evented','hasControls',
   'lockMovementX','lockMovementY','lockRotation','lockScalingX','lockScalingY','strokeUniform','hoverCursor','objectCaching'];
 
 /* ---------------- Ícones (traço Lucide 1.5px) ---------------- */
 const ICONS = {
+  tagBubble:'<path d="M3 5h18v10H8l-3 4v-4H3z"/>',
   callout:'<path d="M4 4l6 7h9"/><path d="M4 4h3M4 4v3"/><path d="M12 8h7" stroke-width="1.2"/>',
   outlineLine:'<path d="M4 20 18 6" stroke-width="6"/><path d="M4 20 18 6" stroke="var(--md-sys-color-surface, #fff)" stroke-width="3"/>',
   styleCopy:'<path d="M5 3h10v6H5z"/><path d="M10 9v4"/><path d="M8 13h4v8H8z"/><path d="M15 6h3v4h-8"/>',
@@ -1846,21 +1858,32 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
   objectCaching: false,
   /* Caixa circular: a largura do texto se ajusta sozinha ao conteúdo (sem quebrar linha) e o círculo envolve o texto + a margem */
   initDimensions() {
-    if (this.boxShape !== 'circle' || this.__kvFit) return this.callSuper('initDimensions');
+    if ((this.boxShape !== 'circle' && this.boxShape !== 'tag') || this.__kvFit) return this.callSuper('initDimensions');
     this.__kvFit = true;
     try { this.width = 1e4; this.callSuper('initDimensions'); const w = Math.ceil(this.calcTextWidth()) + 1; this.width = Math.max(w, 1); this.callSuper('initDimensions'); }
+    catch (e) { this.width = this.width > 5000 ? 200 : this.width; this.callSuper('initDimensions'); }   // ainda montando o texto (construtor): ajusta na próxima vez
     finally { this.__kvFit = false; }
-    this.padding = this._circleR() - Math.min(this.width, this.height) / 2;
+    this.padding = this.boxShape === 'tag' ? (this.boxPad || 0) : this._circleR() - Math.min(this.width, this.height) / 2;
   },
   _circleR() { return this.boxSize > 0 ? this.boxSize / 2 : Math.max(this.width, this.height) / 2 + (this.boxPad || 0); },
-  _boxRect() { const p = this.boxPad || 0; return { x: -this.width / 2 - p, y: -this.height / 2 - p, w: this.width + 2 * p, h: this.height + 2 * p }; },
+  _boxRect() {
+    const p = this.boxPad || 0; let w = this.width + 2 * p;
+    if (this.boxShape === 'tag' && this.boxSize > 0) w = Math.max(w, this.boxSize);   // rótulo: largura mínima da caixa
+    return { x: -w / 2, y: -this.height / 2 - p, w, h: this.height + 2 * p };
+  },
+  /* rótulo com ponta (balão): contorno único caixa + triângulo; tagFlipX/tagFlipY espelham só a ponta (o texto continua legível) */
+  _tagPts() {
+    const r = this._boxRect(), th = r.h * 0.5, tb = r.h * 0.42, x0 = r.x + Math.min(r.w * 0.08, r.h * 0.35);
+    const P = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [x0 + tb, r.y + r.h], [x0, r.y + r.h + th], [x0, r.y + r.h], [r.x, r.y + r.h]];
+    return P.map(([x, y]) => [this.tagFlipX ? -x : x, this.tagFlipY ? -y : y]);
+  },
   _hasBox() { return !!(this.boxFill || (this.boxStroke && this.boxStrokeWidth > 0)); },
   _render(ctx) {
     if (this._hasBox()) {
       const r = this._boxRect();
       ctx.save();
       const circ = this.boxShape === 'circle', R = circ ? this._circleR() : 0;
-      const shape = () => { ctx.beginPath(); if (circ) ctx.arc(0, 0, R, 0, Math.PI * 2); else ctx.rect(r.x, r.y, r.w, r.h); };
+      const shape = () => { ctx.beginPath(); if (circ) ctx.arc(0, 0, R, 0, Math.PI * 2); else if (this.boxShape === 'tag') { const P = this._tagPts(); ctx.moveTo(P[0][0], P[0][1]); P.slice(1).forEach(q => ctx.lineTo(q[0], q[1])); ctx.closePath(); } else ctx.rect(r.x, r.y, r.w, r.h); };
       if (this.boxFill) { ctx.fillStyle = this.boxFill; shape(); ctx.fill(); }
       if (this.boxStroke && this.boxStrokeWidth > 0) {
         ctx.lineWidth = this.boxStrokeWidth; ctx.strokeStyle = this.boxStroke; ctx.lineJoin = 'miter';
@@ -1878,9 +1901,10 @@ fabric.Kvtext = fabric.util.createClass(fabric.Textbox, {
     const da = s ? dashArr(this.boxDash, this.boxStrokeWidth) : null;
     const style = `fill:${f ? f.toRgb() : 'none'};fill-opacity:${f ? f.getAlpha() : 0};stroke:${s ? s.toRgb() : 'none'};stroke-opacity:${s ? s.getAlpha() : 0};stroke-width:${s ? this.boxStrokeWidth : 0};${da ? 'stroke-dasharray:' + da.join(' ') + ';' : ''}opacity:${this.opacity}`;
     if (this.boxShape === 'circle') return `<circle ${this.getSvgTransform()} cx="0" cy="0" r="${this._circleR()}" style="${style}"/>\n` + base;
+    if (this.boxShape === 'tag') return `<path ${this.getSvgTransform()} d="M ${this._tagPts().map(q => q[0].toFixed(3) + ' ' + q[1].toFixed(3)).join(' L ')} Z" style="${style};stroke-linejoin:miter"/>\n` + base;
     return `<rect ${this.getSvgTransform()} x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" style="${style}"/>\n` + base;
   },
-  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { paraSpace: this.paraSpace, boxFill: this.boxFill, boxStroke: this.boxStroke, boxStrokeWidth: this.boxStrokeWidth, boxDash: this.boxDash, boxPad: this.boxPad, boxShape: this.boxShape || 'rect', boxSize: this.boxSize || 0 }); }
+  toObject(extra) { return fabric.util.object.extend(this.callSuper('toObject', extra), { paraSpace: this.paraSpace, boxFill: this.boxFill, boxStroke: this.boxStroke, boxStrokeWidth: this.boxStrokeWidth, boxDash: this.boxDash, boxPad: this.boxPad, boxShape: this.boxShape || 'rect', boxSize: this.boxSize || 0, tagFlipX: !!this.tagFlipX, tagFlipY: !!this.tagFlipY }); }
 });
 fabric.Kvtext.fromObject = function (o, cb) {
   const styles = fabric.util.stylesFromArray ? fabric.util.stylesFromArray(o.styles, o.text) : o.styles;
@@ -3108,6 +3132,35 @@ canvas.on('object:modified', e => {
 $('#call-pos').addEventListener('change', e => callApply(m => { m.pos = e.target.value; }));
 $('#call-gap').addEventListener('change', e => callApply(m => { m.gap = clamp(parseFloat(e.target.value) || 0, 0, 30); }));
 $('#call-edit').onclick = () => { if (calloutEdit) exitCalloutEdit(); else { const i = activeCallInfo(); if (i && i.g) enterCalloutEdit(i.g, null); } };
+/* ---------------- Rótulos (aba Ícones) ---------------- */
+const LABEL_PRESETS = [
+  { id: 'tagDark', name: 'Balão escuro com ponta', text: 'TEXTO', fill: 'rgba(255,255,255,1)', boxFill: 'rgba(0,0,0,1)', boxStroke: '', boxStrokeWidth: 0, shape: 'tag', weight: 'bold' },
+  { id: 'tagLight', name: 'Balão claro com ponta', text: 'TEXTO', fill: 'rgba(0,0,0,1)', boxFill: 'rgba(255,255,255,1)', boxStroke: 'rgba(0,0,0,1)', boxStrokeWidth: 1, shape: 'tag', weight: 'bold' },
+  { id: 'boxDark', name: 'Caixa escura', text: 'TEXTO', fill: 'rgba(255,255,255,1)', boxFill: 'rgba(0,0,0,1)', boxStroke: '', boxStrokeWidth: 0, shape: 'rect', weight: 'bold' },
+  { id: 'boxLight', name: 'Caixa clara com borda', text: 'TEXTO', fill: 'rgba(0,0,0,1)', boxFill: 'rgba(255,255,255,1)', boxStroke: 'rgba(0,0,0,1)', boxStrokeWidth: 1, shape: 'rect', weight: 'normal' }
+];
+function insertLabel(pr) {
+  const c = viewCenter();
+  const t = new fabric.Kvtext(pr.text, { ...defText, left: c.x, top: c.y, width: mm2pt(40), fontSize: 16, fontWeight: pr.weight, fill: pr.fill, textAlign: 'center',
+    boxFill: pr.boxFill, boxStroke: pr.boxStroke, boxStrokeWidth: pr.boxStrokeWidth, boxDash: 'solid', boxPad: mm2pt(1.6), boxShape: pr.shape, boxSize: 0, editingBorderColor: BRAND });
+  t.initDimensions(); t.setPositionByOrigin(new fabric.Point(c.x, c.y), 'center', 'center');
+  setTool('select'); addUser(t, 'Rótulo', true); canvas.requestRenderAll(); commit();
+  setTimeout(() => { if (canvas.getActiveObject() === t) { t.enterEditing(); t.selectAll(); } }, 40);
+}
+function labelTile(pr) {
+  const b = document.createElement('button'); b.className = 'pict-tile'; b.title = pr.name; b.setAttribute('aria-label', 'Inserir rótulo: ' + pr.name);
+  const tail = pr.shape === 'tag' ? '<path d="M14 34 L14 44 L24 34 Z" fill="' + pr.boxFill.replace(/rgba\((\d+),(\d+),(\d+),[^)]+\)/, 'rgb($1,$2,$3)') + '" stroke="' + (pr.boxStroke ? '#000' : 'none') + '"/>' : '';
+  const bf = pr.boxFill.replace(/rgba\((\d+),(\d+),(\d+),[^)]+\)/, 'rgb($1,$2,$3)'), tf = pr.fill.replace(/rgba\((\d+),(\d+),(\d+),[^)]+\)/, 'rgb($1,$2,$3)');
+  b.innerHTML = `<svg viewBox="0 0 96 48" width="96" height="48" aria-hidden="true"><rect x="8" y="10" width="80" height="24" fill="${bf}" stroke="${pr.boxStroke ? '#000' : 'none'}"/>${tail}${pr.shape === 'tag' && pr.boxStroke ? '<path d="M14.5 33.5 L23.5 33.5" stroke="' + bf + '" stroke-width="1.5"/>' : ''}<text x="48" y="27" text-anchor="middle" font-family="Hind, sans-serif" font-size="12" font-weight="${pr.weight === 'bold' ? 700 : 400}" fill="${tf}">${pr.text}</text></svg><span>${escapeHtml(pr.name)}</span>`;
+  b.onclick = () => insertLabel(pr);
+  return b;
+}
+LABEL_PRESETS.forEach(pr => $('#lb-grid').appendChild(labelTile(pr)));
+function setIconKind(k) {
+  setPressed($('#pk-pict'), k === 'pict'); setPressed($('#pk-label'), k === 'label');
+  $('#sec-pict').hidden = $('#sec-svg').hidden = k !== 'pict'; $('#sec-labels').hidden = k !== 'label';
+}
+$('#pk-pict').onclick = () => setIconKind('pict'); $('#pk-label').onclick = () => setIconKind('label');
 function addUser(obj, base, select) {
   if (defHatch && !obj.kvHatch && hatchable(obj) && obj.fill && obj.fill !== 'transparent') obj.kvHatch = { ...defHatch };
   const sh = sheetOf(obj);
@@ -7163,8 +7216,8 @@ function refreshCtx() {
     const bf = colorParts(bx.boxFill), bs = colorParts(bx.boxStroke);
     setVal('#b-fill', bf.none ? '#ffffff' : bf.hex); setPressed($('#b-fill-none'), bf.none); setVal('#b-fill-a', bf.none ? 100 : Math.round(bf.a * 100));
     setVal('#b-stroke', bs.hex); setPressed($('#b-stroke-none'), bs.none || !(bx.boxStrokeWidth > 0)); setVal('#b-stroke-a', bs.none ? 100 : Math.round(bs.a * 100));
-    setVal('#b-width', Math.round(pt2mm(bx.boxStrokeWidth || 0) * 100) / 100); setVal('#b-dash', bx.boxDash || 'solid'); setVal('#b-pad', r1(pt2mm(bx.boxPad || 0))); setPressed($('#b-circle'), bx.boxShape === 'circle');
-    setVal('#b-size', bx.boxSize > 0 ? r1(pt2mm(bx.boxSize)) : ''); $('#b-size').placeholder = 'auto'; show('#b-size-wrap', !!bx.kvIcon || bx.boxShape === 'circle');
+    setVal('#b-width', Math.round(pt2mm(bx.boxStrokeWidth || 0) * 100) / 100); setVal('#b-dash', bx.boxDash || 'solid'); setVal('#b-pad', r1(pt2mm(bx.boxPad || 0))); setPressed($('#b-circle'), bx.boxShape === 'circle'); setPressed($('#b-tag'), bx.boxShape === 'tag'); show('#b-tag', !bx.kvIcon);
+    setVal('#b-size', bx.boxSize > 0 ? r1(pt2mm(bx.boxSize)) : ''); $('#b-size').placeholder = 'auto'; show('#b-size-wrap', !!bx.kvIcon || bx.boxShape === 'circle' || bx.boxShape === 'tag');
   }
   { const ci = activeCallInfo(); show('#cg-call', !!ci); if (ci) { setVal('#call-pos', ci.meta.pos); setVal('#call-gap', ci.meta.gap == null ? 1 : ci.meta.gap); $('#call-edit').textContent = calloutEdit ? 'Concluir edição' : 'Editar linha / texto'; } }
   const single1 = objs.length === 1 ? objs[0] : null;
@@ -7349,6 +7402,7 @@ function applyBox(key) {
   if (key === 'shape') {
     props.boxShape = $('#b-circle').getAttribute('aria-pressed') === 'true' ? 'circle' : 'rect';
   }
+  if (key === 'tag') { props.boxShape = $('#b-tag').getAttribute('aria-pressed') === 'true' ? 'tag' : 'rect'; setPressed($('#b-circle'), false); }
   const ts = boxTargets();
   if (!ts.length) { Object.assign(defText, props); return; }
   ts.forEach(o => {
@@ -7359,7 +7413,7 @@ function applyBox(key) {
     if (o.kvIcon) { o.objectCaching = false; if (key === 'shape' && !o.boxFill && !(o.boxStroke && o.boxStrokeWidth > 0)) { const ic = colorParts(o.fill && o.fill !== '' ? o.fill : ((o._objects || []).map(c => c.fill || c.stroke).find(Boolean) || 'rgba(0,0,0,1)')); o.set({ boxStroke: rgba(ic.hex, 1), boxStrokeWidth: mm2pt(0.35) }); } if (key === 'size' || key === 'pad') fitIconToFrame(o); updateIconPadding(o); }
     else {
       if (key === 'shape' && o.boxShape === 'circle') o.set('textAlign', 'center');
-      if (key === 'shape' || key === 'pad' || key === 'size') { o.initDimensions(); if (o.boxShape !== 'circle') o.padding = o.boxPad || 0; o.setPositionByOrigin(c, 'center', 'center'); }
+      if (key === 'shape' || key === 'pad' || key === 'size' || key === 'tag') { o.initDimensions(); if (o.boxShape !== 'circle') o.padding = o.boxPad || 0; o.setPositionByOrigin(c, 'center', 'center'); }
     }
     o.setCoords(); o.dirty = true;
   });
@@ -7376,7 +7430,8 @@ onChange('#b-width', () => applyBox('width'), 'input');
 onChange('#b-dash', () => applyBox('dash'));
 onChange('#b-pad', () => applyBox('pad'), 'input');
 onChange('#b-size', () => applyBox('size'));
-$('#b-circle').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyBox('shape'); };
+$('#b-circle').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); setPressed($('#b-tag'), false); applyBox('shape'); };
+$('#b-tag').onclick = e => { setPressed(e.currentTarget, e.currentTarget.getAttribute('aria-pressed') !== 'true'); applyBox('tag'); };
 $('#c-dash').innerHTML = DASHES.map(d => `<option value="${d[0]}">${d[2]}  ${d[1]}</option>`).join('');
 /* Barras horizontais roláveis com a roda do mouse */
 ['#ctxbar', '.cmdbar'].forEach(sel => $(sel).addEventListener('wheel', e => {
@@ -7621,12 +7676,14 @@ function mirrorSel(axis) {
     canvas.discardActiveObject();
     objs.forEach(o => {
       const oc = o.getCenterPoint();
+      if (o.type === 'kvtext' && o.boxShape === 'tag') { if (axis === 'h') { o.tagFlipX = !o.tagFlipX; o.setPositionByOrigin(new fabric.Point(2 * c.x - oc.x, oc.y), 'center', 'center'); } else { o.tagFlipY = !o.tagFlipY; o.setPositionByOrigin(new fabric.Point(oc.x, 2 * c.y - oc.y), 'center', 'center'); } o.dirty = true; o.setCoords(); return; }
       if (axis === 'h') { o.set({ flipX: !o.flipX, angle: -o.angle }); o.setPositionByOrigin(new fabric.Point(2 * c.x - oc.x, oc.y), 'center', 'center'); }
       else { o.set({ flipY: !o.flipY, angle: -o.angle }); o.setPositionByOrigin(new fabric.Point(oc.x, 2 * c.y - oc.y), 'center', 'center'); }
       o.setCoords();
     });
     reselect(objs);
-  } else { if (isLk(a)) return; const c = a.getCenterPoint(); a.set(axis === 'h' ? { flipX: !a.flipX, angle: -a.angle } : { flipY: !a.flipY, angle: -a.angle }); a.setPositionByOrigin(c, 'center', 'center'); a.setCoords(); }
+  } else if (a.type === 'kvtext' && a.boxShape === 'tag') { if (isLk(a)) return; if (axis === 'h') a.tagFlipX = !a.tagFlipX; else a.tagFlipY = !a.tagFlipY; a.dirty = true; }
+  else { if (isLk(a)) return; const c = a.getCenterPoint(); a.set(axis === 'h' ? { flipX: !a.flipX, angle: -a.angle } : { flipY: !a.flipY, angle: -a.angle }); a.setPositionByOrigin(c, 'center', 'center'); a.setCoords(); }
   canvas.requestRenderAll(); commit(); refreshPanel();
 }
 $('#c-flip-h').onclick = () => mirrorSel('h');
@@ -8108,7 +8165,6 @@ function moveSheet(i, d) {
 function addSheet(copyContent) {
   const cur = activeSheet(), ns = mode === 'tpl' ? newTemplate(cur) : newSheet(cur), idx = sheetIndex(cur.id);
   if (mode === 'tpl' && copyContent) ns.name = sheetLabel(cur, idx) + ' (cópia)';
-  if (copyContent) ns.stamp.titulo = (cur.stamp.titulo || '') + ' (cópia)';
   const srcRect = sheetRect(cur.id), toClone = copyContent ? userObjects().filter(o => sheetOf(o).id === cur.id) : [];
   relayout(() => { P().splice(idx + 1, 0, ns); });
   setActiveIdRaw(ns.id);
@@ -8317,7 +8373,7 @@ function renderExportSheets() {
   ul.innerHTML = '';
   doc.sheets.forEach((s, i) => {
     const li = document.createElement('li'); li.dataset.id = s.id;
-    li.innerHTML = `<label><input type="checkbox" ${exSelected.has(s.id) ? 'checked' : ''}> ${escapeHtml(sheetLabel(s, i))} — ${escapeHtml(s.stamp.titulo || 'sem título')} <small style="margin-left:auto;color:var(--md-sys-color-on-surface-variant)">${fmt(s.w, 0)}×${fmt(s.h, 0)}</small></label>`;
+    li.innerHTML = `<label><input type="checkbox" ${exSelected.has(s.id) ? 'checked' : ''}> ${escapeHtml(sheetLabel(s, i))} <small style="margin-left:auto;color:var(--md-sys-color-on-surface-variant)">${fmt(s.w, 0)}×${fmt(s.h, 0)}</small></label>`;
     li.querySelector('input').onchange = e => { e.target.checked ? exSelected.add(s.id) : exSelected.delete(s.id); updateExportInfo(); };
     ul.appendChild(li);
   });
