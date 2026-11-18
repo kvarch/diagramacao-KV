@@ -1180,7 +1180,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
   <div class="status-cell" id="st-sync" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-save" hidden aria-live="polite"></div>
   <div class="status-cell" id="st-xy" aria-label="Posição do cursor">—</div>
-  <div class="status-cell version">Beta - V102 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V103 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <div class="shape-pop" id="shape-pop" role="menu" aria-label="Formas prontas" hidden>
@@ -1241,7 +1241,7 @@ body.eyedropping .stage,body.eyedropping .stage *{cursor:crosshair !important}
 (() => {
 'use strict';
 /* =====================================================================
-   KV Pranchas V102 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
+   KV Pranchas V103 — diagramação vetorial multi-folha (Fabric.js 5.3.0)
    Unidade interna: ponto (1/72 in). Folhas empilhadas na vertical.
    ===================================================================== */
 const $ = s => document.querySelector(s);
@@ -2299,13 +2299,23 @@ canvas.on('object:moving', opt => {
   if (typeof guardDrag === 'function' && guardDrag(opt)) return;
   if (e && e.altKey) return;
   if (!doc.snapObj && !doc.grid.snap) return;
-  const br = o.getBoundingRect(true, true), th = 8 / canvas.getZoom();
+  const isAxo = !!(o.kvAxo && o.kvAxo.id), br = o.getBoundingRect(true, true), th = (isAxo ? 16 : 8) / canvas.getZoom();   // vistas da Axonometria: ímã mais forte
   let dx = null, dy = null, tx = null, ty = null;
   if (doc.snapObj) {
     if (!moveCache) moveCache = buildSnapCache([o]);
     const xs = [br.left, br.left + br.width / 2, br.left + br.width], ys = [br.top, br.top + br.height / 2, br.top + br.height];
     moveCache.xs.forEach(t => xs.forEach(x => { const d = t - x; if (Math.abs(d) < th && (dx === null || Math.abs(d) < Math.abs(dx))) { dx = d; tx = t; } }));
     moveCache.ys.forEach(t => ys.forEach(y => { const d = t - y; if (Math.abs(d) < th && (dy === null || Math.abs(d) < Math.abs(dy))) { dy = d; ty = t; } }));
+    if (isAxo && typeof axoSnapPts === 'function') {
+      /* pontos do próprio desenho (cantos dos edifícios, arestas) também encaixam nas guias e nos outros elementos */
+      if (!o.__axoDrag) { const P = axoSnapPts(o); const uq = vals => { const m = new Map(); vals.forEach(v => { const k = Math.round(v * 20); if (!m.has(k)) m.set(k, v); }); return [...m.values()].sort((a, b) => a - b); }; o.__axoDrag = { L: o.left, T: o.top, xs: uq(P.map(q => q.x)), ys: uq(P.map(q => q.y)) }; }
+      const D = o.__axoDrag, ox = o.left - D.L, oy = o.top - D.T;
+      const near = (arr, v) => { let lo = 0, hi = arr.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < v) lo = m + 1; else hi = m; } const c = [arr[lo], arr[lo - 1]].filter(x => x !== undefined); return c.reduce((b, x) => Math.abs(x - v) < Math.abs(b - v) ? x : b, c[0]); };
+      /* prioridade: bordas e centro da vista; se nada encaixar, os pontos internos (raio menor, para não “grudar” em tudo) */
+      const th2 = 10 / canvas.getZoom();
+      if (dx === null && D.xs.length) moveCache.xs.forEach(t => { const s = near(D.xs, t - ox) + ox, d = t - s; if (Math.abs(d) < th2 && (dx === null || Math.abs(d) < Math.abs(dx))) { dx = d; tx = t; } });
+      if (dy === null && D.ys.length) moveCache.ys.forEach(t => { const s = near(D.ys, t - oy) + oy, d = t - s; if (Math.abs(d) < th2 && (dy === null || Math.abs(d) < Math.abs(dy))) { dy = d; ty = t; } });
+    }
   }
   if (doc.grid.snap) {
     const r = sheetRect(sheetAt({ x: br.left, y: br.top }).id), s = mm2pt(doc.grid.size);
@@ -3275,7 +3285,7 @@ function guardDrag(opt) {
   if (p && dist >= need) { g.ok = true; return false; }
   g.t.set(g.s); g.t.setCoords(); snapLines = []; return true;
 }
-canvas.on('mouse:up', () => { dragGuard = null; });
+canvas.on('mouse:up', () => { dragGuard = null; canvas.getObjects().forEach(o => { if (o.__axoDrag) o.__axoDrag = null; }); });
 
 /* ================= Ferramentas extras: guia inclinada, retângulo girado, girar por ponto, aparar, Alt+arrastar ================= */
 /* --- Guias inclinadas: { o:'a', x, y, ang } (ângulo no sentido do desenho: anti-horário, 0° = horizontal) --- */
@@ -9033,6 +9043,19 @@ function axoSnapPts(o) {
   if (!o._axoLocal) {
     const inv = fabric.util.invertTransform(M), seen = new Set(), loc = [];
     const add = sp => { const q = fabric.util.transformPoint(sp, inv), k = Math.round(q.x * 2) + ',' + Math.round(q.y * 2); if (!seen.has(k) && loc.length < 60000) { seen.add(k); loc.push(q); } };
+    const walkKids = list => list.forEach(ch => {
+      if (!ch.visible) return;
+      if (ch._objects) return walkKids(ch._objects);
+      const CM = ch.calcTransformMatrix();
+      if (ch.points && ch.points.length) {   // polígonos e polilinhas
+        const off = ch.pathOffset || { x: 0, y: 0 }, P = ch.points.map(p => fabric.util.transformPoint({ x: p.x - off.x, y: p.y - off.y }, CM));
+        P.forEach((q, i) => { add(q); const n = P[(i + 1) % P.length]; if (i < P.length - 1 || ch.type === 'polygon') add({ x: (q.x + n.x) / 2, y: (q.y + n.y) / 2 }); });
+        return;
+      }
+      if (ch.type === 'line') { const l = ch.calcLinePoints(), a = fabric.util.transformPoint({ x: l.x1, y: l.y1 }, CM), b = fabric.util.transformPoint({ x: l.x2, y: l.y2 }, CM); add(a); add(b); add({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }); return; }
+      if (ch.type === 'rect') { const w = ch.width / 2, h = ch.height / 2; [[-w, -h], [w, -h], [w, h], [-w, h], [0, -h], [w, 0], [0, h], [-w, 0]].forEach(([x, y]) => add(fabric.util.transformPoint({ x, y }, CM))); return; }
+    });
+    walkKids((o.getObjects ? o.getObjects() : []).filter(ch => !ch.path));
     (o.getObjects ? o.getObjects() : []).forEach(ch => {
       if (!ch.path || !ch.visible) return;
       const CM = ch.calcTransformMatrix(), off = ch.pathOffset || { x: 0, y: 0 }, T = (x, y) => fabric.util.transformPoint({ x: x - off.x, y: y - off.y }, CM);
